@@ -243,6 +243,53 @@
             font-weight: 500;
         }
 
+        .mini-musicians {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            margin-top: 8px;
+            width: 100%;
+            padding: 0 2px;
+        }
+
+        .mini-musician {
+            display: flex;
+            align-items: center;
+            gap: 3px;
+            font-size: 9px;
+            color: #666;
+            padding: 2px 4px;
+            border-radius: 3px;
+            transition: all 0.2s;
+            cursor: pointer;
+        }
+
+        .mini-musician:hover {
+            background: rgba(74, 124, 89, 0.1);
+        }
+
+        .mini-musician.lead {
+            background: rgba(74, 124, 89, 0.15);
+            color: #4a7c59;
+            font-weight: 600;
+        }
+
+        .mini-musician.out {
+            opacity: 0.4;
+        }
+
+        .mini-musician .icon {
+            font-size: 10px;
+            width: 14px;
+            text-align: center;
+        }
+
+        .mini-musician .name {
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
         .player-container {
             padding: 10px;
             position: relative;
@@ -265,6 +312,82 @@
             margin-bottom: 15px;
             font-size: 13px;
             color: #555;
+        }
+
+        .inline-carrot-btn {
+            width: 30px;
+            height: 42px;
+            border: none;
+            background:
+                repeating-linear-gradient(
+                    0deg,
+                    transparent,
+                    transparent 5px,
+                    rgba(180, 70, 20, 0.25) 5px,
+                    rgba(180, 70, 20, 0.25) 6px
+                ),
+                linear-gradient(to right, #ff9a56 0%, #ff6b35 25%, #ff8142 50%, #ff6b35 75%, #ff9a56 100%);
+            color: white;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
+            transition: all 0.2s;
+            border-radius: 4px 4px 50% 50%;
+            position: relative;
+            box-shadow: 0 2px 6px rgba(255, 107, 53, 0.3);
+            margin-left: auto;
+            margin-top: 8px;
+            align-self: flex-start;
+        }
+
+        .inline-carrot-btn:hover {
+            transform: scale(1.1);
+        }
+
+        .inline-carrot-btn.playing {
+            background:
+                repeating-linear-gradient(
+                    0deg,
+                    transparent,
+                    transparent 5px,
+                    rgba(160, 50, 10, 0.3) 5px,
+                    rgba(160, 50, 10, 0.3) 6px
+                ),
+                linear-gradient(to right, #ff8142 0%, #e55a2b 25%, #ff6b35 50%, #e55a2b 75%, #ff8142 100%);
+        }
+
+        .inline-carrot-leaves {
+            position: absolute;
+            top: -10px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 1px;
+            align-items: flex-end;
+        }
+
+        .inline-carrot-leaves span {
+            display: block;
+            width: 6px;
+            background: linear-gradient(135deg, #5a9c6a 0%, #4a7c59 50%, #3a6847 100%);
+            border-radius: 50% 50% 1px 1px;
+        }
+
+        .inline-carrot-leaves span:nth-child(1) {
+            height: 8px;
+            transform: rotate(-25deg);
+        }
+
+        .inline-carrot-leaves span:nth-child(2) {
+            height: 12px;
+            width: 7px;
+        }
+
+        .inline-carrot-leaves span:nth-child(3) {
+            height: 8px;
+            transform: rotate(25deg);
         }
 
         .toggle-switch {
@@ -451,6 +574,7 @@
                     </svg>
                 </div>
                 <div class="mini-time" id="mini-time">0:00</div>
+                <div class="mini-musicians" id="mini-musicians"></div>
             </div>
 
             <div class="player-container">
@@ -467,6 +591,10 @@
                         <span class="toggle-slider"></span>
                     </label>
                     <span>Auto-switch artist profiles</span>
+                    <button class="inline-carrot-btn" id="inline-play-btn" onclick="toggleMiniPlay()" title="Play/Pause">
+                        <span class="inline-carrot-leaves"><span></span><span></span><span></span></span>
+                        ▶
+                    </button>
                 </div>
 
                 <div class="webamp-wrapper">
@@ -684,6 +812,78 @@
         // Add click handlers after player loads
         setTimeout(addMusicianClickHandlers, 2000);
 
+        // Instrument icons mapping
+        const instrumentIcons = {
+            'guitar': '🎸',
+            'mandolin': '🎸',
+            'banjo': '🪕',
+            '5-string banjo': '🪕',
+            'fiddle': '🎻',
+            'violin': '🎻',
+            'bass': '🎸',
+            'dobro': '🎸',
+            'cello': '🎻',
+            'tin whistle': '🎵',
+            'vocals': '🎤',
+            'throatsinging': '🎤'
+        };
+
+        // Get short name (first name only)
+        function getShortName(fullName) {
+            return fullName.split(' ')[0];
+        }
+
+        // Get instrument icon
+        function getInstrumentIcon(instruments) {
+            if (!instruments || !instruments.length) return '🎵';
+            const inst = instruments[0].toLowerCase();
+            for (const [key, icon] of Object.entries(instrumentIcons)) {
+                if (inst.includes(key)) return icon;
+            }
+            return '🎵';
+        }
+
+        // Update mini musicians list
+        function updateMiniMusicians() {
+            const container = document.getElementById('mini-musicians');
+            if (!container) return;
+
+            const song = window.songChartifactsData;
+            if (!song || !song.ensemble) return;
+
+            container.innerHTML = '';
+
+            Object.entries(song.ensemble).forEach(([name, instruments]) => {
+                const div = document.createElement('div');
+                div.className = 'mini-musician';
+                div.dataset.musician = name;
+                div.innerHTML = `
+                    <span class="icon">${getInstrumentIcon(instruments)}</span>
+                    <span class="name">${getShortName(name)}</span>
+                `;
+                div.onclick = () => navigateToMusician(name);
+                container.appendChild(div);
+            });
+        }
+
+        // Initialize mini musicians
+        setTimeout(updateMiniMusicians, 2500);
+
+        // Sync mini musicians with main display
+        setInterval(() => {
+            const mainCards = document.querySelectorAll('#ensemble-display .musician-card');
+            const miniMusicians = document.querySelectorAll('.mini-musician');
+
+            mainCards.forEach(card => {
+                const name = card.dataset.musician;
+                const mini = document.querySelector(`.mini-musician[data-musician="${name}"]`);
+                if (mini) {
+                    mini.classList.toggle('lead', card.classList.contains('lead'));
+                    mini.classList.toggle('out', card.classList.contains('out'));
+                }
+            });
+        }, 300);
+
         // Toggle sidebar minimize/maximize
         window.toggleSidebar = function() {
             const layout = document.querySelector('.layout');
@@ -730,14 +930,23 @@
                 const { status, timeElapsed, length } = state.media;
                 const duration = length || window.songChartifactsData.duration || 180;
 
-                // Update play button state
-                const btn = document.getElementById('mini-play-btn');
+                // Update play button states (both mini and inline)
+                const miniBtn = document.getElementById('mini-play-btn');
+                const inlineBtn = document.getElementById('inline-play-btn');
                 if (status === 'PLAYING') {
-                    btn.textContent = '❚❚';
-                    btn.classList.add('playing');
+                    miniBtn.innerHTML = '<span class="carrot-leaves-external"><span></span><span></span><span></span></span>❚❚';
+                    miniBtn.classList.add('playing');
+                    if (inlineBtn) {
+                        inlineBtn.innerHTML = '<span class="inline-carrot-leaves"><span></span><span></span><span></span></span>❚❚';
+                        inlineBtn.classList.add('playing');
+                    }
                 } else {
-                    btn.textContent = '▶';
-                    btn.classList.remove('playing');
+                    miniBtn.innerHTML = '<span class="carrot-leaves-external"><span></span><span></span><span></span></span>▶';
+                    miniBtn.classList.remove('playing');
+                    if (inlineBtn) {
+                        inlineBtn.innerHTML = '<span class="inline-carrot-leaves"><span></span><span></span><span></span></span>▶';
+                        inlineBtn.classList.remove('playing');
+                    }
                 }
 
                 // Update progress ring
