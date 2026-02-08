@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PickiPedia + Rabbithole Demo</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f5f5f5;
+        }
+
+        .layout {
+            display: grid;
+            grid-template-columns: 320px 1fr;
+            height: 100vh;
+            gap: 0;
+        }
+
+        .rabbithole-sidebar {
+            background: white;
+            border-right: 2px solid #4a7c59;
+            overflow-y: auto;
+            box-shadow: 2px 0 10px rgba(0,0,0,0.1);
+            padding: 0;
+        }
+
+        .rabbithole-header {
+            background: linear-gradient(135deg, #9db89a 0%, #87a96b 100%);
+            padding: 10px 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .rabbithole-header img {
+            width: 28px;
+            height: 28px;
+        }
+
+        .rabbithole-header h1 {
+            color: white;
+            font-size: 16px;
+            font-weight: 600;
+        }
+
+        .rabbithole-header .alpha {
+            background: rgba(255,255,255,0.2);
+            color: white;
+            font-size: 10px;
+            padding: 2px 6px;
+            border-radius: 3px;
+        }
+
+        .player-container {
+            padding: 10px;
+            position: relative;
+            min-height: calc(100vh - 50px);
+        }
+
+        .song-select {
+            width: 100%;
+            padding: 10px 12px;
+            margin-bottom: 10px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+
+        .toggle-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 15px;
+            font-size: 13px;
+            color: #555;
+        }
+
+        .toggle-switch {
+            position: relative;
+            width: 44px;
+            height: 24px;
+        }
+
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .toggle-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: 0.3s;
+            border-radius: 24px;
+        }
+
+        .toggle-slider:before {
+            position: absolute;
+            content: "";
+            height: 18px;
+            width: 18px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            transition: 0.3s;
+            border-radius: 50%;
+        }
+
+        .toggle-switch input:checked + .toggle-slider {
+            background-color: #4a7c59;
+        }
+
+        .toggle-switch input:checked + .toggle-slider:before {
+            transform: translateX(20px);
+        }
+
+        .webamp-wrapper {
+            min-height: 120px;
+            margin-bottom: 20px;
+        }
+
+        .data-section {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            right: 10px;
+            padding-top: 6px;
+            border-top: 2px solid #4a7c59;
+            max-height: 150px;
+            overflow-y: auto;
+        }
+
+        .section-label {
+            font-size: 10px;
+            font-weight: 600;
+            color: #4a7c59;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 6px;
+        }
+
+        .musician-list {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            margin-bottom: 10px;
+        }
+
+        .musician-card {
+            padding: 8px 12px;
+            border: 1px solid #e0e0e0;
+            border-radius: 6px;
+            background: white;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .musician-card:hover {
+            border-color: #4a7c59;
+            background: rgba(74, 124, 89, 0.05);
+        }
+
+        .musician-card.lead {
+            border: 2px solid #4a7c59;
+            background: rgba(74, 124, 89, 0.1);
+        }
+
+        .musician-card.out {
+            opacity: 0.4;
+        }
+
+        .musician-name {
+            font-weight: 600;
+            color: #4a7c59;
+            font-size: 14px;
+        }
+
+        .musician-instrument {
+            font-size: 11px;
+            color: #888;
+        }
+
+        .parts-chart {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px;
+            padding: 3px 0;
+        }
+
+        .part-box {
+            padding: 3px 6px;
+            border: 1px solid #ddd;
+            border-radius: 3px;
+            font-size: 11px;
+            color: #666;
+        }
+
+        .part-box.active {
+            background: #4a7c59;
+            color: white;
+            border-color: #4a7c59;
+        }
+
+        .pickipedia-frame {
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+
+        .connection-hint {
+            background: #fff3cd;
+            border: 1px solid #ffc107;
+            border-radius: 6px;
+            padding: 10px;
+            margin: 10px 0;
+            font-size: 12px;
+        }
+
+        .connection-hint strong {
+            color: #856404;
+        }
+
+        /* Hide webamp extra windows */
+        #webamp #equalizer-window,
+        #webamp #playlist-window {
+            display: none !important;
+        }
+    </style>
+</head>
+<body>
+    <div class="layout">
+        <div class="rabbithole-sidebar">
+            <div class="rabbithole-header">
+                <img src="/src/images/rabbit.png" alt="Rabbithole">
+                <h1>rabbithole</h1>
+                <span class="alpha">ALPHA5</span>
+            </div>
+
+            <div class="player-container">
+                <select id="song-selector" class="song-select" onchange="loadSelectedSong()">
+                    <option value="august">August - Vowel Sounds</option>
+                    <option value="silver-44">Silver 44 - 4masks</option>
+                    <option value="barlows-jig">Barlow's Jig - Vowel Sounds</option>
+                    <option value="paint-exchange">Paint Exchange - 4masks</option>
+                </select>
+
+                <div class="toggle-row">
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="auto-switch-toggle" checked>
+                        <span class="toggle-slider"></span>
+                    </label>
+                    <span>Auto-switch artist profiles</span>
+                </div>
+
+                <div class="webamp-wrapper">
+                    <div id="webamp-player">Loading player...</div>
+                </div>
+
+                <div class="data-section">
+                    <div class="section-label">Musicians & Chartifacts</div>
+
+                    <div id="ensemble-display" class="musician-list"></div>
+
+                    <div class="section-label" style="margin-top: 8px;">Song Parts</div>
+                    <div id="parts-chart" class="parts-chart"></div>
+                </div>
+            </div>
+        </div>
+
+        <iframe id="pickipedia-frame" class="pickipedia-frame" src="https://pickipedia.xyz/wiki/Justin_Holmes"></iframe>
+    </div>
+
+    <script type="module">
+        // Song data
+        const songs = {
+            'august': {
+                title: "August",
+                album: "Vowel Sounds",
+                duration: 180,
+                audioFile: "/audio/August.flac",
+                ensemble: {
+                    "Justin Holmes": ["guitar", "tin whistle"],
+                    "Kyle Tuttle": ["5-string banjo"],
+                    "Harry Clark": ["mandolin"],
+                    "Maddie Denton": ["fiddle"],
+                    "Skyler Golden": ["bass"],
+                    "Gaven Largent": ["dobro"]
+                },
+                timeline: {
+                    0: {
+                        musicians: {
+                            "Justin Holmes": "in",
+                            "Kyle Tuttle": "out",
+                            "Harry Clark": "out",
+                            "Maddie Denton": "out",
+                            "Skyler Golden": "out",
+                            "Gaven Largent": "out"
+                        },
+                        solo: "Justin Holmes",
+                        part: "intro"
+                    },
+                    7.2: { musicians: { "Maddie Denton": "in" }, pickup: "Maddie Denton" },
+                    8.3: { musicians: { "band": "in" }, solo: "Maddie Denton", part: "A" },
+                    22: { solo: "Justin Holmes", part: "A", instrumentChanges: { "Justin Holmes": "tin whistle" } },
+                    36: { solo: "Justin Holmes", part: "B" },
+                    50: { solo: "Harry Clark", part: "A" },
+                    64: { solo: "Harry Clark", part: "A" },
+                    78: { solo: "Kyle Tuttle", part: "B" },
+                    92: { solo: "Justin Holmes", part: "A" },
+                    106: { solo: "Justin Holmes", part: "A" },
+                    120: { solo: "Justin Holmes", part: "B" },
+                    134: { solo: "Maddie Denton", part: "B" },
+                    148: { solo: "Justin Holmes", part: "outro" }
+                },
+                standardSectionLength: 13.68
+            },
+            'silver-44': {
+                title: "Silver 44",
+                album: "4masks",
+                duration: 215,
+                audioFile: "/audio/silver-44.flac",
+                ensemble: {
+                    "Justin Holmes": ["guitar", "tin whistle", "vocals"],
+                    "Kyle Tuttle": ["5-string banjo"],
+                    "Harry Clark": ["mandolin"],
+                    "Maddie Denton": ["fiddle"],
+                    "Skyler Golden": ["bass"]
+                },
+                timeline: {
+                    0: { musicians: { "band": "in" }, solo: "Kyle Tuttle", part: "intro" },
+                    21.5: { solo: "Justin Holmes", part: "A", instrumentChanges: { "Justin Holmes": "tin whistle" } },
+                    43: { solo: "Justin Holmes", part: "A" },
+                    64.5: { solo: "Justin Holmes", part: "B" },
+                    86: { solo: "Justin Holmes", part: "B" },
+                    107.5: { solo: "Harry Clark", part: "A" },
+                    129: { solo: "Harry Clark", part: "A" },
+                    150.5: { solo: "Maddie Denton", part: "B" },
+                    172: { solo: "Kyle Tuttle", part: "B" },
+                    193.5: { solo: "Justin Holmes", part: "outro" }
+                },
+                standardSectionLength: 21.5
+            },
+            'barlows-jig': {
+                title: "Barlow's Jig",
+                album: "Vowel Sounds",
+                duration: 160,
+                audioFile: "/audio/barlows-jig.flac",
+                ensemble: {
+                    "Justin Holmes": ["guitar"],
+                    "Kyle Tuttle": ["5-string banjo"],
+                    "Harry Clark": ["mandolin"],
+                    "Maddie Denton": ["fiddle"],
+                    "Skyler Golden": ["bass"],
+                    "Gaven Largent": ["dobro"]
+                },
+                timeline: {
+                    0: { musicians: { "band": "in" }, solo: "Maddie Denton", part: "A" },
+                    16: { solo: "Maddie Denton", part: "A" },
+                    32: { solo: "Maddie Denton", part: "B" },
+                    48: { solo: "Maddie Denton", part: "B" },
+                    64: { solo: "Harry Clark", part: "A" },
+                    80: { solo: "Harry Clark", part: "A" },
+                    96: { solo: "Kyle Tuttle", part: "B" },
+                    112: { solo: "Kyle Tuttle", part: "B" },
+                    128: { solo: "Maddie Denton", part: "A" },
+                    144: { solo: "Maddie Denton", part: "outro" }
+                },
+                standardSectionLength: 16
+            },
+            'paint-exchange': {
+                title: "Paint Exchange",
+                album: "4masks",
+                duration: 240,
+                audioFile: "/audio/0 - Paint Exchange.flac",
+                ensemble: {
+                    "Justin Holmes": ["mandolin", "throatsinging"],
+                    "Cory Walker": ["5-string banjo"],
+                    "Samson Grisman": ["bass"],
+                    "John Mailander": ["fiddle"],
+                    "Kaitlyn Raitz": ["cello"],
+                    "Harry Clark": ["guitar"]
+                },
+                timeline: {
+                    0: {
+                        musicians: {
+                            "Justin Holmes": "in",
+                            "Cory Walker": "out",
+                            "Samson Grisman": "out",
+                            "John Mailander": "out",
+                            "Kaitlyn Raitz": "out",
+                            "Harry Clark": "out"
+                        },
+                        solo: "Justin Holmes",
+                        part: "A"
+                    },
+                    13: { musicians: { "band": "in" } },
+                    27: { solo: "John Mailander" },
+                    47: { part: "B" },
+                    59: { part: "A" },
+                    72: { solo: "Kaitlyn Raitz" },
+                    83: { solo: "Harry Clark" },
+                    106: { solo: "Samson Grisman", part: "B" },
+                    118: { solo: "Cory Walker", part: "A" },
+                    166: { solo: "John Mailander", part: "B" },
+                    183: { solo: "Justin Holmes", instrumentChanges: { "Justin Holmes": "throatsinging" } },
+                    190: { part: "A" }
+                },
+                standardSectionLength: 20
+            }
+        };
+
+        // Color scheme
+        const defaultColorScheme = {
+            solo: { border: "#4a7c59", background: "rgba(74, 124, 89, 0.1)", textColor: "#2d5016", glowColor: "rgba(74, 124, 89, 0.4)" },
+            pickup: { border: "#87a96b", background: "rgba(135, 169, 107, 0.1)", textColor: "#5a7a4a" }
+        };
+        Object.values(songs).forEach(song => { song.colorScheme = defaultColorScheme; });
+
+        window.songChartifactsData = songs['august'];
+        window.allSongs = songs;
+
+        // Navigate to musician's PickiPedia page
+        window.navigateToMusician = function(musicianName) {
+            const slug = musicianName.replace(/\s+/g, '_');
+            document.getElementById('pickipedia-frame').src = 'https://pickipedia.xyz/wiki/' + slug;
+        };
+
+        // Load selected song
+        window.loadSelectedSong = async function() {
+            const selector = document.getElementById('song-selector');
+            const songKey = selector.value;
+            const newSong = songs[songKey];
+            if (!newSong) return;
+
+            window.songChartifactsData = newSong;
+
+            if (window.chartifactsPlayer && typeof window.chartifactsPlayer.loadNewSong === 'function') {
+                await window.chartifactsPlayer.loadNewSong(newSong);
+                setTimeout(addMusicianClickHandlers, 500);
+            }
+        };
+
+        function addMusicianClickHandlers() {
+            document.querySelectorAll('.musician-card').forEach(card => {
+                card.onclick = () => {
+                    const name = card.dataset.musician;
+                    if (name) navigateToMusician(name);
+                };
+            });
+        }
+
+        // Initialize player
+        const { default: WebampChartifacts } = await import('/src/player/webamp-chartifacts.js');
+
+        window.chartifactsPlayer = new WebampChartifacts('webamp-player', window.songChartifactsData, {
+            embedMode: false,
+            fixedPosition: false,
+            onSoloChange: (musicianName) => {
+                const autoSwitch = document.getElementById('auto-switch-toggle').checked;
+                if (autoSwitch) {
+                    console.log('Solo changed to:', musicianName);
+                    navigateToMusician(musicianName);
+                }
+            }
+        });
+
+        // Add click handlers after player loads
+        setTimeout(addMusicianClickHandlers, 2000);
+    </script>
+</body>
+</html>
