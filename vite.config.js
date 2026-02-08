@@ -25,8 +25,18 @@ export default defineConfig({
             'justin0.hunter.cryptograss.live',
             'justin1.hunter.cryptograss.live',
             'justin2.hunter.cryptograss.live',
+            'skyler0.hunter.cryptograss.live',
+            'skyler1.hunter.cryptograss.live',
+            'skyler2.hunter.cryptograss.live',
             'localhost',
             '127.0.0.1'
-        ]
+        ],
+        proxy: {
+            '/audio': {
+                target: 'https://justinholmes.com',
+                changeOrigin: true,
+                secure: true
+            }
+        }
     }
 });
