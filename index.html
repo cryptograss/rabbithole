@@ -1,166 +1,991 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Rabbithole - Discover Music by Connections</title>
-    <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@400..700&family=VT323&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/src/styles/rabbithole.css">
+    <title>Rabbit Hole Player</title>
+
     <style>
+        * {
+            box-sizing: border-box;
+        }
+
         body {
             margin: 0;
-            padding: 20px;
-            font-family: system-ui, sans-serif;
-            background: #f5f5f5;
+            padding: 0;
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+            background: #ffffff;
+            color: #333333;
+            overflow: hidden;
+            height: 100vh;
         }
-        .demo-header {
-            max-width: 800px;
-            margin: 0 auto 20px;
-            text-align: center;
+
+        /* Hide Webamp equalizer and playlist windows by default */
+        #webamp #equalizer-window,
+        #webamp #playlist-window {
+            display: none !important;
         }
-        .demo-header h1 {
-            font-family: 'VT323', monospace;
-            font-size: 48px;
-            margin: 0;
-            color: #2d5016;
+
+        .player-container {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            position: relative;
         }
-        .demo-header p {
-            color: #666;
-            font-style: italic;
-        }
-        #player-container {
-            max-width: 800px;
-            margin: 0 auto;
-            background: white;
-            border-radius: 8px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+
+        /* Header with branding */
+        .player-header {
+            background: linear-gradient(135deg, #9db89a 0%, #87a96b 100%);
+            padding: 12px 20px;
+            border-bottom: 2px solid #4a7c59;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: relative;
             overflow: hidden;
         }
-        .controls {
-            padding: 20px;
-            background: #fafafa;
-            border-top: 1px solid #eee;
-            display: flex;
-            gap: 10px;
-            flex-wrap: wrap;
+
+        .player-title {
+            font-size: 24px;
+            font-weight: 400;
+            font-family: 'VT323', monospace;
+            color: #2d5016;
+            margin: 0;
+            text-shadow: 1px 1px 0px rgba(255, 255, 255, 0.3);
+            letter-spacing: 1px;
         }
-        .controls button {
-            padding: 8px 16px;
+
+        .player-subtitle {
+            font-size: 11px;
+            color: #4a7c59;
+            margin-top: 2px;
+        }
+
+        .rabbit-icon {
+            height: 48px;
+            width: auto;
+            filter: drop-shadow(2px 2px 4px rgba(0, 0, 0, 0.2));
+        }
+
+        .toggle-mode-btn {
+            background: #4a7c59;
             border: none;
             border-radius: 4px;
+            padding: 8px 16px;
+            color: #c8dbbe;
+            font-size: 12px;
+            font-weight: 600;
             cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .toggle-mode-btn:hover {
+            background: #2d5016;
+            transform: translateY(-1px);
+        }
+
+        .toggle-mode-btn:active {
+            transform: translateY(0);
+        }
+
+        /* Main content area - single column layout */
+        .player-content {
+            flex: 1;
+            display: flex !important;
+            flex-direction: column !important;
+            gap: 15px;
+            padding: 20px;
+            overflow: visible;
+            transition: all 0.3s ease;
+        }
+
+        /* Left panel contains webamp and musicians */
+        .left-panel {
+            position: relative;
+            min-height: 400px;
+        }
+
+        /* Parts chart wrapper - below the player */
+        .parts-chart-wrapper {
+            width: 100%;
+            margin-top: 80px;
+            padding-top: 10px;
+            position: relative;
+            z-index: 1;
+            clear: both;
+        }
+
+        /* Parts chart styling - bigger boxes */
+        .parts-chart {
+            display: flex !important;
+            flex-wrap: wrap;
+            gap: 10px;
+            justify-content: flex-start;
+            padding: 10px 0;
+            padding-left: 20px;
+        }
+
+        .part-box {
+            padding: 10px 20px !important;
+            font-size: 22px !important;
+            min-width: 60px;
+            text-align: center;
+        }
+
+        .part-box.active {
+            padding: 14px 28px !important;
+            font-size: 36px !important;
+            transform-origin: bottom center;
+        }
+
+        /* Footer mode styles */
+        .player-container.footer-mode {
+            height: 80px;
+        }
+
+        .player-container.footer-mode .player-header {
+            padding: 8px 16px;
+        }
+
+        .player-container.footer-mode .player-title {
             font-size: 14px;
         }
-        .controls button.primary {
-            background: #4a7c59;
-            color: white;
+
+        .player-container.footer-mode .player-subtitle {
+            display: none;
         }
-        .controls button.secondary {
-            background: #e0e0e0;
+
+        .player-container.footer-mode .player-content {
+            display: none;
+        }
+
+        .player-container.footer-mode .webamp-wrapper {
+            padding: 4px;
+        }
+
+        .player-container.footer-mode .upload-section {
+            display: none;
+        }
+
+        /* Mini player in footer mode */
+        .mini-player {
+            display: none;
+            align-items: center;
+            gap: 15px;
+            padding: 8px 16px;
+            background: #fafafa;
+            border-top: 1px solid #e0e0e0;
+        }
+
+        .player-container.footer-mode .mini-player {
+            display: flex;
+        }
+
+        .mini-player .song-info {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .mini-player .current-musicians {
+            font-size: 11px;
+            color: #666;
+            max-width: 300px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .mini-player .lead-musician {
+            color: #4a7c59;
+            font-weight: 600;
+        }
+
+        /* Left sidebar - Webamp and ensemble */
+        .left-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            position: relative;
+        }
+
+        .ensemble-display {
+            display: none;
+        }
+
+        .ensemble-display h3 {
+            display: none;
+        }
+
+        /* Right panel - parts chart and connections */
+        .right-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            overflow: hidden;
+        }
+
+        .parts-chart {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+
+        .part-box {
+            padding: 4px 10px;
+            background: #ffffff;
+            font-size: 16px;
+            font-weight: bold;
+            color: #999;
+            font-family: 'Caveat', cursive, Arial;
+            transition: all 0.3s ease;
+            border-radius: 4px;
+            border: 1px solid #ddd;
+        }
+
+        .part-box.active {
+            padding: 14px 24px;
+            background: #4a7c59;
+            font-size: 28px;
+            color: #ffffff;
+            border: 2px solid #2d5016;
+            box-shadow: 0 0 20px rgba(74, 124, 89, 0.4);
+            transform: scale(1.05);
+        }
+
+        /* Musician cards */
+        .musician-card {
+            padding: 6px 8px;
+            background: #ffffff;
+            border: 1px solid #e0e0e0;
+            margin: 4px 0;
+            border-radius: 4px;
+            font-size: 12px;
+            transition: all 0.3s ease;
+        }
+
+        .musician-card.out {
+            opacity: 0.3;
+            background: #f5f5f5;
+        }
+
+        .musician-card.lead {
+            border: 2px solid #4a7c59;
+            background: rgba(74, 124, 89, 0.1);
+            animation: pulse-glow 3s infinite ease-in-out;
+            box-shadow: 0 0 15px rgba(74, 124, 89, 0.3);
+        }
+
+        .musician-card.pickup {
+            border: 2px solid #87a96b;
+            background: rgba(135, 169, 107, 0.1);
+            color: #87a96b;
+        }
+
+        .musician-name {
+            font-weight: 600;
+            font-family: 'Caveat', cursive, Arial;
+            font-size: 18px;
+            margin-bottom: 2px;
             color: #333;
         }
-        .status {
-            padding: 10px 20px;
-            font-size: 13px;
-            color: #666;
-            background: #f0f0f0;
+
+        .musician-name.clickable {
+            cursor: pointer;
+            color: #4a7c59;
         }
-        #next-up {
-            padding: 10px 20px;
-            background: #fff9e6;
+
+        .musician-name.clickable:hover {
+            text-decoration: underline;
+        }
+
+        .chartifact-line {
+            font-size: 9px;
+            color: #666;
+            font-family: monospace;
+        }
+
+        /* Connections panel */
+        .connections-panel {
+            position: fixed !important;
+            top: 100px;
+            right: 20px;
+            left: auto !important;
+            margin-left: 0;
+            transform: translateX(20px);
+            width: 320px;
+            max-height: 500px;
+            background: #ffffff;
+            border: 2px solid #4a7c59;
+            border-radius: 8px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+            transition: transform 0.3s ease, opacity 0.3s ease;
+            z-index: 10000;
+            overflow-y: auto;
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .connections-panel.visible {
+            transform: translateX(0) !important;
+            opacity: 1;
+            pointer-events: all;
+        }
+
+        .connections-header {
+            background: linear-gradient(135deg, #9db89a 0%, #87a96b 100%);
+            color: #2d5016;
+            padding: 12px 15px;
+            font-weight: 600;
             font-size: 13px;
+            position: sticky;
+            top: 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-radius: 6px 6px 0 0;
+        }
+
+        .connections-close {
+            cursor: pointer;
+            font-size: 20px;
+            line-height: 1;
+            opacity: 0.9;
+            transition: opacity 0.2s ease;
+        }
+
+        .connections-close:hover {
+            opacity: 1;
+        }
+
+        .connections-content {
+            padding: 15px;
+            background: #fafafa;
+        }
+
+        .connection-song {
+            margin-bottom: 12px;
+            padding: 10px;
+            background: #ffffff;
+            border-left: 3px solid #4a7c59;
+            border-radius: 4px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+            cursor: pointer;
+        }
+
+        .connection-song:hover {
+            transform: translateX(2px);
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
+        }
+
+        .connection-song-title {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 4px;
+            font-size: 13px;
+        }
+
+        .connection-context {
+            font-size: 11px;
+            color: #666;
+            line-height: 1.4;
+        }
+
+        .connections-content a {
+            color: #4a7c59;
+            text-decoration: none;
+            font-weight: 600;
+        }
+
+        .connections-content a:hover {
+            text-decoration: underline;
+        }
+
+        /* Loading state */
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.8);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 200;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
+
+        .loading-overlay.active {
+            opacity: 1;
+            pointer-events: all;
+        }
+
+        .loading-spinner {
+            width: 60px;
+            height: 60px;
+            border: 4px solid rgba(74, 124, 89, 0.2);
+            border-top-color: #4a7c59;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        .loading-text {
+            margin-top: 20px;
+            font-size: 18px;
+            color: #4a7c59;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        @keyframes pulse-glow {
+            0%, 100% { box-shadow: 0 0 15px rgba(74, 124, 89, 0.3); }
+            50% { box-shadow: 0 0 25px rgba(74, 124, 89, 0.5); }
+        }
+
+        /* Upload section at bottom */
+        .upload-section {
+            position: fixed;
+            bottom: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 8px 16px;
+            background: rgba(255, 255, 255, 0.95);
+            border: 1px solid #e0e0e0;
+            border-radius: 6px;
+            font-size: 11px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .upload-section label {
+            color: #666;
+            margin-right: 8px;
+        }
+
+        .upload-section input[type="file"] {
+            font-size: 11px;
+            color: #333;
+        }
+
+        #cache-status {
+            font-size: 10px;
+            margin-top: 4px;
+            color: #666;
+            display: none;
+        }
+
+        #clear-cache-btn {
+            margin-left: 8px;
+            font-size: 10px;
+            padding: 2px 6px;
+            background: #4a7c59;
+            border: none;
+            border-radius: 3px;
+            color: #ffffff;
+            cursor: pointer;
+            display: none;
+        }
+
+        #clear-cache-btn:hover {
+            background: #2d5016;
         }
     </style>
+
+    <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@400..700&family=VT323&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/src/styles/rabbithole.css">
 </head>
 <body>
-    <div class="demo-header">
-        <h1>🐰 rabbithole</h1>
-        <p>discover music by connections, not algorithms</p>
-    </div>
-
-    <div id="player-container">
-        <div id="rabbithole-player">
-            <div style="padding: 40px; text-align: center; color: #666;">
-                Loading player...
+    <div class="player-container">
+        <div class="player-header">
+            <div style="display: flex; align-items: center; gap: 12px;">
+                <img src="/src/images/rabbit.png" alt="Rabbithole" class="rabbit-icon">
+                <div>
+                    <h1 class="player-title">rabbithole <span style="font-size: 12px; background: #4a7c59; color: white; padding: 2px 6px; border-radius: 4px; vertical-align: middle; margin-left: 8px;">ALPHA5</span></h1>
+                    <div class="player-subtitle">discover music by connections, not algorithms</div>
+                </div>
+            </div>
+            <div style="display: flex; align-items: center; gap: 20px;">
+                <div style="text-align: right;">
+                    <select id="song-selector" onchange="loadSelectedSong()" style="
+                        padding: 8px 12px;
+                        font-size: 14px;
+                        border: 2px solid #4a7c59;
+                        border-radius: 6px;
+                        background: white;
+                        color: #333;
+                        cursor: pointer;
+                        min-width: 180px;
+                    ">
+                        <option value="august">August - Vowel Sounds</option>
+                        <option value="silver-44">Silver 44 - 4masks</option>
+                        <option value="barlows-jig">Barlow's Jig - Vowel Sounds</option>
+                        <option value="paint-exchange">Paint Exchange - 4masks</option>
+                    </select>
+                </div>
+                <button id="toggle-mode-btn" class="toggle-mode-btn" onclick="togglePlayerMode()">
+                    Minimize ⬇
+                </button>
             </div>
         </div>
 
-        <div id="ensemble-display" style="padding: 10px;"></div>
-        <div id="parts-chart" style="padding: 10px;"></div>
+        <div class="player-content">
+            <div class="left-panel">
+                <div class="webamp-wrapper">
+                    <div id="webamp-player">Loading player...</div>
+                </div>
+                <div class="ensemble-display">
+                    <h3>Ensemble</h3>
+                    <div id="ensemble-display"></div>
+                </div>
 
-        <div id="next-up">
-            <strong>🐰 Next up:</strong> <span id="next-song">Select a musician to follow</span>
+                <div id="connections-panel" class="connections-panel">
+                    <div class="connections-header">
+                        <span id="connections-title">Musician Connections</span>
+                        <span class="connections-close" onclick="hideConnections()">&times;</span>
+                    </div>
+                    <div class="connections-content" id="connections-content">
+                        <!-- Connection data will be populated here -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Parts chart below the player -->
+            <div class="parts-chart-wrapper">
+                <div id="parts-chart" class="parts-chart"></div>
+            </div>
         </div>
 
-        <div class="controls">
-            <button class="primary" onclick="playSong('august')">Play: August</button>
-            <button class="secondary" onclick="player.playPrevious()">⏮ Previous</button>
-            <button class="secondary" onclick="player.playNext()">Next ⏭</button>
+        <div class="upload-section">
+            <label for="audio-file-input">Load local audio:</label>
+            <input type="file" id="audio-file-input" accept="audio/*">
+            <div id="cache-status">
+                <span id="cache-indicator"></span>
+                <button id="clear-cache-btn">Clear</button>
+            </div>
         </div>
 
-        <div class="status" id="status">
-            Ready. Click a song to start, then click musicians to explore connections.
+        <div class="loading-overlay" id="loading-overlay">
+            <div class="loading-spinner"></div>
+            <div class="loading-text">Loading song...</div>
+        </div>
+
+        <div class="mini-player">
+            <div class="song-info">
+                <div id="mini-song-title" style="font-weight: 600; color: #4a7c59;">August</div>
+                <div class="current-musicians">
+                    <span id="mini-current-part">Intro</span> •
+                    <span id="mini-lead-musician" class="lead-musician">Justin Holmes</span>
+                </div>
+            </div>
         </div>
     </div>
 
     <script type="module">
-        import { RabbitholePlayer, StaticCatalog } from '/src/index.js';
-
-        // Demo catalog with sample data
-        const demoCatalog = new StaticCatalog({
+        // All available songs
+        const songs = {
             'august': {
-                title: 'August',
-                slug: 'august',
-                audioFile: 'https://justinholmes.com/audio/august.mp3',
-                duration: 245,
+                title: "August",
+                album: "Vowel Sounds",
+                duration: 180,
+                audioFile: "/audio/August.flac",
                 ensemble: {
-                    'Justin Holmes': ['guitar', 'six-whistle'],
-                    'Cory Walker': ['banjo'],
-                    'Harry Clark': ['mandolin'],
-                    'Skyler Golden': ['bass']
+                    "Justin Holmes": ["guitar", "tin whistle"],
+                    "Kyle Tuttle": ["5-string banjo"],
+                    "Harry Clark": ["mandolin"],
+                    "Maddie Denton": ["fiddle"],
+                    "Skyler Golden": ["bass"],
+                    "Gaven Largent": ["dobro"]
                 },
-                timeline: {},
-                release: 'Vowel Sounds'
-            }
-        }, {
-            // Musician connections
-            'Justin Holmes': [
-                { song: 'Barlows Jig', context: 'Guitar on Vowel Sounds session' },
-                { song: 'Paint Exchange', context: 'Guitar, whistles' }
-            ],
-            'Cory Walker': [
-                { song: 'August', context: 'Banjo on Vowel Sounds' },
-                { song: 'Silver 44', context: 'Banjo on studio session' }
-            ]
-        });
-
-        // Initialize player
-        const player = new RabbitholePlayer({
-            containerId: 'rabbithole-player',
-            catalog: demoCatalog,
-            onSongChange: (track) => {
-                document.getElementById('status').textContent = `Now playing: ${track.title}`;
+                timeline: {
+                    0: {
+                        musicians: {
+                            "Justin Holmes": "in",
+                            "Kyle Tuttle": "out",
+                            "Harry Clark": "out",
+                            "Maddie Denton": "out",
+                            "Skyler Golden": "out",
+                            "Gaven Largent": "out"
+                        },
+                        solo: "Justin Holmes",
+                        part: "intro"
+                    },
+                    7.2: {
+                        musicians: { "Maddie Denton": "in" },
+                        pickup: "Maddie Denton"
+                    },
+                    8.3: {
+                        musicians: { "band": "in" },
+                        solo: "Maddie Denton",
+                        part: "A"
+                    },
+                    22: { solo: "Justin Holmes", part: "A", instrumentChanges: { "Justin Holmes": "tin whistle" } },
+                    36: { solo: "Justin Holmes", part: "B" },
+                    40: { pickup: "Maddie Denton" },
+                    42.5: { solo: "Maddie Denton" },
+                    50: { solo: "Harry Clark", part: "A" },
+                    64: { solo: "Harry Clark", part: "A" },
+                    78: { solo: "Kyle Tuttle", part: "B" },
+                    92: { solo: "Justin Holmes", part: "A" },
+                    106: { solo: "Justin Holmes", part: "A" },
+                    120: { solo: "Justin Holmes", part: "B" },
+                    134: { solo: "Maddie Denton", part: "B" },
+                    148: { solo: "Justin Holmes", part: "outro" }
+                },
+                standardSectionLength: 13.68
             },
-            onMusicianClick: async (name) => {
-                document.getElementById('status').textContent = `Clicked: ${name}`;
-                // Show connections
-                const connections = await demoCatalog.getMusicianConnections(name);
-                console.log('Connections for', name, ':', connections);
+            'silver-44': {
+                title: "Silver 44",
+                album: "4masks",
+                duration: 215,
+                audioFile: "/audio/silver-44.flac",
+                ensemble: {
+                    "Justin Holmes": ["guitar", "tin whistle", "vocals", "throatsinging"],
+                    "Kyle Tuttle": ["5-string banjo"],
+                    "Harry Clark": ["mandolin"],
+                    "Maddie Denton": ["fiddle"],
+                    "Skyler Golden": ["bass"]
+                },
+                timeline: {
+                    0: {
+                        musicians: { "band": "in" },
+                        solo: "Kyle Tuttle",
+                        part: "intro"
+                    },
+                    21.5: { solo: "Justin Holmes", part: "A", instrumentChanges: { "Justin Holmes": "tin whistle" } },
+                    43: { solo: "Justin Holmes", part: "A", instrumentChanges: { "Justin Holmes": "tin whistle" } },
+                    64.5: { solo: "Justin Holmes", part: "B", instrumentChanges: { "Justin Holmes": "tin whistle" } },
+                    86: { solo: "Justin Holmes", part: "B", instrumentChanges: { "Justin Holmes": "tin whistle" } },
+                    107.5: { solo: "Harry Clark", part: "A" },
+                    129: { solo: "Harry Clark", part: "A" },
+                    150.5: { solo: "Maddie Denton", part: "B" },
+                    172: { solo: "Kyle Tuttle", part: "B" },
+                    193.5: { solo: "Justin Holmes", part: "outro", instrumentChanges: { "Justin Holmes": "guitar" } }
+                },
+                standardSectionLength: 21.5
             },
-            onNextUp: (nextSong) => {
-                const el = document.getElementById('next-song');
-                if (nextSong.songTitle === 'No songs queued') {
-                    el.textContent = `${nextSong.viaMusician} has no rabbithole songs yet`;
-                } else {
-                    el.textContent = `${nextSong.songTitle} via ${nextSong.viaMusician}`;
+            'barlows-jig': {
+                title: "Barlow's Jig",
+                album: "Vowel Sounds",
+                duration: 160,
+                audioFile: "/audio/barlows-jig.flac",
+                ensemble: {
+                    "Justin Holmes": ["guitar"],
+                    "Kyle Tuttle": ["5-string banjo"],
+                    "Harry Clark": ["mandolin"],
+                    "Maddie Denton": ["fiddle"],
+                    "Skyler Golden": ["bass"],
+                    "Gaven Largent": ["dobro"]
+                },
+                timeline: {
+                    0: {
+                        musicians: { "band": "in" },
+                        solo: "Maddie Denton",
+                        part: "A"
+                    },
+                    16: { solo: "Maddie Denton", part: "A" },
+                    32: { solo: "Maddie Denton", part: "B" },
+                    48: { solo: "Maddie Denton", part: "B" },
+                    64: { solo: "Harry Clark", part: "A" },
+                    80: { solo: "Harry Clark", part: "A" },
+                    96: { solo: "Kyle Tuttle", part: "B" },
+                    112: { solo: "Kyle Tuttle", part: "B" },
+                    128: { solo: "Maddie Denton", part: "A" },
+                    144: { solo: "Maddie Denton", part: "outro" }
+                },
+                standardSectionLength: 16
+            },
+            'paint-exchange': {
+                title: "Paint Exchange",
+                album: "4masks",
+                duration: 240,
+                audioFile: "/audio/0 - Paint Exchange.flac",
+                ensemble: {
+                    "Justin Holmes": ["mandolin", "throatsinging"],
+                    "Cory Walker": ["5-string banjo"],
+                    "Samson Grisman": ["bass"],
+                    "John Mailander": ["fiddle"],
+                    "Kaitlyn Raitz": ["cello"],
+                    "Harry Clark": ["guitar"]
+                },
+                timeline: {
+                    0: {
+                        musicians: {
+                            "Justin Holmes": "in",
+                            "Cory Walker": "out",
+                            "Samson Grisman": "out",
+                            "John Mailander": "out",
+                            "Kaitlyn Raitz": "out",
+                            "Harry Clark": "out"
+                        },
+                        solo: "Justin Holmes",
+                        part: "A"
+                    },
+                    13: { musicians: { "band": "in" } },
+                    22: { pickup: "John Mailander" },
+                    27: { solo: "John Mailander" },
+                    47: { part: "B" },
+                    59: { part: "A" },
+                    69: { pickup: "Kaitlyn Raitz" },
+                    72: { solo: "Kaitlyn Raitz" },
+                    83: { solo: "Harry Clark" },
+                    106: { solo: "Samson Grisman", part: "B" },
+                    118: { solo: "Cory Walker", part: "A" },
+                    163: { pickup: "John Mailander" },
+                    166: { solo: "John Mailander", part: "B" },
+                    183: { solo: "Justin Holmes", instrumentChanges: { "Justin Holmes": "throatsinging" } },
+                    190: { part: "A" }
+                },
+                standardSectionLength: 20,
+                colorScheme: {
+                    solo: {
+                        border: "#000000",
+                        background: "#e3f2fd",
+                        textColor: "#0056b3",
+                        glowColor: "rgba(255, 163, 72, 0.75)"
+                    },
+                    pickup: {
+                        border: "#ff9800",
+                        background: "#fff3e0",
+                        textColor: "#e65100"
+                    }
                 }
             }
+        };
+
+        // Default color scheme for all songs
+        const defaultColorScheme = {
+            solo: {
+                border: "#4a7c59",
+                background: "rgba(74, 124, 89, 0.1)",
+                textColor: "#2d5016",
+                glowColor: "rgba(74, 124, 89, 0.4)"
+            },
+            pickup: {
+                border: "#87a96b",
+                background: "rgba(135, 169, 107, 0.1)",
+                textColor: "#5a7a4a"
+            }
+        };
+
+        // Add colorScheme to all songs
+        Object.values(songs).forEach(song => {
+            song.colorScheme = defaultColorScheme;
         });
 
-        await player.init();
-        window.player = player;
+        // Initialize with first song
+        window.songChartifactsData = songs['august'];
+        window.allSongs = songs;
 
-        window.playSong = (slug) => player.playSong(slug);
+        // Song selector function
+        window.loadSelectedSong = async function() {
+            const selector = document.getElementById('song-selector');
+            const songKey = selector.value;
+            const newSong = songs[songKey];
+
+            if (!newSong) {
+                console.error('Song not found:', songKey);
+                return;
+            }
+
+            window.songChartifactsData = newSong;
+
+            // Update mini player title
+            const miniTitle = document.getElementById('mini-song-title');
+            if (miniTitle) {
+                miniTitle.textContent = newSong.title;
+            }
+
+            // Load the new song into the player
+            if (window.chartifactsPlayer && typeof window.chartifactsPlayer.loadNewSong === 'function') {
+                await window.chartifactsPlayer.loadNewSong(newSong);
+                console.log('Loaded song:', newSong.title);
+
+                // Re-make musician names clickable after song change
+                setTimeout(() => {
+                    if (typeof window.makeMusiciansClickable === 'function') {
+                        window.makeMusiciansClickable();
+                    }
+                }, 500);
+            }
+        };
+
+        // Musician connections data
+        const musicianConnections = {
+            'Justin Holmes': [
+                { song: 'Paint Exchange', context: 'Mandolin, throatsinging on 4MASKS' },
+                { song: 'Silver 44', context: 'Guitar, vocals, six-whistle on 4MASKS' },
+                { song: 'Barlows Jig', context: 'Guitar on Vowel Sounds' },
+                { song: 'Moon Factory', context: 'Guitar on 4MASKS' }
+            ],
+            'Kyle Tuttle': [
+                { song: 'Silver 44', context: 'Banjo on 4MASKS session' },
+                { song: 'Cicada Song', context: 'Banjo on 4MASKS' }
+            ],
+            'Harry Clark': [
+                { song: 'Silver 44', context: 'Mandolin on 4MASKS' },
+                { song: 'Barlows Jig', context: 'Mandolin on Vowel Sounds' }
+            ],
+            'Maddie Denton': [
+                { song: 'Silver 44', context: 'Fiddle on 4MASKS' },
+                { song: 'Cicada Song', context: 'Fiddle on 4MASKS' }
+            ],
+            'Skyler Golden': [
+                { song: 'Paint Exchange', context: 'Bass on 4MASKS' },
+                { song: 'Silver 44', context: 'Bass on 4MASKS' },
+                { song: 'Moon Factory', context: 'Bass on 4MASKS' }
+            ],
+            'Gaven Largent': [
+                { song: 'Moon Factory', context: 'Dobro on 4MASKS' }
+            ]
+        };
+
+        let userClosedPanel = false;
+
+        // Musician connections functionality
+        window.showMusicianConnections = function(musicianName, isExplicitClick = false) {
+            if (userClosedPanel && !isExplicitClick) {
+                return;
+            }
+
+            const panel = document.getElementById('connections-panel');
+            const title = document.getElementById('connections-title');
+            const content = document.getElementById('connections-content');
+
+            if (isExplicitClick) {
+                userClosedPanel = false;
+            }
+
+            // Remove instrument in parentheses and any leading emoji/star
+            const cleanName = musicianName
+                .replace(/\s*\([^)]*\)$/, '')  // Remove (instrument)
+                .replace(/^[⭐🎸🎻🎹🪕🎺]\s*/, '')  // Remove leading emoji
+                .trim();
+            title.textContent = `${cleanName} - Other Songs`;
+
+            const connections = musicianConnections[cleanName] || [];
+            const pickipediaSlug = cleanName.replace(/\s+/g, '_');
+            const pickipediaLink = `https://pickipedia.xyz/wiki/${pickipediaSlug}`;
+
+            let html = `
+                <div style="margin-bottom: 15px; padding-bottom: 12px; border-bottom: 2px solid #e0e0e0;">
+                    <a href="${pickipediaLink}" target="_blank" style="display: block; margin-bottom: 10px;">
+                        📖 View ${cleanName} on PickiPedia →
+                    </a>
+                    <div style="font-weight: 600; color: #333; font-size: 12px;">
+                        Found ${connections.length} other appearance${connections.length === 1 ? '' : 's'}:
+                    </div>
+                </div>
+            `;
+
+            if (connections.length > 0) {
+                connections.forEach(conn => {
+                    html += `
+                        <div class="connection-song">
+                            <div class="connection-song-title">${conn.song}</div>
+                            <div class="connection-context">${conn.context}</div>
+                        </div>
+                    `;
+                });
+            } else {
+                html += `<div style="padding: 20px; color: #666; text-align: center;">No other recorded appearances found.</div>`;
+            }
+
+            content.innerHTML = html;
+            panel.classList.add('visible');
+        };
+
+        window.hideConnections = function() {
+            document.getElementById('connections-panel').classList.remove('visible');
+            userClosedPanel = true;
+        };
+
+        window.makeMusiciansClickable = function() {
+            const musicianNames = document.querySelectorAll('.musician-name');
+            musicianNames.forEach(nameEl => {
+                nameEl.classList.add('clickable');
+                nameEl.addEventListener('click', () => window.showMusicianConnections(nameEl.textContent.trim(), true));
+            });
+        };
+
+        // Function to load audio from a local file
+        function loadAudioFromFile(file) {
+            const url = URL.createObjectURL(file);
+            window.songChartifactsData.audioFile = url;
+
+            if (window.chartifactsPlayer && typeof window.chartifactsPlayer.loadNewSong === 'function') {
+                window.chartifactsPlayer.loadNewSong(window.songChartifactsData);
+            }
+        }
+
+        // Handle local file input
+        document.getElementById('audio-file-input').addEventListener('change', async function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                loadAudioFromFile(file);
+                console.log(`Loaded audio file: ${file.name}`);
+            }
+        });
+
+        // Player mode state
+        let playerMode = 'full';
+
+        // Toggle between full and footer modes
+        window.togglePlayerMode = function() {
+            const container = document.querySelector('.player-container');
+            const toggleBtn = document.getElementById('toggle-mode-btn');
+
+            if (playerMode === 'full') {
+                playerMode = 'footer';
+                container.classList.add('footer-mode');
+                toggleBtn.textContent = 'Maximize ⬆';
+            } else {
+                playerMode = 'full';
+                container.classList.remove('footer-mode');
+                toggleBtn.textContent = 'Minimize ⬇';
+            }
+
+            console.log('Player mode changed to:', playerMode);
+        };
+
+        // Update mini player with current state
+        function updateMiniPlayer(currentPart, leadMusician) {
+            const partEl = document.getElementById('mini-current-part');
+            const musicianEl = document.getElementById('mini-lead-musician');
+
+            if (partEl && currentPart) {
+                partEl.textContent = currentPart;
+            }
+
+            if (musicianEl && leadMusician) {
+                musicianEl.textContent = leadMusician;
+            }
+        }
+
+        // Import and initialize the WebampChartifacts player
+        const { default: WebampChartifacts } = await import('/src/player/webamp-chartifacts.js');
+
+        window.chartifactsPlayer = new WebampChartifacts('webamp-player', window.songChartifactsData, {
+            embedMode: false,
+            fixedPosition: false
+        });
+
+        // Wait for ensemble to be created, then make musician names clickable
+        const waitForEnsemble = setInterval(() => {
+            const musicianNames = document.querySelectorAll('.musician-name');
+            if (musicianNames.length > 0 && typeof window.makeMusiciansClickable === 'function') {
+                clearInterval(waitForEnsemble);
+                window.makeMusiciansClickable();
+                console.log('Made musician names clickable:', musicianNames.length, 'names found');
+            }
+        }, 100);
     </script>
 </body>
 </html>
