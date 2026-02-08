@@ -174,6 +174,12 @@ class WebampChartifacts {
                     shadeMode: false,
                     closed: false,
                 },
+                equalizer: {
+                    closed: true,  // Hide equalizer by default
+                },
+                playlist: {
+                    closed: true,  // Hide playlist by default
+                },
             },
             initialTracks: [{
                 url: this.trackData.audioFile,
@@ -534,6 +540,21 @@ class WebampChartifacts {
         this.initEnsembleGrid(ensembleDiv);
 
         console.debug('DEBUG: Ensemble display created after #main-window');
+
+        // Set initial state at time 0 (before playback starts)
+        // Wait for musician cards to be in the DOM
+        const waitForCardsAndUpdate = () => {
+            const firstMusician = Object.keys(this.trackData.ensemble)[0];
+            const cardId = `musician-${firstMusician.replace(/\s+/g, '-').toLowerCase()}`;
+            const card = document.getElementById(cardId);
+            if (card) {
+                this.updateEnsembleDisplay(0);
+                console.debug('DEBUG: Initial state set at time 0');
+            } else {
+                setTimeout(waitForCardsAndUpdate, 50);
+            }
+        };
+        setTimeout(waitForCardsAndUpdate, 100);
     }
 
     setupWebampListeners() {
@@ -559,8 +580,11 @@ class WebampChartifacts {
                 }
             } else {
                 this.stopTimeTracking();
-                // Reset ensemble display when not playing
-                this.resetEnsembleDisplay();
+                // Only reset ensemble display when transitioning FROM playing to not playing
+                // (not on initial load when we want to show the initial state at time 0)
+                if (wasPlaying && previousStatus === 'PLAYING') {
+                    this.resetEnsembleDisplay();
+                }
 
                 // Detect track end: was playing, now stopped, and near the end
                 if (wasPlaying && status === 'STOPPED' && previousStatus === 'PLAYING') {
@@ -1067,6 +1091,11 @@ class WebampChartifacts {
         }
 
         this.currentSolo = currentSolo;
+
+        // Fire callback when solo changes
+        if (soloChanged && currentSolo && this.options.onSoloChange) {
+            this.options.onSoloChange(currentSolo);
+        }
 
         // Handle moments (one-time triggers)
         this.checkForMoments(currentTime);
