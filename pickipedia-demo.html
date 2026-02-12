@@ -828,9 +828,9 @@
             'throatsinging': '🎤'
         };
 
-        // Get short name (first name only)
-        function getShortName(fullName) {
-            return fullName.split(' ')[0];
+        // Get initials from full name (e.g., "Justin Holmes" -> "JH")
+        function getInitials(fullName) {
+            return fullName.split(' ').map(n => n[0]).join('');
         }
 
         // Get instrument icon
@@ -859,7 +859,7 @@
                 div.dataset.musician = name;
                 div.innerHTML = `
                     <span class="icon">${getInstrumentIcon(instruments)}</span>
-                    <span class="name">${getShortName(name)}</span>
+                    <span class="name">${getInitials(name)}</span>
                 `;
                 div.onclick = () => navigateToMusician(name);
                 container.appendChild(div);
