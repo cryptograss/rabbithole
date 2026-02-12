@@ -612,7 +612,7 @@
             </div>
         </div>
 
-        <iframe id="pickipedia-frame" class="pickipedia-frame" src="https://pickipedia.xyz/wiki/Justin_Holmes"></iframe>
+        <iframe id="pickipedia-frame" class="pickipedia-frame" src="/piki/wiki/Justin_Holmes"></iframe>
     </div>
 
     <script type="module">
@@ -767,7 +767,7 @@
         // Navigate to musician's PickiPedia page
         window.navigateToMusician = function(musicianName) {
             const slug = musicianName.replace(/\s+/g, '_');
-            document.getElementById('pickipedia-frame').src = 'https://pickipedia.xyz/wiki/' + slug;
+            document.getElementById('pickipedia-frame').src = '/piki/wiki/' + slug;
         };
 
         // Load selected song

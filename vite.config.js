@@ -36,6 +36,18 @@ export default defineConfig({
                 target: 'https://justinholmes.com',
                 changeOrigin: true,
                 secure: true
+            },
+            '/piki': {
+                target: 'https://pickipedia.xyz',
+                changeOrigin: true,
+                secure: true,
+                rewrite: (path) => path.replace(/^\/piki/, ''),
+                configure: (proxy) => {
+                    proxy.on('proxyRes', (proxyRes) => {
+                        delete proxyRes.headers['x-frame-options'];
+                        delete proxyRes.headers['content-security-policy'];
+                    });
+                }
             }
         }
     }
