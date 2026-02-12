@@ -435,19 +435,15 @@
         }
 
         .webamp-wrapper {
-            min-height: 120px;
-            margin-bottom: 20px;
+            min-height: 520px;  /* Room for webamp + 6 musician cards */
+            margin-bottom: 10px;
+            position: relative;
         }
 
         .data-section {
-            position: absolute;
-            bottom: 10px;
-            left: 10px;
-            right: 10px;
-            padding-top: 6px;
+            margin-top: 15px;
+            padding-top: 10px;
             border-top: 2px solid #4a7c59;
-            max-height: 150px;
-            overflow-y: auto;
         }
 
         .section-label {
@@ -602,13 +598,12 @@
                 </div>
 
                 <div class="data-section">
-                    <div class="section-label">Musicians & Chartifacts</div>
-
-                    <div id="ensemble-display" class="musician-list"></div>
-
-                    <div class="section-label" style="margin-top: 8px;">Song Parts</div>
+                    <div class="section-label">Song Parts</div>
                     <div id="parts-chart" class="parts-chart"></div>
                 </div>
+
+                <!-- Hidden container for embed mode compatibility -->
+                <div id="ensemble-display" class="musician-list" style="display: none;"></div>
             </div>
         </div>
 
