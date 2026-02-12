@@ -934,14 +934,14 @@
                 const miniBtn = document.getElementById('mini-play-btn');
                 const inlineBtn = document.getElementById('inline-play-btn');
                 if (status === 'PLAYING') {
-                    miniBtn.innerHTML = '<span class="carrot-leaves-external"><span></span><span></span><span></span></span>❚❚';
+                    miniBtn.innerHTML = '❚❚';  // No leaves - they're external
                     miniBtn.classList.add('playing');
                     if (inlineBtn) {
                         inlineBtn.innerHTML = '<span class="inline-carrot-leaves"><span></span><span></span><span></span></span>❚❚';
                         inlineBtn.classList.add('playing');
                     }
                 } else {
-                    miniBtn.innerHTML = '<span class="carrot-leaves-external"><span></span><span></span><span></span></span>▶';
+                    miniBtn.innerHTML = '▶';  // No leaves - they're external
                     miniBtn.classList.remove('playing');
                     if (inlineBtn) {
                         inlineBtn.innerHTML = '<span class="inline-carrot-leaves"><span></span><span></span><span></span></span>▶';
