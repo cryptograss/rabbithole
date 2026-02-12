@@ -48,6 +48,22 @@ export default defineConfig({
                         delete proxyRes.headers['content-security-policy'];
                     });
                 }
+            },
+            // PickiPedia assets - images, resources, extensions
+            '/images': {
+                target: 'https://pickipedia.xyz',
+                changeOrigin: true,
+                secure: true
+            },
+            '/resources': {
+                target: 'https://pickipedia.xyz',
+                changeOrigin: true,
+                secure: true
+            },
+            '/extensions': {
+                target: 'https://pickipedia.xyz',
+                changeOrigin: true,
+                secure: true
             }
         }
     }
