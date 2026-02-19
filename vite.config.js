@@ -64,6 +64,30 @@ export default defineConfig({
                 target: 'https://pickipedia.xyz',
                 changeOrigin: true,
                 secure: true
+            },
+            // MediaWiki ResourceLoader (CSS/JS)
+            '/load.php': {
+                target: 'https://pickipedia.xyz',
+                changeOrigin: true,
+                secure: true
+            },
+            // MediaWiki API
+            '/api.php': {
+                target: 'https://pickipedia.xyz',
+                changeOrigin: true,
+                secure: true
+            },
+            // MediaWiki main entry point
+            '/index.php': {
+                target: 'https://pickipedia.xyz',
+                changeOrigin: true,
+                secure: true
+            },
+            // Wiki article routes
+            '/wiki': {
+                target: 'https://pickipedia.xyz',
+                changeOrigin: true,
+                secure: true
             }
         }
     }
