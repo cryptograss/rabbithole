@@ -88,6 +88,18 @@ export default defineConfig({
                 target: 'https://pickipedia.xyz',
                 changeOrigin: true,
                 secure: true
+            },
+            // PickiPedia logo and assets
+            '/assets': {
+                target: 'https://pickipedia.xyz',
+                changeOrigin: true,
+                secure: true
+            },
+            // MediaWiki skins
+            '/skins': {
+                target: 'https://pickipedia.xyz',
+                changeOrigin: true,
+                secure: true
             }
         }
     }
