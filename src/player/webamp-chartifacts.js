@@ -619,6 +619,12 @@ class WebampChartifacts {
 
                 if (timeElapsed !== undefined) {
                     this.updateStatusDisplay(timeElapsed);
+
+                    // Notify editor callback if registered
+                    if (this._timeUpdateCallback) {
+                        const arrangement = this.getCurrentArrangement(timeElapsed);
+                        this._timeUpdateCallback(timeElapsed, arrangement);
+                    }
                 }
                 else {
                     // What here?  Throw an error?
@@ -2046,6 +2052,64 @@ class WebampChartifacts {
         this.setupTimeTracking();
 
         console.debug('DEBUG: New song loaded successfully');
+    }
+
+    /**
+     * Hot-swap timeline data without reloading the audio
+     * Used by the editor for instant preview of timing changes
+     * @param {Object} newTimeline - New timeline object
+     */
+    updateTimeline(newTimeline) {
+        console.debug('DEBUG: Hot-swapping timeline');
+
+        // Update the timeline in track data
+        this.trackData.timeline = newTimeline;
+
+        // Clear cached processed timeline so it gets recomputed
+        this._processedTimeline = null;
+        this._cachedSongParts = null;
+
+        // Reset moment tracking (don't re-fire moments that already fired)
+        // but allow moments at times we haven't reached yet to fire
+        const currentTime = this.getCurrentTime();
+        this.allMomentTimes = this.extractMomentTimes();
+        this.upcomingMomentTimes = this.allMomentTimes.filter(t => t > currentTime);
+
+        // Reinitialize musician weights based on new timeline
+        this.initializeMusicianWeights();
+
+        // Force an immediate display update
+        const arrangement = this.getCurrentArrangement(currentTime);
+        this.updateEnsembleDisplay(currentTime);
+
+        // Notify editor of the change
+        if (this._timeUpdateCallback) {
+            this._timeUpdateCallback(currentTime, arrangement);
+        }
+
+        console.debug('DEBUG: Timeline hot-swap complete');
+    }
+
+    /**
+     * Register a callback to be called on time updates
+     * @param {Function} callback - Called with (currentTime, arrangement)
+     */
+    onTimeUpdate(callback) {
+        this._timeUpdateCallback = callback;
+    }
+
+    /**
+     * Get the current arrangement at the playback position
+     * @returns {Object} Current arrangement data
+     */
+    getCurrentArrangementData() {
+        const currentTime = this.getCurrentTime();
+        return {
+            time: currentTime,
+            arrangement: this.getCurrentArrangement(currentTime),
+            solo: this.currentSolo,
+            era: this.currentEra
+        };
     }
 
     cleanup() {

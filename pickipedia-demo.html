@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>PickiPedia + Rabbithole Demo</title>
+    <link rel="stylesheet" href="/src/styles/editor.css">
     <style>
         * {
             box-sizing: border-box;
@@ -26,6 +27,14 @@
 
         .layout.minimized {
             grid-template-columns: 56px 1fr;
+        }
+
+        .layout.with-editor {
+            grid-template-columns: 320px 1fr 360px;
+        }
+
+        .layout.minimized.with-editor {
+            grid-template-columns: 56px 1fr 360px;
         }
 
         .rabbithole-sidebar {
@@ -541,6 +550,72 @@
         #webamp #playlist-window {
             display: none !important;
         }
+
+        /* Editor panel inline styles */
+        .editor-panel {
+            background: #fff;
+            border-left: 2px solid #4a7c59;
+            overflow-y: auto;
+            padding: 0;
+        }
+
+        .editor-panel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 15px;
+            background: linear-gradient(135deg, #9db89a 0%, #87a96b 100%);
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        .editor-panel-header h3 {
+            margin: 0;
+            color: white;
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        .editor-close-btn {
+            background: rgba(255,255,255,0.2);
+            border: none;
+            color: white;
+            width: 24px;
+            height: 24px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        .editor-close-btn:hover {
+            background: rgba(255,255,255,0.3);
+        }
+
+        .editor-save-section {
+            padding: 10px 15px;
+            border-top: 1px solid #eee;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        #save-status {
+            font-size: 12px;
+            color: #666;
+        }
+
+        #save-status.success {
+            color: #4a7c59;
+        }
+
+        #save-status.error {
+            color: #c00;
+        }
+
+        #keyboard-help {
+            padding: 10px 15px;
+        }
     </style>
 </head>
 <body>
@@ -593,6 +668,12 @@
                     </button>
                 </div>
 
+                <div class="toggle-row">
+                    <button id="editor-toggle-btn" class="editor-toggle-btn" onclick="toggleEditor()">
+                        Edit Timeline
+                    </button>
+                </div>
+
                 <div class="webamp-wrapper">
                     <div id="webamp-player">Loading player...</div>
                 </div>
@@ -608,6 +689,20 @@
         </div>
 
         <iframe id="pickipedia-frame" class="pickipedia-frame" src="/piki/wiki/Justin_Holmes"></iframe>
+
+        <!-- Editor Panel -->
+        <div id="editor-panel" class="editor-panel" style="display: none;">
+            <div class="editor-panel-header">
+                <h3>Timeline Editor</h3>
+                <button id="editor-close-btn" class="editor-close-btn" title="Close editor">x</button>
+            </div>
+            <div id="timeline-editor-container"></div>
+            <div class="editor-save-section">
+                <button id="save-to-wiki-btn" class="btn-save-wiki" disabled>Save to PickiPedia</button>
+                <span id="save-status"></span>
+            </div>
+            <div id="keyboard-help"></div>
+        </div>
     </div>
 
     <script type="module">
@@ -956,6 +1051,166 @@
                 document.getElementById('mini-time').textContent = mins + ':' + secs;
             }
         }, 250);
+
+        // ============================================
+        // Timeline Editor Integration
+        // ============================================
+
+        // Editor state
+        let editorInstance = null;
+        let editableData = null;
+        let keyboardShortcuts = null;
+
+        // Toggle editor panel
+        window.toggleEditor = async function() {
+            const layout = document.querySelector('.layout');
+            const panel = document.getElementById('editor-panel');
+            const btn = document.getElementById('editor-toggle-btn');
+
+            if (layout.classList.contains('with-editor')) {
+                // Close editor
+                layout.classList.remove('with-editor');
+                panel.style.display = 'none';
+                btn.classList.remove('active');
+                btn.textContent = 'Edit Timeline';
+
+                // Clean up
+                if (keyboardShortcuts) keyboardShortcuts.dispose();
+                if (editorInstance) editorInstance.dispose();
+                if (editableData) editableData.dispose();
+                editorInstance = null;
+                editableData = null;
+                keyboardShortcuts = null;
+            } else {
+                // Open editor
+                layout.classList.add('with-editor');
+                panel.style.display = 'block';
+                btn.classList.add('active');
+                btn.textContent = 'Close Editor';
+
+                // Initialize editor
+                await initializeEditor();
+            }
+        };
+
+        // Close button handler
+        document.getElementById('editor-close-btn').addEventListener('click', toggleEditor);
+
+        async function initializeEditor() {
+            // Import editor modules
+            const { EditableTrackData } = await import('/src/editor/EditableTrackData.js');
+            const { TimelineEditor } = await import('/src/editor/TimelineEditor.js');
+            const { KeyboardShortcuts } = await import('/src/editor/keyboard-shortcuts.js');
+            const { WikiSync } = await import('/src/editor/wiki-sync.js');
+
+            // Get current song data
+            const currentSong = window.songChartifactsData;
+            const recordingTitle = `${currentSong.title} (${currentSong.album})`;
+
+            // Create editable data state
+            editableData = new EditableTrackData(currentSong, {
+                recordingTitle: recordingTitle,
+                onDirtyChange: (isDirty) => {
+                    const saveBtn = document.getElementById('save-to-wiki-btn');
+                    saveBtn.disabled = !isDirty;
+                    saveBtn.textContent = isDirty ? 'Save to PickiPedia' : 'Saved';
+                }
+            });
+
+            // Create the editor UI
+            editorInstance = new TimelineEditor(
+                'timeline-editor-container',
+                editableData,
+                window.chartifactsPlayer
+            );
+
+            // Set up keyboard shortcuts
+            keyboardShortcuts = new KeyboardShortcuts(editorInstance, editableData, {
+                onSave: saveToWiki
+            });
+
+            // Add keyboard help
+            document.getElementById('keyboard-help').innerHTML = keyboardShortcuts.getHelpHTML();
+
+            // Set up save button
+            document.getElementById('save-to-wiki-btn').addEventListener('click', saveToWiki);
+        }
+
+        async function saveToWiki() {
+            if (!editableData || !editableData.isDirty) {
+                return;
+            }
+
+            const saveBtn = document.getElementById('save-to-wiki-btn');
+            const statusSpan = document.getElementById('save-status');
+
+            saveBtn.disabled = true;
+            saveBtn.classList.add('saving');
+            saveBtn.textContent = 'Saving...';
+            statusSpan.textContent = '';
+            statusSpan.className = '';
+
+            try {
+                const { WikiSync, trackDataToWikiFormat } = await import('/src/editor/wiki-sync.js');
+
+                const wikiSync = new WikiSync();
+                const currentSong = window.songChartifactsData;
+                const recordingTitle = `${currentSong.title} (${currentSong.album})`;
+
+                // Prepare data for wiki
+                const wikiData = trackDataToWikiFormat(editableData.workingData);
+
+                // Save to wiki
+                const result = await wikiSync.saveRabbitholeData(recordingTitle, wikiData, {
+                    summary: 'Update timeline data via Rabbithole Editor'
+                });
+
+                if (result.success) {
+                    editableData.markSaved();
+                    statusSpan.textContent = 'Saved!';
+                    statusSpan.className = 'success';
+                    saveBtn.textContent = 'Saved';
+                } else {
+                    throw new Error(result.error || 'Save failed');
+                }
+
+            } catch (error) {
+                console.error('Save failed:', error);
+                statusSpan.textContent = error.message;
+                statusSpan.className = 'error';
+                saveBtn.disabled = false;
+                saveBtn.textContent = 'Save to PickiPedia';
+            }
+
+            saveBtn.classList.remove('saving');
+        }
+
+        // Handle song change - reinitialize editor if open
+        const originalLoadSelectedSong = window.loadSelectedSong;
+        window.loadSelectedSong = async function() {
+            await originalLoadSelectedSong();
+
+            // If editor is open, reinitialize with new song
+            if (editorInstance) {
+                const currentSong = window.songChartifactsData;
+                const recordingTitle = `${currentSong.title} (${currentSong.album})`;
+
+                // Check for unsaved changes
+                if (editableData && editableData.isDirty) {
+                    if (!confirm('You have unsaved changes. Switch songs anyway?')) {
+                        return;
+                    }
+                }
+
+                // Clean up old editor
+                if (keyboardShortcuts) keyboardShortcuts.dispose();
+                if (editorInstance) editorInstance.dispose();
+                if (editableData) editableData.dispose();
+
+                // Reinitialize
+                await initializeEditor();
+            }
+        };
     </script>
 </body>
 </html>
