@@ -497,6 +497,13 @@
         #clear-cache-btn:hover {
             background: #2d5016;
         }
+
+        .privacy-notice {
+            font-size: 9px;
+            color: #4a7c59;
+            margin-top: 4px;
+            font-style: italic;
+        }
     </style>
 
     <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@400..700&family=VT323&display=swap" rel="stylesheet">
@@ -566,6 +573,7 @@
         <div class="upload-section">
             <label for="audio-file-input">Load local audio:</label>
             <input type="file" id="audio-file-input" accept="audio/*">
+            <div class="privacy-notice">100% local playback – no uploads, no tracking</div>
             <div id="cache-status">
                 <span id="cache-indicator"></span>
                 <button id="clear-cache-btn">Clear</button>
