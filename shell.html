@@ -1,0 +1,813 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rabbithole</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@500&family=VT323&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            background: #f5f5f0;
+            color: #333;
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+            height: 100vh;
+            display: grid;
+            grid-template-columns: 320px 1fr;
+            grid-template-rows: 1fr;
+            overflow: hidden;
+        }
+
+        body.collapsed { grid-template-columns: 56px 1fr; }
+
+        /* --- Sidebar --- */
+        .sidebar {
+            display: flex;
+            flex-direction: column;
+            background: #fff;
+            border-right: 2px solid #4a7c59;
+            box-shadow: 2px 0 10px rgba(0,0,0,0.08);
+            overflow: hidden;
+            min-width: 0;
+            z-index: 10;
+        }
+
+        .sidebar-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 12px;
+            background: linear-gradient(135deg, #9db89a 0%, #87a96b 100%);
+            border-bottom: 2px solid #4a7c59;
+            cursor: pointer;
+            user-select: none;
+            flex-shrink: 0;
+        }
+
+        .sidebar-header .logo {
+            font-family: 'VT323', monospace;
+            font-size: 20px;
+            color: #2d5016;
+            letter-spacing: 2px;
+        }
+
+        .sidebar-header .tagline {
+            font-family: 'Caveat', cursive;
+            font-size: 12px;
+            color: #2d5016;
+            opacity: 0.7;
+        }
+
+        body.collapsed .sidebar-header .logo,
+        body.collapsed .sidebar-header .tagline { display: none; }
+
+        .sidebar-header .arrow {
+            margin-left: auto;
+            font-size: 14px;
+            color: #2d5016;
+            transition: transform 0.2s;
+        }
+
+        body.collapsed .sidebar-header .arrow { transform: rotate(180deg); }
+
+        /* --- Video player --- */
+        .video-container {
+            position: relative;
+            background: #000;
+            flex-shrink: 0;
+        }
+
+        body.collapsed .video-container { display: none; }
+
+        .video-container video {
+            width: 100%;
+            display: block;
+            max-height: 200px;
+            object-fit: contain;
+        }
+
+        .video-info {
+            padding: 5px 12px;
+            background: linear-gradient(to top, rgba(0,0,0,0.7), rgba(0,0,0,0));
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+        }
+
+        .video-info .title {
+            font-family: 'Caveat', cursive;
+            font-size: 16px;
+            font-weight: 500;
+            color: #fff;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        body.collapsed .video-info { display: none; }
+
+        /* --- Transport --- */
+        .transport {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            padding: 6px 10px;
+            flex-shrink: 0;
+            background: #f0ede4;
+            border-bottom: 1px solid #ddd;
+        }
+
+        body.collapsed .transport {
+            flex-direction: column;
+            padding: 8px 4px;
+            gap: 6px;
+        }
+
+        .transport button {
+            background: #fff;
+            border: 1px solid #4a7c59;
+            color: #2d5016;
+            padding: 4px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 13px;
+            transition: background 0.15s;
+        }
+
+        .transport button:hover { background: #e8f0e4; }
+        .transport button:disabled { opacity: 0.3; cursor: default; }
+
+        .transport .position {
+            flex: 1;
+            text-align: center;
+            font-family: 'VT323', monospace;
+            font-size: 14px;
+            color: #666;
+        }
+
+        .transport .position span { color: #2d5016; }
+
+        body.collapsed .transport .position { display: none; }
+
+        .pip-btn {
+            background: #fff;
+            border: 1px solid #4a7c59;
+            color: #2d5016;
+            padding: 4px 8px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 13px;
+        }
+
+        .pip-btn:hover { background: #e8f0e4; }
+
+        /* --- Playlist & catalog --- */
+        .playlist-section {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        body.collapsed .playlist-section { display: none; }
+
+        .section-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 6px 12px;
+            background: #fafaf5;
+            border-bottom: 1px solid #e0e0d8;
+            cursor: pointer;
+            user-select: none;
+            flex-shrink: 0;
+        }
+
+        .section-header h3 {
+            font-family: 'VT323', monospace;
+            font-size: 14px;
+            font-weight: 400;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #4a7c59;
+        }
+
+        .section-header .toggle { font-size: 10px; color: #87a96b; }
+
+        .playlist-list, .catalog-list {
+            overflow-y: auto;
+        }
+
+        .playlist-list { max-height: 40%; }
+        .catalog-list { flex: 1; overflow-y: auto; }
+
+        .playlist-item, .catalog-item {
+            display: flex;
+            align-items: center;
+            padding: 5px 12px;
+            gap: 8px;
+            cursor: pointer;
+            border-bottom: 1px solid #f0f0ea;
+            transition: background 0.15s;
+        }
+
+        .playlist-item:hover, .catalog-item:hover { background: #f5f8f2; }
+        .playlist-item.active { background: rgba(74, 124, 89, 0.1); }
+
+        .playlist-item .index {
+            width: 20px;
+            text-align: center;
+            font-family: 'VT323', monospace;
+            font-size: 14px;
+            color: #999;
+            flex-shrink: 0;
+        }
+
+        .playlist-item.active .index { color: #4a7c59; }
+
+        .playlist-item .info, .catalog-item .info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .playlist-item .info .name, .catalog-item .info .name {
+            font-size: 12px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            color: #333;
+        }
+
+        .playlist-item.active .info .name { color: #2d5016; font-weight: 600; }
+
+        .type-badge {
+            display: inline-block;
+            font-family: 'VT323', monospace;
+            font-size: 11px;
+            padding: 0px 4px;
+            border-radius: 2px;
+            background: #e8f0e4;
+            color: #4a7c59;
+        }
+
+        .remove-btn {
+            background: none;
+            border: none;
+            color: #bbb;
+            cursor: pointer;
+            font-size: 14px;
+            padding: 1px 4px;
+            border-radius: 2px;
+            flex-shrink: 0;
+        }
+
+        .remove-btn:hover { color: #c0392b; background: rgba(192,57,43,0.1); }
+
+        .catalog-item.in-playlist { opacity: 0.35; }
+
+        .add-btn {
+            background: #fff;
+            border: 1px solid #4a7c59;
+            color: #4a7c59;
+            cursor: pointer;
+            font-size: 10px;
+            padding: 2px 8px;
+            border-radius: 3px;
+            flex-shrink: 0;
+            font-weight: 600;
+        }
+
+        .add-btn:hover { background: #e8f0e4; }
+        .catalog-item.in-playlist .add-btn { display: none; }
+
+        .catalog-search {
+            flex: 1;
+            background: #fff;
+            border: 1px solid #ccc;
+            border-radius: 3px;
+            padding: 3px 6px;
+            color: #333;
+            font-size: 11px;
+            outline: none;
+            max-width: 150px;
+        }
+
+        .catalog-search:focus { border-color: #4a7c59; }
+
+        .empty-state {
+            text-align: center;
+            padding: 16px;
+            color: #999;
+            font-size: 12px;
+            font-style: italic;
+        }
+
+        .collapsed-section .playlist-list,
+        .collapsed-section .catalog-list,
+        .collapsed-section .catalog-search { display: none; }
+
+        /* --- Main content (wiki) --- */
+        .main-content {
+            position: relative;
+            overflow: hidden;
+        }
+
+        .wiki-frame {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            border: none;
+            background: #fff;
+        }
+    </style>
+</head>
+<body>
+
+<!-- Sidebar: player + playlist -->
+<div class="sidebar">
+    <div class="sidebar-header" id="sidebarToggle">
+        <span class="logo">RABBITHOLE</span>
+        <span class="tagline">follow the music</span>
+        <span class="arrow">&#x25C0;</span>
+    </div>
+
+    <div class="video-container">
+        <video id="video" playsinline></video>
+        <div class="video-info">
+            <div class="title" id="nowTitle">No video selected</div>
+        </div>
+    </div>
+
+    <div class="transport">
+        <button id="prevBtn" title="Previous" disabled>&#x23EE;</button>
+        <button id="playBtn" title="Play/Pause">&#x25B6;</button>
+        <button id="nextBtn" title="Next" disabled>&#x23ED;</button>
+        <div class="position"><span id="currentIndex">-</span> / <span id="totalCount">0</span></div>
+        <button class="pip-btn" id="pipBtn" title="Picture-in-Picture">&#x1F5D7;</button>
+    </div>
+
+    <div class="playlist-section">
+        <div id="playlistSection">
+            <div class="section-header" id="playlistHeader">
+                <h3>Playlist (<span id="playlistCount">0</span>)</h3>
+                <span class="toggle">&#x25BC;</span>
+            </div>
+            <div class="playlist-list" id="playlistList">
+                <div class="empty-state">Add from catalog or from Release pages</div>
+            </div>
+        </div>
+
+        <div id="catalogSection" style="display:flex;flex-direction:column;flex:1;min-height:0;">
+            <div class="section-header" id="catalogHeader">
+                <h3>Releases</h3>
+                <input type="text" class="catalog-search" id="catalogSearch" placeholder="Filter...">
+            </div>
+            <div class="catalog-list" id="catalogList">
+                <div class="empty-state">Loading...</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Main content: wiki in full iframe -->
+<div class="main-content">
+    <iframe class="wiki-frame" id="wikiFrame" src="/wiki/Main_Page"></iframe>
+</div>
+
+<script>
+const GATEWAY = 'https://ipfs.delivery-kid.cryptograss.live/ipfs';
+const API = '/api-proxy';
+
+// =====================
+// State
+// =====================
+let catalog = [];
+let playlist = [];
+let currentIdx = -1;
+let hls = null;
+let navHistory = ['/wiki/Main_Page'];
+let navPos = 0;
+let suppressNavTracking = false;
+
+// =====================
+// DOM refs
+// =====================
+const video = document.getElementById('video');
+const playBtn = document.getElementById('playBtn');
+const prevBtn = document.getElementById('prevBtn');
+const nextBtn = document.getElementById('nextBtn');
+const pipBtn = document.getElementById('pipBtn');
+const nowTitle = document.getElementById('nowTitle');
+const currentIndexEl = document.getElementById('currentIndex');
+const totalCountEl = document.getElementById('totalCount');
+const playlistList = document.getElementById('playlistList');
+const playlistCount = document.getElementById('playlistCount');
+const catalogList = document.getElementById('catalogList');
+const catalogSearch = document.getElementById('catalogSearch');
+const wikiFrame = document.getElementById('wikiFrame');
+
+// =====================
+// Video helpers
+// =====================
+function videoUrl(release) {
+    const cid = release.ipfs_cid;
+    return release.file_type === 'video/hls'
+        ? `${GATEWAY}/${cid}/master.m3u8`
+        : `${GATEWAY}/${cid}`;
+}
+
+function formatType(ft) {
+    return ft ? ft.replace('video/', '').toUpperCase() : '?';
+}
+
+function destroyHls() {
+    if (hls) { hls.destroy(); hls = null; }
+}
+
+function loadSource(release) {
+    destroyHls();
+    const url = videoUrl(release);
+    if (release.file_type === 'video/hls' && Hls.isSupported()) {
+        hls = new Hls({ maxBufferLength: 30, maxMaxBufferLength: 60 });
+        hls.loadSource(url);
+        hls.attachMedia(video);
+        hls.on(Hls.Events.MANIFEST_PARSED, () => video.play());
+        hls.on(Hls.Events.ERROR, (_, data) => {
+            if (data.fatal && data.type === Hls.ErrorTypes.NETWORK_ERROR) hls.startLoad();
+            else if (data.fatal) destroyHls();
+        });
+    } else {
+        video.src = url;
+        video.addEventListener('loadedmetadata', () => video.play(), { once: true });
+    }
+}
+
+// =====================
+// Playback
+// =====================
+function playCurrent() {
+    if (currentIdx < 0 || currentIdx >= playlist.length) return;
+    const release = playlist[currentIdx];
+    loadSource(release);
+    nowTitle.textContent = release.title || release.page_title || 'Untitled';
+    updateTransport();
+    renderPlaylist();
+}
+
+function updateTransport() {
+    prevBtn.disabled = currentIdx <= 0;
+    nextBtn.disabled = currentIdx >= playlist.length - 1;
+    currentIndexEl.textContent = playlist.length > 0 ? currentIdx + 1 : '-';
+    totalCountEl.textContent = playlist.length;
+    playlistCount.textContent = playlist.length;
+}
+
+// =====================
+// Playlist operations
+// =====================
+function addToPlaylist(release) {
+    if (playlist.some(r => r.ipfs_cid === release.ipfs_cid)) return;
+    playlist.push(release);
+    if (playlist.length === 1) { currentIdx = 0; playCurrent(); }
+    else { updateTransport(); renderPlaylist(); }
+    renderCatalog();
+}
+
+function addToPlaylistByCid(cid, title, fileType) {
+    // Try to find in catalog first
+    let release = catalog.find(r => r.ipfs_cid.toLowerCase() === cid.toLowerCase());
+    if (!release) {
+        // Create a minimal release object
+        release = {
+            ipfs_cid: cid,
+            title: title || 'Untitled',
+            file_type: fileType || 'video/webm',
+            pinned_on: ['delivery-kid']
+        };
+    }
+    addToPlaylist(release);
+}
+
+function removeFromPlaylist(idx) {
+    if (idx < 0 || idx >= playlist.length) return;
+    const wasPlaying = idx === currentIdx;
+    playlist.splice(idx, 1);
+    if (playlist.length === 0) {
+        currentIdx = -1;
+        destroyHls();
+        video.removeAttribute('src'); video.load();
+        nowTitle.textContent = 'No video selected';
+    } else if (wasPlaying) {
+        currentIdx = Math.min(idx, playlist.length - 1);
+        playCurrent();
+    } else if (idx < currentIdx) {
+        currentIdx--;
+    }
+    updateTransport(); renderPlaylist(); renderCatalog();
+}
+
+// =====================
+// Rendering
+// =====================
+function renderPlaylist() {
+    if (playlist.length === 0) {
+        playlistList.innerHTML = '<div class="empty-state">Add from catalog or from Release pages</div>';
+        return;
+    }
+    playlistList.innerHTML = playlist.map((r, i) => `
+        <div class="playlist-item ${i === currentIdx ? 'active' : ''}" data-idx="${i}">
+            <div class="index">${i === currentIdx ? '&#x25B6;' : i + 1}</div>
+            <div class="info">
+                <div class="name">${r.title || r.page_title || 'Untitled'}</div>
+            </div>
+            <span class="type-badge">${formatType(r.file_type)}</span>
+            <button class="remove-btn" data-remove="${i}" title="Remove">&times;</button>
+        </div>
+    `).join('');
+
+    playlistList.querySelectorAll('.playlist-item').forEach(el => {
+        el.addEventListener('click', (e) => {
+            if (e.target.closest('.remove-btn')) return;
+            const idx = parseInt(el.dataset.idx);
+            if (idx !== currentIdx) { currentIdx = idx; playCurrent(); }
+        });
+    });
+    playlistList.querySelectorAll('.remove-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            removeFromPlaylist(parseInt(btn.dataset.remove));
+        });
+    });
+}
+
+function renderCatalog(filter = '') {
+    const term = filter.toLowerCase();
+    const filtered = catalog.filter(r =>
+        (r.title || r.page_title || '').toLowerCase().includes(term)
+    );
+    if (filtered.length === 0) {
+        catalogList.innerHTML = '<div class="empty-state">No matching releases</div>';
+        return;
+    }
+    const inPl = new Set(playlist.map(r => r.ipfs_cid));
+    catalogList.innerHTML = filtered.map(r => {
+        const added = inPl.has(r.ipfs_cid);
+        return `
+            <div class="catalog-item ${added ? 'in-playlist' : ''}" data-cid="${r.ipfs_cid}">
+                <div class="info"><div class="name">${r.title || r.page_title || 'Untitled'}</div></div>
+                <span class="type-badge">${formatType(r.file_type)}</span>
+                <button class="add-btn">${added ? 'Added' : '+ Add'}</button>
+            </div>`;
+    }).join('');
+
+    catalogList.querySelectorAll('.catalog-item:not(.in-playlist)').forEach(el => {
+        el.addEventListener('click', () => {
+            const release = catalog.find(r => r.ipfs_cid === el.dataset.cid);
+            if (release) addToPlaylist(release);
+        });
+    });
+}
+
+// =====================
+// Wiki iframe navigation + injection
+// =====================
+function navigateWiki(path) {
+    wikiFrame.src = path;
+}
+
+wikiFrame.addEventListener('load', () => {
+    try {
+        const iframePath = wikiFrame.contentWindow.location.pathname
+            + wikiFrame.contentWindow.location.search;
+
+        // Update browser URL via History API
+        const shellUrl = '/shell.html#' + iframePath;
+        if (!suppressNavTracking) {
+            history.replaceState({ wikiPath: iframePath }, '', shellUrl);
+            if (navHistory[navPos] !== iframePath) {
+                navHistory = navHistory.slice(0, navPos + 1);
+                navHistory.push(iframePath);
+                navPos = navHistory.length - 1;
+            }
+        }
+        suppressNavTracking = false;
+
+        // Stabilize video player layout + inject "Add to Rabbithole" on Release pages
+        stabilizeVideoLayout();
+        injectReleaseButton();
+    } catch (e) {
+        console.warn('Could not read iframe URL:', e);
+    }
+});
+
+function stabilizeVideoLayout() {
+    try {
+        const doc = wikiFrame.contentDocument;
+        if (!doc) return;
+        // PickiPedia's Common.js HLS player tries HLS first, fails on raw video files,
+        // then destroys the video element and creates a new one (fallbackToDirectVideo).
+        // This DOM thrash causes Firefox to jitter the layout by ~20px.
+        // Fix: give the container a stable size via contain:layout and aspect-ratio.
+        if (doc.getElementById('rabbithole-layout-fix')) return;
+        const style = doc.createElement('style');
+        style.id = 'rabbithole-layout-fix';
+        style.textContent = `
+            .hls-video-player {
+                contain: layout;
+                min-height: 200px;
+            }
+            .hls-video-player video {
+                aspect-ratio: 16/9;
+            }
+            .smw-entity-examiner.smw-indicator-vertical-bar-loader {
+                display: none !important;
+            }
+        `;
+        doc.head.appendChild(style);
+    } catch (e) { /* cross-origin, ignore */ }
+}
+
+function injectReleaseButton() {
+    try {
+        const doc = wikiFrame.contentDocument;
+        if (!doc) return;
+
+        // Find the HLS video player div that Release pages have
+        const playerDiv = doc.querySelector('.hls-video-player[data-cid]');
+        if (!playerDiv) return;
+
+        const cid = playerDiv.getAttribute('data-cid');
+        const titleEl = doc.querySelector('.release-title');
+        const title = titleEl ? titleEl.textContent.trim() : 'Untitled';
+
+        // Determine file type from the metadata table
+        let fileType = 'video/webm';
+        const fileInfoCell = doc.querySelector('.release-metadata td');
+        if (fileInfoCell) {
+            const allCells = doc.querySelectorAll('.release-metadata td');
+            allCells.forEach(cell => {
+                const text = cell.textContent;
+                if (text.match(/video\/(mp4|webm|mov|hls)/)) {
+                    fileType = text.match(/video\/(mp4|webm|mov|hls)/)[0];
+                }
+            });
+        }
+
+        // Check if already in playlist
+        const alreadyAdded = playlist.some(r => r.ipfs_cid.toLowerCase() === cid.toLowerCase());
+
+        // Create the button
+        const btn = doc.createElement('button');
+        btn.textContent = alreadyAdded ? '✓ In Rabbithole playlist' : '🐇 Add to Rabbithole';
+        btn.style.cssText = `
+            display: block;
+            margin: 10px 0;
+            padding: 8px 16px;
+            background: ${alreadyAdded ? '#e8f0e4' : 'linear-gradient(135deg, #9db89a 0%, #87a96b 100%)'};
+            color: ${alreadyAdded ? '#4a7c59' : '#2d5016'};
+            border: 2px solid #4a7c59;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: ${alreadyAdded ? 'default' : 'pointer'};
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+            transition: opacity 0.15s;
+        `;
+
+        if (!alreadyAdded) {
+            btn.addEventListener('click', () => {
+                window.parent.postMessage({
+                    type: 'rabbithole:add',
+                    cid: cid,
+                    title: title,
+                    fileType: fileType
+                }, '*');
+                btn.textContent = '✓ In Rabbithole playlist';
+                btn.style.background = '#e8f0e4';
+                btn.style.cursor = 'default';
+            });
+            btn.addEventListener('mouseenter', () => btn.style.opacity = '0.85');
+            btn.addEventListener('mouseleave', () => btn.style.opacity = '1');
+        }
+
+        // Insert before the video player
+        playerDiv.parentNode.insertBefore(btn, playerDiv);
+
+    } catch (e) {
+        // Silently fail
+    }
+}
+
+// Listen for postMessage from iframe (Release pages)
+window.addEventListener('message', (event) => {
+    if (event.data && event.data.type === 'rabbithole:add') {
+        addToPlaylistByCid(event.data.cid, event.data.title, event.data.fileType);
+    }
+});
+
+// Browser back/forward
+window.addEventListener('popstate', (event) => {
+    if (event.state && event.state.wikiPath) {
+        suppressNavTracking = true;
+        navigateWiki(event.state.wikiPath);
+    }
+});
+
+// =====================
+// On initial load, check hash for deep link
+// =====================
+function initWikiFromHash() {
+    const hash = location.hash;
+    if (hash && hash.length > 1) {
+        const path = hash.slice(1);
+        navHistory = [path];
+        navPos = 0;
+        navigateWiki(path);
+    }
+}
+
+// =====================
+// Player events
+// =====================
+playBtn.addEventListener('click', () => video.paused ? video.play() : video.pause());
+video.addEventListener('play', () => playBtn.textContent = '\u23F8');
+video.addEventListener('pause', () => playBtn.textContent = '\u25B6');
+video.addEventListener('ended', () => {
+    if (currentIdx < playlist.length - 1) { currentIdx++; playCurrent(); }
+});
+prevBtn.addEventListener('click', () => { if (currentIdx > 0) { currentIdx--; playCurrent(); } });
+nextBtn.addEventListener('click', () => { if (currentIdx < playlist.length - 1) { currentIdx++; playCurrent(); } });
+
+pipBtn.addEventListener('click', async () => {
+    try {
+        if (document.pictureInPictureElement) await document.exitPictureInPicture();
+        else await video.requestPictureInPicture();
+    } catch (err) { console.error('PiP error:', err); }
+});
+
+// Sidebar toggle
+document.getElementById('sidebarToggle').addEventListener('click', () => {
+    document.body.classList.toggle('collapsed');
+});
+
+// Section collapse
+document.getElementById('playlistHeader').addEventListener('click', () => {
+    document.getElementById('playlistSection').classList.toggle('collapsed-section');
+});
+document.getElementById('catalogHeader').addEventListener('click', (e) => {
+    if (e.target === catalogSearch) return;
+    document.getElementById('catalogSection').classList.toggle('collapsed-section');
+});
+
+catalogSearch.addEventListener('input', () => renderCatalog(catalogSearch.value));
+
+// Keyboard shortcuts (only when outer document is focused, not iframe)
+document.addEventListener('keydown', (e) => {
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+    switch (e.key) {
+        case ' ': e.preventDefault(); playBtn.click(); break;
+        case 'ArrowLeft':
+            if (e.shiftKey) prevBtn.click();
+            else video.currentTime = Math.max(0, video.currentTime - 10);
+            break;
+        case 'ArrowRight':
+            if (e.shiftKey) nextBtn.click();
+            else video.currentTime += 10;
+            break;
+        case 'p': pipBtn.click(); break;
+    }
+});
+
+// =====================
+// Init
+// =====================
+async function init() {
+    try {
+        const resp = await fetch(`${API}?action=releaselist&filter=ipfs&format=json&origin=*`);
+        const data = await resp.json();
+        catalog = (data.releases || []).filter(r => {
+            const ft = r.file_type || '';
+            const pinned = r.pinned_on || [];
+            return ft.startsWith('video/') && pinned.includes('delivery-kid');
+        }).sort((a, b) => {
+            const at = (a.title || a.page_title || '').toLowerCase();
+            const bt = (b.title || b.page_title || '').toLowerCase();
+            return at.localeCompare(bt);
+        });
+        renderCatalog();
+    } catch (err) {
+        catalogList.innerHTML = `<div class="empty-state">Failed: ${err.message}</div>`;
+    }
+    initWikiFromHash();
+}
+
+init();
+</script>
+</body>
+</html>
