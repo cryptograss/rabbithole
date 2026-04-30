@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>PickiPedia + Rabbithole Demo</title>
     <script src="https://cdn.jsdelivr.net/npm/js-yaml@4.1.0/dist/js-yaml.min.js"></script>
-    <link rel="stylesheet" href="/src/styles/editor.css">
+    <link rel="stylesheet" href="./src/styles/editor.css">
     <style>
         * {
             box-sizing: border-box;
@@ -623,7 +623,7 @@
     <div class="layout">
         <div class="rabbithole-sidebar">
             <div class="rabbithole-header" id="rabbithole-header">
-                <img src="/src/images/rabbit.png" alt="Rabbithole" onclick="if(document.querySelector('.layout').classList.contains('minimized')) toggleSidebar()" style="cursor: pointer;">
+                <img src="./src/images/rabbit.png" alt="Rabbithole" onclick="if(document.querySelector('.layout').classList.contains('minimized')) toggleSidebar()" style="cursor: pointer;">
                 <h1>rabbithole</h1>
                 <span class="alpha">ALPHA5</span>
                 <button class="minimize-btn" onclick="toggleSidebar()" title="Minimize/Maximize">
@@ -963,7 +963,7 @@
         }
 
         // Initialize player
-        const { default: WebampChartifacts } = await import('/src/player/webamp-chartifacts.js');
+        const { default: WebampChartifacts } = await import('./src/player/webamp-chartifacts.js');
 
         window.chartifactsPlayer = new WebampChartifacts('webamp-player', window.songChartifactsData, {
             embedMode: false,
@@ -1176,10 +1176,10 @@
 
         async function initializeEditor() {
             // Import editor modules
-            const { EditableTrackData } = await import('/src/editor/EditableTrackData.js');
-            const { TimelineEditor } = await import('/src/editor/TimelineEditor.js');
-            const { KeyboardShortcuts } = await import('/src/editor/keyboard-shortcuts.js');
-            const { WikiSync } = await import('/src/editor/wiki-sync.js');
+            const { EditableTrackData } = await import('./src/editor/EditableTrackData.js');
+            const { TimelineEditor } = await import('./src/editor/TimelineEditor.js');
+            const { KeyboardShortcuts } = await import('./src/editor/keyboard-shortcuts.js');
+            const { WikiSync } = await import('./src/editor/wiki-sync.js');
 
             // Get current song data
             const currentSong = window.songChartifactsData;
@@ -1282,7 +1282,7 @@
                 } else {
                     // Local dev / standalone demo path — write to the legacy
                     // Recording:Song (Album)/Rabbithole subpage.
-                    const { WikiSync, trackDataToWikiFormat } = await import('/src/editor/wiki-sync.js');
+                    const { WikiSync, trackDataToWikiFormat } = await import('./src/editor/wiki-sync.js');
                     const wikiSync = new WikiSync();
                     const recordingTitle = `${currentSong.title} (${currentSong.album})`;
                     const wikiData = trackDataToWikiFormat(editableData.workingData);
