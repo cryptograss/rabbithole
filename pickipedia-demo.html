@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>PickiPedia + Rabbithole Demo</title>
+    <script src="https://cdn.jsdelivr.net/npm/js-yaml@4.1.0/dist/js-yaml.min.js"></script>
     <link rel="stylesheet" href="/src/styles/editor.css">
     <style>
         * {
@@ -688,7 +689,7 @@
             </div>
         </div>
 
-        <iframe id="pickipedia-frame" class="pickipedia-frame" src="/piki/wiki/Justin_Holmes"></iframe>
+        <iframe id="pickipedia-frame" class="pickipedia-frame" src="/wiki/Justin_Holmes"></iframe>
 
         <!-- Editor Panel -->
         <div id="editor-panel" class="editor-panel" style="display: none;">
@@ -851,13 +852,90 @@
         };
         Object.values(songs).forEach(song => { song.colorScheme = defaultColorScheme; });
 
-        window.songChartifactsData = songs['august'];
+        // If a ?track={cid} URL param is present, fetch the track's data from
+        // the wiki and use that as the active song. This is the production
+        // entry point: pickipedia's Release pages link here with their CID,
+        // e.g. /rabbithole/pickipedia-demo.html?track=QmS3QEZF...
+        //
+        // Falls back to the hardcoded `songs['august']` when no param is
+        // present (preserves the standalone demo for local dev).
+        const IPFS_GATEWAY = 'https://ipfs.delivery-kid.cryptograss.live';
+
+        async function fetchYamlPage(title) {
+            const params = new URLSearchParams({
+                action: 'query',
+                titles: title,
+                prop: 'revisions',
+                rvprop: 'content',
+                rvslots: 'main',
+                format: 'json',
+                origin: '*'
+            });
+            const r = await fetch('/api.php?' + params);
+            const j = await r.json();
+            const page = Object.values(j.query?.pages || {})[0];
+            if (!page || page.missing !== undefined) return null;
+            const text = page.revisions?.[0]?.slots?.main?.['*'] || '';
+            return jsYaml.load(text) || {};
+        }
+
+        async function loadTrackFromWiki(cid) {
+            const trackData = await fetchYamlPage('Release:' + cid);
+            if (!trackData) {
+                throw new Error('Track Release page not found: ' + cid);
+            }
+            const metadataData = await fetchYamlPage('Release:' + cid + '/Metadata') || {};
+
+            const oggCid = trackData.encodings?.ogg;
+            if (!oggCid) {
+                throw new Error('Track has no OGG encoding for playback');
+            }
+
+            return {
+                title: trackData.title || cid,
+                album: trackData.parent_release || '',
+                duration: trackData.duration || 180,
+                audioFile: IPFS_GATEWAY + '/ipfs/' + oggCid,
+                ensemble: metadataData.ensemble || {},
+                timeline: metadataData.timeline || {},
+                standardSectionLength: metadataData.standardSectionLength,
+                _trackCid: cid,
+                _metadataTitle: 'Release:' + cid + '/Metadata'
+            };
+        }
+
+        // jsyaml is loaded as a UMD global from the <script> tag in <head>.
+        const jsYaml = window.jsyaml;
+
+        const trackParam = new URLSearchParams(window.location.search).get('track');
+        if (trackParam) {
+            try {
+                const wikiSong = await loadTrackFromWiki(trackParam);
+                wikiSong.colorScheme = defaultColorScheme;
+                songs[trackParam] = wikiSong;
+                window.songChartifactsData = wikiSong;
+                // Hide the song selector — we're locked to one track in this mode.
+                const selector = document.getElementById('song-selector');
+                if (selector) selector.style.display = 'none';
+                // Park the right pane on this track's /Metadata page.
+                document.getElementById('pickipedia-frame').src =
+                    '/wiki/' + wikiSong._metadataTitle;
+            } catch (err) {
+                console.error('Failed to load track from wiki:', err);
+                document.getElementById('webamp-player').innerHTML =
+                    '<p style="padding:1em;color:#a00">Could not load track ' +
+                    trackParam + ': ' + err.message + '</p>';
+                window.songChartifactsData = songs['august'];
+            }
+        } else {
+            window.songChartifactsData = songs['august'];
+        }
         window.allSongs = songs;
 
         // Navigate to musician's PickiPedia page
         window.navigateToMusician = function(musicianName) {
             const slug = musicianName.replace(/\s+/g, '_');
-            document.getElementById('pickipedia-frame').src = '/piki/wiki/' + slug;
+            document.getElementById('pickipedia-frame').src = '/wiki/' + slug;
         };
 
         // Load selected song
@@ -1151,27 +1229,74 @@
             statusSpan.className = '';
 
             try {
-                const { WikiSync, trackDataToWikiFormat } = await import('/src/editor/wiki-sync.js');
-
-                const wikiSync = new WikiSync();
                 const currentSong = window.songChartifactsData;
-                const recordingTitle = `${currentSong.title} (${currentSong.album})`;
 
-                // Prepare data for wiki
-                const wikiData = trackDataToWikiFormat(editableData.workingData);
+                // If this song was loaded via ?track= URL param, write back
+                // to its Release:Qm.../Metadata page using plain YAML and the
+                // recording-metadata-yaml content model. Same-origin with
+                // pickipedia.xyz, so the user's session cookie + CSRF token
+                // dance just works.
+                if (currentSong._metadataTitle) {
+                    const yamlBody = jsYaml.dump({
+                        timeline: editableData.workingData.timeline || {},
+                        ensemble: editableData.workingData.ensemble || {},
+                        ...(editableData.workingData.standardSectionLength != null
+                            ? { standardSectionLength: editableData.workingData.standardSectionLength }
+                            : {}),
+                        ...(currentSong.title ? { title: currentSong.title } : {})
+                    }, { sortKeys: false, lineWidth: 120 });
 
-                // Save to wiki
-                const result = await wikiSync.saveRabbitholeData(recordingTitle, wikiData, {
-                    summary: 'Update timeline data via Rabbithole Editor'
-                });
+                    const tokRes = await fetch(
+                        '/api.php?action=query&meta=tokens&format=json',
+                        { credentials: 'include' }
+                    );
+                    const tokJson = await tokRes.json();
+                    const csrf = tokJson.query?.tokens?.csrftoken;
+                    if (!csrf || csrf === '+\\') {
+                        throw new Error('Not logged in to PickiPedia.');
+                    }
 
-                if (result.success) {
+                    const editParams = new URLSearchParams({
+                        action: 'edit',
+                        title: currentSong._metadataTitle,
+                        text: yamlBody,
+                        summary: 'Update timeline data via Rabbithole Editor',
+                        token: csrf,
+                        contentmodel: 'recording-metadata-yaml',
+                        format: 'json'
+                    });
+                    const r = await fetch('/api.php', {
+                        method: 'POST',
+                        body: editParams,
+                        credentials: 'include'
+                    });
+                    const j = await r.json();
+                    if (j.error) {
+                        throw new Error(j.error.info || j.error.code);
+                    }
                     editableData.markSaved();
                     statusSpan.textContent = 'Saved!';
                     statusSpan.className = 'success';
                     saveBtn.textContent = 'Saved';
+
                 } else {
-                    throw new Error(result.error || 'Save failed');
+                    // Local dev / standalone demo path — write to the legacy
+                    // Recording:Song (Album)/Rabbithole subpage.
+                    const { WikiSync, trackDataToWikiFormat } = await import('/src/editor/wiki-sync.js');
+                    const wikiSync = new WikiSync();
+                    const recordingTitle = `${currentSong.title} (${currentSong.album})`;
+                    const wikiData = trackDataToWikiFormat(editableData.workingData);
+                    const result = await wikiSync.saveRabbitholeData(recordingTitle, wikiData, {
+                        summary: 'Update timeline data via Rabbithole Editor'
+                    });
+                    if (result.success) {
+                        editableData.markSaved();
+                        statusSpan.textContent = 'Saved!';
+                        statusSpan.className = 'success';
+                        saveBtn.textContent = 'Saved';
+                    } else {
+                        throw new Error(result.error || 'Save failed');
+                    }
                 }
 
             } catch (error) {
