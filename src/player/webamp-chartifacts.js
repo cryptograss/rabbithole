@@ -1718,9 +1718,31 @@ class WebampChartifacts {
                 musicianDiv.style.zIndex = '';
                 // Don't clear transform - keep it at scale(1.05) for solo state
                 musicianDiv.style.transformOrigin = '';
+
+                // Defensive: a spotlight that gets interrupted (rapid solo
+                // changes, navigation, hot-swap of timeline) can leave the
+                // card with display:none / opacity:0 / visibility:hidden
+                // from a fade-out that never paired with a fade-in. Force
+                // visibility back to defaults — the regular update loop
+                // paints state via classes, not inline display/opacity.
+                musicianDiv.style.display = '';
+                musicianDiv.style.visibility = '';
+                if (musicianDiv.style.opacity === '0' ||
+                    musicianDiv.style.opacity === '0.08' ||
+                    musicianDiv.style.opacity === '0.1') {
+                    musicianDiv.style.opacity = '';
+                }
+
                 Object.entries(this.trackData.ensemble).forEach(([name]) => {
                     const div = document.getElementById(`musician-${name.replace(/\s+/g, '-').toLowerCase()}`);
-                    if (div) div.style.transition = '';
+                    if (div) {
+                        div.style.transition = '';
+                        // Same defensive clearing for non-spotlighted cards
+                        // whose opacity transitions might have been interrupted.
+                        if (div.style.opacity === '0.08' || div.style.opacity === '0.1') {
+                            div.style.opacity = '';
+                        }
+                    }
                 });
                 elementsToFade.forEach(el => {
                     el.style.transition = '';
