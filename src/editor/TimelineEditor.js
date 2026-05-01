@@ -198,11 +198,17 @@ export class TimelineEditor {
      */
     _applyRawYaml(yamlStr, errorDiv) {
         try {
-            const parsed = jsYaml.load(yamlStr);
+            const rawParsed = jsYaml.load(yamlStr);
 
-            if (typeof parsed !== 'object' || parsed === null) {
+            if (typeof rawParsed !== 'object' || rawParsed === null) {
                 throw new Error('YAML must be an object');
             }
+
+            // Accept either the flat shape (timeline at top level) or the
+            // arthel song YAML shape (studio_versions.0.<Album>.{ensemble,
+            // rabbithole.timeline, ...}). Pasting the whole arthel file
+            // is a common workflow.
+            const parsed = _normalizeMetadata(rawParsed);
 
             if (!parsed.timeline || typeof parsed.timeline !== 'object') {
                 throw new Error('Must have a "timeline" object');
@@ -213,6 +219,11 @@ export class TimelineEditor {
 
             // Replace timeline
             this.data.workingData.timeline = parsed.timeline;
+
+            // Update ensemble too, since arthel-paste typically brings it
+            if (parsed.ensemble && typeof parsed.ensemble === 'object') {
+                this.data.workingData.ensemble = parsed.ensemble;
+            }
 
             // Update standardSectionLength if provided
             if (parsed.standardSectionLength !== undefined) {
@@ -756,6 +767,41 @@ export class TimelineEditor {
             this.player._timeUpdateCallback = null;
         }
     }
+}
+
+/**
+ * Normalize a parsed YAML doc into the flat shape the editor uses.
+ * Accepts the editor's own flat shape OR an arthel song YAML
+ * (studio_versions.<n>.<AlbumName>.{ensemble, rabbithole.timeline, ...}).
+ */
+function _normalizeMetadata(data) {
+    if (!data || typeof data !== 'object') return {};
+    if (data.timeline || data.ensemble) {
+        return {
+            ensemble: data.ensemble,
+            timeline: data.timeline,
+            standardSectionLength: data.standardSectionLength,
+            title: data.title
+        };
+    }
+    const studioVersions = data.studio_versions;
+    if (studioVersions && typeof studioVersions === 'object') {
+        const firstVersion = studioVersions[Object.keys(studioVersions)[0]];
+        if (firstVersion && typeof firstVersion === 'object') {
+            const firstReleaseKey = Object.keys(firstVersion)[0];
+            const release = firstVersion[firstReleaseKey];
+            if (release && typeof release === 'object') {
+                const rh = release.rabbithole || {};
+                return {
+                    ensemble: release.ensemble,
+                    timeline: rh.timeline,
+                    standardSectionLength: rh.standardSectionLength,
+                    title: firstReleaseKey
+                };
+            }
+        }
+    }
+    return {};
 }
 
 export default TimelineEditor;
