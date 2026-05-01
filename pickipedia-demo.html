@@ -4,6 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>PickiPedia + Rabbithole Demo</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@400..700&family=VT323&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/js-yaml@4.1.0/dist/js-yaml.min.js"></script>
     <!-- Resolve bare specifiers used by src/player/webamp-chartifacts.js
          and src/editor/* (which were Vite-resolved at dev time). jsDelivr's
@@ -317,6 +320,35 @@
             position: relative;
         }
 
+        /* Track title + recording info, shown when loaded via ?track=. */
+        .song-info-header {
+            text-align: center;
+            padding: 6px 4px 4px;
+            margin-bottom: 6px;
+            border-bottom: 1px solid #e5e7e1;
+        }
+
+        .song-title-display {
+            font-family: 'Caveat', cursive, sans-serif;
+            font-size: 28px;
+            line-height: 1.0;
+            margin: 0 0 4px;
+            color: #2d5016;
+            font-weight: 700;
+        }
+
+        .recording-metadata {
+            font-size: 11px;
+            color: #666;
+            font-style: italic;
+        }
+
+        .recording-metadata span + span::before {
+            content: " · ";
+            color: #bbb;
+            font-style: normal;
+        }
+
         .song-select {
             width: 100%;
             padding: 6px 10px;
@@ -476,18 +508,20 @@
             margin-bottom: 3px;
         }
 
-        /* Compact ensemble layout — fit all 6 cards without scrolling. */
+        /* Compact ensemble layout — fit all 6 cards without scrolling.
+           Cursive musician names (Caveat) match the arthel rabbithole-
+           player look. */
         .musician-list {
             display: flex;
             flex-direction: column;
-            gap: 2px;
+            gap: 4px;
             margin-bottom: 6px;
         }
 
         .musician-card {
-            padding: 3px 8px;
-            border: 1px solid #e0e0e0;
-            border-radius: 4px;
+            padding: 5px 10px;
+            border: 1px solid #d4d8d2;
+            border-radius: 5px;
             background: white;
             cursor: pointer;
             transition: all 0.2s;
@@ -501,6 +535,7 @@
         .musician-card.lead {
             border: 2px solid #4a7c59;
             background: rgba(74, 124, 89, 0.1);
+            box-shadow: 0 0 12px rgba(74, 124, 89, 0.25);
         }
 
         .musician-card.out {
@@ -508,16 +543,19 @@
         }
 
         .musician-name {
+            font-family: 'Caveat', cursive, Arial;
             font-weight: 600;
-            color: #4a7c59;
-            font-size: 13px;
-            line-height: 1.2;
+            color: #2d5016;
+            font-size: 22px;
+            line-height: 1.05;
+            letter-spacing: 0.2px;
         }
 
-        /* Mock provenance line — hide for now; bring back when real
-           NFT ownership data is wired in. */
         .chartifact-line {
-            display: none;
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 9px;
+            color: #888;
+            margin-top: 1px;
         }
 
         .musician-instrument {
@@ -669,6 +707,12 @@
             </div>
 
             <div class="player-container">
+                <!-- Track title + recording metadata, populated from wiki on load -->
+                <div class="song-info-header" id="song-info-header" style="display:none">
+                    <h2 id="song-title-display" class="song-title-display"></h2>
+                    <div id="recording-metadata" class="recording-metadata"></div>
+                </div>
+
                 <select id="song-selector" class="song-select" onchange="loadSelectedSong()">
                     <option value="august">August - Vowel Sounds</option>
                     <option value="silver-44">Silver 44 - 4masks</option>
@@ -925,7 +969,12 @@
                     ensemble: data.ensemble || {},
                     timeline: data.timeline || {},
                     standardSectionLength: data.standardSectionLength,
-                    title: data.title
+                    title: data.title,
+                    album: data.album,
+                    record: data.record,
+                    studio: data.studio,
+                    sessionType: data['session-type'] || data.sessionType,
+                    engineer: data.engineer
                 };
             }
             // Shape 2: arthel studio_versions tree
@@ -942,7 +991,12 @@
                             ensemble: release.ensemble || {},
                             timeline: rh.timeline || {},
                             standardSectionLength: rh.standardSectionLength,
-                            title: firstReleaseKey
+                            title: firstReleaseKey,
+                            album: firstReleaseKey,
+                            record: release.record,
+                            studio: release.studio,
+                            sessionType: release['session-type'],
+                            engineer: release.engineer
                         };
                     }
                 }
@@ -965,15 +1019,39 @@
 
             return {
                 title: trackData.title || metadata.title || cid,
-                album: trackData.parent_release || '',
+                album: trackData.parent_release || metadata.album || '',
                 duration: trackData.duration || 180,
                 audioFile: IPFS_GATEWAY + '/ipfs/' + oggCid,
                 ensemble: metadata.ensemble,
                 timeline: metadata.timeline,
                 standardSectionLength: metadata.standardSectionLength,
                 _trackCid: cid,
-                _metadataTitle: 'Release:' + cid + '/Metadata'
+                _metadataTitle: 'Release:' + cid + '/Metadata',
+                _record: metadata.record,
+                _studio: metadata.studio,
+                _sessionType: metadata.sessionType,
+                _engineer: metadata.engineer
             };
+        }
+
+        function populateSongInfoHeader(song) {
+            if (!song) return;
+            const header = document.getElementById('song-info-header');
+            const titleEl = document.getElementById('song-title-display');
+            const metaEl = document.getElementById('recording-metadata');
+            if (!header || !titleEl || !metaEl) return;
+            titleEl.textContent = song.title || 'Untitled';
+            const metaParts = [];
+            if (song._record) metaParts.push('Recorded ' + song._record);
+            if (song._studio) metaParts.push(song._studio);
+            if (song._sessionType) metaParts.push(song._sessionType);
+            if (song._engineer) metaParts.push('Engineer: ' + song._engineer);
+            metaEl.innerHTML = metaParts.map(p =>
+                '<span>' + (window.mw && window.mw.html ? window.mw.html.escape(p)
+                    : p.replace(/[<>&]/g, c => ({ '<':'&lt;', '>':'&gt;', '&':'&amp;' }[c])))
+                + '</span>'
+            ).join('');
+            header.style.display = '';
         }
 
         // jsyaml is loaded as a UMD global from the <script> tag in <head>.
@@ -992,6 +1070,8 @@
                 // Park the right pane on this track's /Metadata page.
                 document.getElementById('pickipedia-frame').src =
                     '/wiki/' + wikiSong._metadataTitle;
+                // Populate the title + recording-info header.
+                populateSongInfoHeader(wikiSong);
             } catch (err) {
                 console.error('Failed to load track from wiki:', err);
                 document.getElementById('webamp-player').innerHTML =
