@@ -5,6 +5,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>PickiPedia + Rabbithole Demo</title>
     <script src="https://cdn.jsdelivr.net/npm/js-yaml@4.1.0/dist/js-yaml.min.js"></script>
+    <!-- Resolve bare "webamp" import (used by webamp-chartifacts.js).
+         jsDelivr's +esm shim auto-converts npm packages to ES modules. -->
+    <script type="importmap">
+    {
+        "imports": {
+            "webamp": "https://cdn.jsdelivr.net/npm/webamp@1.5.0/+esm"
+        }
+    }
+    </script>
     <link rel="stylesheet" href="./src/styles/editor.css">
     <style>
         * {
