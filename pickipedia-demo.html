@@ -66,7 +66,7 @@
 
         .rabbithole-header {
             background: linear-gradient(135deg, #9db89a 0%, #87a96b 100%);
-            padding: 10px 15px;
+            padding: 4px 12px;
             display: flex;
             align-items: center;
             gap: 10px;
@@ -313,15 +313,14 @@
         }
 
         .player-container {
-            padding: 10px;
+            padding: 6px 10px;
             position: relative;
-            min-height: calc(100vh - 50px);
         }
 
         .song-select {
             width: 100%;
-            padding: 10px 12px;
-            margin-bottom: 10px;
+            padding: 6px 10px;
+            margin-bottom: 6px;
             border: 1px solid #ddd;
             border-radius: 6px;
             font-size: 14px;
@@ -330,8 +329,8 @@
         .toggle-row {
             display: flex;
             align-items: center;
-            gap: 10px;
-            margin-bottom: 15px;
+            gap: 8px;
+            margin-bottom: 6px;
             font-size: 13px;
             color: #555;
         }
@@ -457,15 +456,15 @@
         }
 
         .webamp-wrapper {
-            min-height: 520px;  /* Room for webamp + 6 musician cards */
-            margin-bottom: 10px;
+            min-height: 410px;  /* Room for webamp + 6 compact musician cards */
+            margin-bottom: 6px;
             position: relative;
         }
 
         .data-section {
-            margin-top: 55px;
-            padding-top: 10px;
-            border-top: 2px solid #4a7c59;
+            margin-top: 8px;
+            padding-top: 6px;
+            border-top: 1px solid #4a7c59;
         }
 
         .section-label {
@@ -474,20 +473,21 @@
             color: #4a7c59;
             text-transform: uppercase;
             letter-spacing: 0.5px;
-            margin-bottom: 6px;
+            margin-bottom: 3px;
         }
 
+        /* Compact ensemble layout — fit all 6 cards without scrolling. */
         .musician-list {
             display: flex;
             flex-direction: column;
-            gap: 6px;
-            margin-bottom: 10px;
+            gap: 2px;
+            margin-bottom: 6px;
         }
 
         .musician-card {
-            padding: 8px 12px;
+            padding: 3px 8px;
             border: 1px solid #e0e0e0;
-            border-radius: 6px;
+            border-radius: 4px;
             background: white;
             cursor: pointer;
             transition: all 0.2s;
@@ -510,7 +510,14 @@
         .musician-name {
             font-weight: 600;
             color: #4a7c59;
-            font-size: 14px;
+            font-size: 13px;
+            line-height: 1.2;
+        }
+
+        /* Mock provenance line — hide for now; bring back when real
+           NFT ownership data is wired in. */
+        .chartifact-line {
+            display: none;
         }
 
         .musician-instrument {
