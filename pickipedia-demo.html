@@ -891,12 +891,65 @@
             return jsYaml.load(text) || {};
         }
 
+        // Pull ensemble + timeline + standardSectionLength out of a metadata
+        // YAML object. Supports two shapes:
+        //
+        //   1. Flat — keys at top level (the format my editor saves):
+        //        ensemble: {...}
+        //        timeline: {...}
+        //        standardSectionLength: 13.65
+        //
+        //   2. Arthel song YAML — for paste-the-whole-file convenience:
+        //        studio_versions:
+        //          0:
+        //            <AlbumName>:
+        //              ensemble: {...}
+        //              rabbithole:
+        //                timeline: {...}
+        //                standardSectionLength: 13.65
+        //
+        // For arthel shape, we walk the first studio version → first release
+        // and pull ensemble (sibling) + rabbithole.{timeline,standardSectionLength}.
+        function extractMetadata(data) {
+            if (!data || typeof data !== 'object') return {};
+            // Shape 1: flat
+            if (data.timeline || data.ensemble) {
+                return {
+                    ensemble: data.ensemble || {},
+                    timeline: data.timeline || {},
+                    standardSectionLength: data.standardSectionLength,
+                    title: data.title
+                };
+            }
+            // Shape 2: arthel studio_versions tree
+            const studioVersions = data.studio_versions;
+            if (studioVersions && typeof studioVersions === 'object') {
+                const firstVersionKey = Object.keys(studioVersions)[0];
+                const firstVersion = studioVersions[firstVersionKey];
+                if (firstVersion && typeof firstVersion === 'object') {
+                    const firstReleaseKey = Object.keys(firstVersion)[0];
+                    const release = firstVersion[firstReleaseKey];
+                    if (release && typeof release === 'object') {
+                        const rh = release.rabbithole || {};
+                        return {
+                            ensemble: release.ensemble || {},
+                            timeline: rh.timeline || {},
+                            standardSectionLength: rh.standardSectionLength,
+                            title: firstReleaseKey
+                        };
+                    }
+                }
+            }
+            return {};
+        }
+
         async function loadTrackFromWiki(cid) {
             const trackData = await fetchYamlPage('Release:' + cid);
             if (!trackData) {
                 throw new Error('Track Release page not found: ' + cid);
             }
             const metadataData = await fetchYamlPage('Release:' + cid + '/Metadata') || {};
+            const metadata = extractMetadata(metadataData);
 
             const oggCid = trackData.encodings?.ogg;
             if (!oggCid) {
@@ -904,13 +957,13 @@
             }
 
             return {
-                title: trackData.title || cid,
+                title: trackData.title || metadata.title || cid,
                 album: trackData.parent_release || '',
                 duration: trackData.duration || 180,
                 audioFile: IPFS_GATEWAY + '/ipfs/' + oggCid,
-                ensemble: metadataData.ensemble || {},
-                timeline: metadataData.timeline || {},
-                standardSectionLength: metadataData.standardSectionLength,
+                ensemble: metadata.ensemble,
+                timeline: metadata.timeline,
+                standardSectionLength: metadata.standardSectionLength,
                 _trackCid: cid,
                 _metadataTitle: 'Release:' + cid + '/Metadata'
             };
