@@ -519,7 +519,7 @@
         }
 
         .musician-card {
-            padding: 5px 10px;
+            padding: 2px 10px;
             border: 1px solid #d4d8d2;
             border-radius: 5px;
             background: white;
@@ -546,16 +546,16 @@
             font-family: 'Caveat', cursive, Arial;
             font-weight: 600;
             color: #2d5016;
-            font-size: 22px;
-            line-height: 1.05;
+            font-size: 18px;
+            line-height: 1.0;
             letter-spacing: 0.2px;
         }
 
+        /* Mock provenance line — hide in the narrow sidebar to keep all 6
+           cards in the viewport. Bring back when real NFT ownership data
+           lives there. */
         .chartifact-line {
-            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-            font-size: 9px;
-            color: #888;
-            margin-top: 1px;
+            display: none;
         }
 
         .musician-instrument {
@@ -1125,6 +1125,28 @@
                 if (autoSwitch) {
                     console.log('Solo changed to:', musicianName);
                     navigateToMusician(musicianName);
+                }
+            }
+        });
+
+        // Listen for "Apply Changes" from the editor inside the iframe
+        // (Release:.../Metadata page). The iframe editor doesn't have a
+        // reference to this player, so it postMessages the new timeline
+        // and we hot-swap it here.
+        window.addEventListener('message', (event) => {
+            const msg = event.data;
+            if (!msg || msg.type !== 'rabbithole:metadata-applied') return;
+            if (!window.chartifactsPlayer) return;
+            // Update timeline (visualization changes immediately)
+            if (msg.timeline && typeof window.chartifactsPlayer.updateTimeline === 'function') {
+                window.chartifactsPlayer.updateTimeline(msg.timeline);
+            }
+            // Mirror to the active song so future re-renders see it
+            if (window.songChartifactsData) {
+                if (msg.timeline) window.songChartifactsData.timeline = msg.timeline;
+                if (msg.ensemble) window.songChartifactsData.ensemble = msg.ensemble;
+                if (msg.standardSectionLength !== undefined) {
+                    window.songChartifactsData.standardSectionLength = msg.standardSectionLength;
                 }
             }
         });
