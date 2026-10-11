@@ -8,13 +8,22 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=VT323&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/js-yaml@4.1.0/dist/js-yaml.min.js"></script>
+
+    <!-- Webamp, vendored and loaded as a classic script so its UMD wrapper
+         sets window.Webamp. Must stay above the importmap: module scripts are
+         deferred, classic ones are not, so the global exists before anything
+         imports vendor/webamp.mjs. See that file for why this is not a CDN
+         import any more. -->
+    <script src="./vendor/webamp.bundle.js"></script>
+
     <!-- Resolve bare specifiers used by src/player/webamp-chartifacts.js
          and src/editor/* (which were Vite-resolved at dev time). jsDelivr's
-         +esm shim auto-converts npm packages to ES modules. -->
+         +esm shim auto-converts npm packages to ES modules — where it works.
+         It does not work for webamp, which is why that one is vendored. -->
     <script type="importmap">
     {
         "imports": {
-            "webamp": "https://cdn.jsdelivr.net/npm/webamp@1.5.0/+esm",
+            "webamp": "./vendor/webamp.mjs",
             "packery": "https://cdn.jsdelivr.net/npm/packery@3.0.0/+esm",
             "js-yaml": "https://cdn.jsdelivr.net/npm/js-yaml@4.1.0/+esm"
         }
