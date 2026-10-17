@@ -14,10 +14,6 @@
          deferred, classic ones are not, so the global exists before anything
          imports vendor/webamp.mjs. See that file for why this is not a CDN
          import any more. -->
-    <!-- MediaWiki's content styles, for the wiki pane. Content module only:
-         the skin's chrome would restyle this shell's own UI. -->
-    <link rel="stylesheet"
-          href="/load.php?lang=en&modules=mediawiki.skinning.content.parsoid&only=styles&skin=vector">
     <script src="./vendor/webamp.bundle.js"></script>
 
     <!-- Resolve bare specifiers used by src/player/webamp-chartifacts.js
@@ -660,31 +656,7 @@
            the content styles only — not the skin chrome — and cap images,
            which otherwise arrive at their natural size and run off the page
            (podcast artwork is 1400px square). */
-        .pickipedia-frame img {
-            max-width: 100%;
-            height: auto;
-        }
-
-        .pickipedia-frame table {
-            max-width: 100%;
-        }
-
-        .pickipedia-frame h2 { font-size: 18px; margin: 1em 0 .3em; }
-        .pickipedia-frame h3 { font-size: 15px; margin: .8em 0 .3em; }
-        .pickipedia-frame p  { margin: .5em 0; }
-        .pickipedia-frame ul { margin: .4em 0 .4em 1.4em; }
-
-        .pickipedia-pane-title {
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-            font-size: 22px;
-            font-weight: 700;
-            color: #2d5016;
-            margin: 0 0 .2em;
-            border-bottom: 1px solid #e5e7e1;
-            padding-bottom: .2em;
-        }
-
-        .pickipedia-pane .pane-loading {
+        .pickipedia-frame .pane-loading {
             color: #6b7566;
             font-size: 13px;
         }
@@ -1707,11 +1679,39 @@
         // that editor no longer boots in the pane — the postMessage bridge
         // below is now dead weight for that path. The shell's own Edit
         // Timeline panel is untouched and is the editing route that matters.
+        // The pane is a shadow root, which is the whole trick: MediaWiki's own
+        // stylesheet goes in with the content and cannot reach back out to
+        // restyle the bar. Without it the wiki arrives naked — no infobox
+        // frames, no instrument icons, no yellow wash on bot claims — because
+        // a div full of parsed wikitext inherits nothing. The iframe used to
+        // bring all of this along for free; this is the price of the URL.
+        const PANE_STYLES = [
+            '<link rel="stylesheet" href="/load.php?lang=en&modules=',
+            'site.styles%7Cmediawiki.skinning.content.parsoid',
+            '&only=styles&skin=vector">',
+            '<style>',
+            ':host { display: block; font-size: 14px; line-height: 1.5;',
+            '  color: #202122; font-family: -apple-system, BlinkMacSystemFont,',
+            '  "Segoe UI", Roboto, sans-serif; }',
+            'img { max-width: 100%; height: auto; }',
+            'table { max-width: 100%; }',
+            '.pane-title { font-size: 22px; font-weight: 700; color: #2d5016;',
+            '  margin: 0 0 .4em; border-bottom: 1px solid #e5e7e1;',
+            '  padding-bottom: .2em; }',
+            '.pane-loading { color: #6b7566; font-size: 13px; }',
+            'h2 { font-size: 18px; margin: 1em 0 .3em; }',
+            'h3 { font-size: 15px; margin: .8em 0 .3em; }',
+            '.mw-editsection { display: none; }',
+            '</style>'
+        ].join('');
+
         async function openWikiPage(title, { push = true } = {}) {
             const pane = document.getElementById('pickipedia-frame');
             if (!pane) return;
             const path = '/wiki/' + title.replace(/ /g, '_');
-            pane.innerHTML = '<div class="pane-loading">Loading ' + title + '…</div>';
+            const shadow = pane.shadowRoot || pane.attachShadow({ mode: 'open' });
+            shadow.innerHTML = PANE_STYLES
+                + '<div class="pane-loading">Loading ' + title + '…</div>';
 
             try {
                 const params = new URLSearchParams({
@@ -1722,15 +1722,18 @@
                 const parsed = data.parse;
                 if (!parsed) throw new Error(data.error?.info || 'no such page');
 
-                pane.innerHTML = '<h1 class="pickipedia-pane-title">'
+                const root = pane.shadowRoot || pane.attachShadow({ mode: 'open' });
+                root.innerHTML = PANE_STYLES
+                    + '<h1 class="pane-title">'
                     + (parsed.displaytitle || title) + '</h1>' + parsed.text;
                 pane.scrollTop = 0;
-                rewirePaneLinks(pane);
+                rewirePaneLinks(root);
                 if (push) history.pushState({ wikiTitle: title }, '', path);
                 else history.replaceState({ wikiTitle: title }, '', path);
             } catch (err) {
                 console.warn('Could not open', title, err);
-                pane.innerHTML = '<div class="pane-loading">Could not load '
+                (pane.shadowRoot || pane.attachShadow({ mode: 'open' })).innerHTML =
+                    PANE_STYLES + '<div class="pane-loading">Could not load '
                     + title + ' — <a href="' + path + '">open it directly</a>.</div>';
             }
         }
