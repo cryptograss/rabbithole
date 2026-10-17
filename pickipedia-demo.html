@@ -871,11 +871,17 @@
         }
 
         /* === Misc demo controls — between ensemble and rabbithole-header === */
+        /* Skyler: the title up at the top of the bar rather than floating in
+           the middle of it. Everything else in the bar is vertically centred,
+           so this is the one thing that sits against the top edge — which is
+           what makes it read as a heading for the bar rather than one more
+           control in the row. */
         body.bottom-bar .song-info-header {
             order: 70;
             width: 180px;
-            padding: 0 4px;
-            align-self: center;
+            padding: 6px 4px 0;
+            margin-bottom: 0;
+            align-self: flex-start;
         }
 
         body.bottom-bar .song-select {
