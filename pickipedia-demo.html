@@ -908,6 +908,96 @@
             max-width: 90px;
         }
 
+        /* Skyler wanted the carrot bigger and up by the rabbit. It cannot get
+           there while it is nested in the toggle row, because `order` only
+           places flex items of the bar itself — so in the bar that one row
+           stops being a box and its two children become bar items in their
+           own right. The row keeps its box in sidebar mode, where it is a
+           sensible row and the carrot belongs beside the switch. */
+        body.bottom-bar .auto-switch-row {
+            display: contents;
+        }
+
+        body.bottom-bar .auto-switch {
+            order: 81;
+            align-self: center;
+        }
+
+        /* Order 90: past Song Parts (82), short of the rabbithole header (99),
+           which puts it against the rabbit. */
+        body.bottom-bar .inline-carrot-btn {
+            order: 90;
+            flex-shrink: 0;
+            align-self: center;
+            margin-left: 0;
+            margin-top: 0;
+        }
+
+        /* The bigger carrot is not a new drawing — it is the geometry already
+           written for .mini-player-btn, which only ever shows in the minimized
+           sidebar. Same vegetable, finally visible in the bar. */
+        body.bottom-bar .inline-carrot-btn {
+            width: 34px;
+            height: 60px;
+            font-size: 14px;
+            border-radius: 5px 5px 50% 50%;
+            background:
+                repeating-linear-gradient(
+                    0deg,
+                    transparent,
+                    transparent 7px,
+                    rgba(180, 70, 20, 0.25) 7px,
+                    rgba(180, 70, 20, 0.25) 9px
+                ),
+                linear-gradient(to right, #ff9a56 0%, #ff6b35 25%, #ff8142 50%, #ff6b35 75%, #ff9a56 100%);
+            box-shadow:
+                0 3px 10px rgba(255, 107, 53, 0.35),
+                inset 3px 0 6px rgba(255, 200, 150, 0.25),
+                inset -3px 0 6px rgba(180, 60, 20, 0.2);
+            text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+        }
+
+        body.bottom-bar .inline-carrot-btn.playing {
+            background:
+                repeating-linear-gradient(
+                    0deg,
+                    transparent,
+                    transparent 7px,
+                    rgba(160, 50, 10, 0.3) 7px,
+                    rgba(160, 50, 10, 0.3) 9px
+                ),
+                linear-gradient(to right, #ff8142 0%, #e55a2b 25%, #ff6b35 50%, #e55a2b 75%, #ff8142 100%);
+        }
+
+        /* Leaves scale with the root they sit on. */
+        body.bottom-bar .inline-carrot-leaves {
+            top: -15px;
+            gap: 2px;
+        }
+
+        body.bottom-bar .inline-carrot-leaves span {
+            width: 10px;
+            border-radius: 50% 50% 2px 2px;
+            box-shadow: 0 2px 3px rgba(0,0,0,0.2);
+        }
+
+        body.bottom-bar .inline-carrot-leaves span:nth-child(1),
+        body.bottom-bar .inline-carrot-leaves span:nth-child(3) {
+            height: 16px;
+        }
+
+        body.bottom-bar .inline-carrot-leaves span:nth-child(2) {
+            height: 22px;
+            width: 12px;
+        }
+
+        /* The carrot is hidden when the bar is collapsed along with everything
+           else in .toggle-row — but it is no longer inside one, so say so. */
+        body.bottom-bar.bar-collapsed .inline-carrot-btn,
+        body.bottom-bar.bar-collapsed .auto-switch {
+            display: none;
+        }
+
         body.bottom-bar .data-section {
             order: 82;
             width: 200px;
@@ -962,7 +1052,7 @@
                     <option value="paint-exchange">Paint Exchange - 4masks</option>
                 </select>
 
-                <div class="toggle-row">
+                <div class="toggle-row auto-switch-row">
                     <label class="auto-switch">
                         <span class="toggle-switch">
                             <input type="checkbox" id="auto-switch-toggle" checked>
