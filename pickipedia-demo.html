@@ -453,10 +453,26 @@
             transform: rotate(25deg);
         }
 
+        /* The slider and its knob are absolutely positioned against this box,
+           so the box has to keep its size. As a flex item it would otherwise
+           shrink when the bar runs out of room — and the knob, which slides
+           20px right when the switch is ON, would travel straight out of the
+           shrunken box and sit on top of the caption. Hence flex-shrink: 0. */
         .toggle-switch {
             position: relative;
+            flex-shrink: 0;
             width: 44px;
             height: 24px;
+        }
+
+        /* Switch and caption as one label: the words become a click target,
+           and the pair can stack in the bar without the carrot button
+           stacking along with them. */
+        .auto-switch {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
         }
 
         .toggle-switch input {
@@ -877,6 +893,21 @@
             align-self: center;
         }
 
+        /* Horizontal room is the axis the bar runs out of, so in the bar the
+           switch sits over its caption rather than beside it. Costs about
+           40px of the 140px height and gives back around 130px of width. */
+        body.bottom-bar .auto-switch {
+            flex-direction: column;
+            gap: 3px;
+            text-align: center;
+        }
+
+        body.bottom-bar .auto-switch-caption {
+            font-size: 11px;
+            line-height: 1.15;
+            max-width: 90px;
+        }
+
         body.bottom-bar .data-section {
             order: 82;
             width: 200px;
@@ -932,11 +963,13 @@
                 </select>
 
                 <div class="toggle-row">
-                    <label class="toggle-switch">
-                        <input type="checkbox" id="auto-switch-toggle" checked>
-                        <span class="toggle-slider"></span>
+                    <label class="auto-switch">
+                        <span class="toggle-switch">
+                            <input type="checkbox" id="auto-switch-toggle" checked>
+                            <span class="toggle-slider"></span>
+                        </span>
+                        <span class="auto-switch-caption">Auto-switch artist profiles</span>
                     </label>
-                    <span>Auto-switch artist profiles</span>
                     <button class="inline-carrot-btn" id="inline-play-btn" onclick="toggleMiniPlay()" title="Play/Pause">
                         <span class="inline-carrot-leaves"><span></span><span></span><span></span></span>
                         ▶
