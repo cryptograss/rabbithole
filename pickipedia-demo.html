@@ -736,10 +736,16 @@
             left: 0;
             right: 0;
             max-width: 100vw;
-            height: 140px;
+            /* 152, not 140. The webamp skin is a fixed 116px and the bar has
+               a 2px top border, so with a 34px strip the player's bottom edge
+               lands exactly on the strip's top edge: 2 + 116 + 34 = 152. At
+               140 it overlapped the strip by twelve pixels and the strip's
+               background painted over the bottom of the player. */
+            height: 152px;
             /* Room for the song-parts strip, which is absolutely positioned
                against this box. box-sizing is border-box globally, so the bar
-               stays 140px tall and the main row gets 106px of it. */
+               stays 152px tall and the main row gets 116px of it — exactly
+               the height of the webamp skin. */
             padding-bottom: 34px;
             border-right: none;
             border-top: 2px solid #4a7c59;
@@ -759,11 +765,11 @@
         }
 
         body.bottom-bar .pickipedia-frame {
-            height: calc(100vh - 140px);
+            height: calc(100vh - 152px);
         }
 
         body.bottom-bar .editor-panel {
-            height: calc(100vh - 140px);
+            height: calc(100vh - 152px);
         }
 
         /* Pull .player-container's children up to be direct flex items of
@@ -906,7 +912,7 @@
 
         /* Horizontal room is the axis the bar runs out of, so in the bar the
            switch sits over its caption rather than beside it. Costs about
-           40px of the 140px height and gives back around 130px of width. */
+           40px of the bar's height and gives back around 130px of width. */
         body.bottom-bar .auto-switch {
             flex-direction: column;
             gap: 3px;
