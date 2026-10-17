@@ -347,6 +347,34 @@
             letter-spacing: -0.015em;
         }
 
+        /* Cover and the rest of the record, under the title. */
+        .album-row {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin: 4px 0 3px;
+        }
+
+        .album-art {
+            width: 34px;
+            height: 34px;
+            flex-shrink: 0;
+            object-fit: cover;
+            border-radius: 2px;
+            border: 1px solid #d4d8d2;
+        }
+
+        .album-track-select {
+            flex: 1 1 auto;
+            min-width: 0;
+            padding: 3px 6px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 12px;
+            background: white;
+            cursor: pointer;
+        }
+
         .recording-metadata {
             font-size: 11px;
             color: #666;
@@ -889,7 +917,7 @@
            control in the row. */
         body.bottom-bar .song-info-header {
             order: 70;
-            width: 180px;
+            width: 220px;
             padding: 6px 4px 0;
             margin-bottom: 0;
             align-self: flex-start;
@@ -1128,6 +1156,10 @@
                 <!-- Track title + recording metadata, populated from wiki on load -->
                 <div class="song-info-header" id="song-info-header" style="display:none">
                     <h2 id="song-title-display" class="song-title-display"></h2>
+                    <div class="album-row" id="album-row" style="display:none">
+                        <img id="album-art" class="album-art" alt="" style="display:none">
+                        <select id="album-track-select" class="album-track-select"></select>
+                    </div>
                     <div id="recording-metadata" class="recording-metadata"></div>
                 </div>
 
@@ -1455,6 +1487,90 @@
             };
         }
 
+        // The album this track belongs to: title and the full track list.
+        // Track Release pages carry parent_release; the parent is a
+        // release_type: record page whose `tracks:` is the running order.
+        async function loadAlbum(parentCid) {
+            if (!parentCid) return null;
+            const album = await fetchYamlPage('Release:' + parentCid);
+            if (!album || !Array.isArray(album.tracks)) return null;
+            return { cid: parentCid, title: album.title || '', tracks: album.tracks };
+        }
+
+        // Cover art, the long way round, because the release schema has no
+        // field for it. The record page links to the release
+        // ("Tracks are here: [[Release:Qm...]]"), so the backlink finds the
+        // record page, and the first image on it that is not an instrument
+        // icon is the cover. Fragile by nature — if it finds nothing we show
+        // no art rather than a broken frame. The honest fix is an art field
+        // on the release, which is a schema change and Justin's call.
+        async function findAlbumArt(parentCid) {
+            const q = params => fetch('/api.php?' + new URLSearchParams(
+                Object.assign({ format: 'json', origin: '*' }, params))).then(r => r.json());
+
+            const back = await q({ action: 'query', list: 'backlinks',
+                bltitle: 'Release:' + parentCid, blnamespace: '0', bllimit: '5' });
+            const recordPage = back.query?.backlinks?.[0]?.title;
+            if (!recordPage) return null;
+
+            const imgs = await q({ action: 'query', titles: recordPage,
+                prop: 'images', imlimit: '50' });
+            const candidates = (Object.values(imgs.query?.pages || {})[0]?.images || [])
+                .map(i => i.title)
+                .filter(t => !/Instrument-icon-/i.test(t));
+            if (!candidates.length) return null;
+
+            const info = await q({ action: 'query', titles: candidates[0],
+                prop: 'imageinfo', iiprop: 'url|size', iiurlwidth: '96' });
+            const ii = Object.values(info.query?.pages || {})[0]?.imageinfo?.[0];
+            if (!ii) return null;
+            // thumburl is absent wherever the wiki has no thumbnailer — which
+            // is exactly the case on the preview container, so asking only for
+            // the thumb made the cover vanish in the one place anybody is
+            // looking at it. The full file is 400px square; CSS sizes it.
+            return ii.thumburl || ii.url || null;
+        }
+
+        async function populateAlbumRow(song) {
+            const row = document.getElementById('album-row');
+            const sel = document.getElementById('album-track-select');
+            const art = document.getElementById('album-art');
+            if (!row || !sel || !art) return;
+
+            const album = await loadAlbum(song.album);
+            if (!album) return;
+
+            sel.innerHTML = '';
+            album.tracks.slice()
+                .sort((a, b) => (a.track_number || 0) - (b.track_number || 0))
+                .forEach(t => {
+                    const o = document.createElement('option');
+                    o.value = t.cid;
+                    o.textContent = (t.track_number ? t.track_number + '. ' : '')
+                        + (t.title || t.cid);
+                    if (t.cid === song._trackCid) o.selected = true;
+                    sel.appendChild(o);
+                });
+            sel.title = album.title;
+            // Changing track is a navigation, not a swap: the whole shell
+            // keys off ?track=, and a reload is honest about that.
+            sel.onchange = () => {
+                const url = new URL(window.location.href);
+                url.searchParams.set('track', sel.value);
+                window.location.href = url.toString();
+            };
+
+            row.style.display = '';
+
+            const artUrl = await findAlbumArt(album.cid);
+            if (artUrl) {
+                art.onerror = () => { art.style.display = 'none'; };
+                art.src = artUrl;
+                art.alt = album.title || 'album art';
+                art.style.display = '';
+            }
+        }
+
         function populateSongInfoHeader(song) {
             if (!song) return;
             const header = document.getElementById('song-info-header');
@@ -1493,6 +1609,11 @@
                     '/wiki/' + wikiSong._metadataTitle;
                 // Populate the title + recording-info header.
                 populateSongInfoHeader(wikiSong);
+                // Cover and the rest of the record, under the title. Async and
+                // non-blocking: if the wiki is slow or the art is missing, the
+                // player is already playing and simply has no cover.
+                populateAlbumRow(wikiSong).catch(
+                    err => console.warn('Could not build the album row:', err));
             } catch (err) {
                 console.error('Failed to load track from wiki:', err);
                 document.getElementById('webamp-player').innerHTML =
