@@ -6,6 +6,11 @@
 import Webamp from 'webamp';
 import Packery from 'packery';
 
+// How long any one highlight may hold, in seconds. The timelines ask for more
+// in places (Paint Exchange: 8.5s of spotlight, 7s of flourish) and at that
+// length an effect stops reading as emphasis and starts reading as a bug.
+const SPOTLIGHT_MAX_SECONDS = 4;
+
 class WebampChartifacts {
     constructor(containerId, trackData, options = {}) {
         console.debug('DEBUG: WebampChartifacts constructor called with container:', containerId);
@@ -1322,6 +1327,9 @@ class WebampChartifacts {
     }
 
     triggerFlourish(musicianDiv, musicianName, duration = 2.0, pulseSpeed = 1.2, intensity = 0.7, color = 'coral') {
+        // Same ceiling as the spotlight, same reason: Paint Exchange asks for
+        // seven seconds of pulsing on one card and it reads as stuck.
+        duration = Math.min(duration, SPOTLIGHT_MAX_SECONDS);
         // Track which flourishes we've already triggered to prevent re-triggering
         if (!this.triggeredFlourishes) {
             this.triggeredFlourishes = new Set();
@@ -1487,149 +1495,52 @@ class WebampChartifacts {
         }, duration * 1000);
     }
 
+    // A spotlight used to mean: paint the page background black, fade
+    // everything else on it to 8% opacity — other cards, the parts strip, the
+    // player itself — zoom the card to 1.15 and put a radial gold gradient
+    // behind it. For as long as the YAML asked, which on Paint Exchange is
+    // five seconds of blackout plus three and a half of glow.
+    //
+    // Skyler, watching it: "def too much - takes over the whole page for way
+    // too long - I think it should highlight the name subtly."
+    //
+    // So it is a card highlight now. Nothing outside the ensemble is touched:
+    // the page keeps its background, the parts strip keeps tracking the song,
+    // the player stays readable. The other players recede rather than vanish —
+    // 0.55, not 0.08, because the whole point of a card is the name on it and
+    // you should still be able to read the band around the person featured.
+    //
+    // The same YAML still drives it, so nothing needs re-annotating. The one
+    // thing overruled is the total length: an eight-and-a-half-second
+    // highlight reads as a stuck animation however gentle it is.
     triggerSpotlight(musicianDiv, musicianName, blackoutDuration = 3, glowDuration = 2, color = 'coral') {
-        // Track which spotlights we've already triggered
         if (!this.triggeredSpotlights) {
             this.triggeredSpotlights = new Set();
         }
 
-        // Get current time to create a unique spotlight ID
-        const currentTime = this.getCurrentTime();
-        const spotlightId = `${musicianName}-${Math.floor(currentTime)}`;
-
-        // Skip if we already triggered this spotlight
+        const spotlightId = `${musicianName}-${Math.floor(this.getCurrentTime())}`;
         if (this.triggeredSpotlights.has(spotlightId)) {
             return;
         }
-
-        // Mark as triggered
         this.triggeredSpotlights.add(spotlightId);
 
-        const totalDuration = blackoutDuration + glowDuration;
+        const asked = blackoutDuration + glowDuration;
+        const total = Math.min(asked, SPOTLIGHT_MAX_SECONDS);
+        setTimeout(() => this.triggeredSpotlights.delete(spotlightId), (total + 2) * 1000);
 
-        // Clean up old spotlight IDs after they're definitely done
-        setTimeout(() => {
-            this.triggeredSpotlights.delete(spotlightId);
-        }, (totalDuration + 2) * 1000);
+        console.debug(`SPOTLIGHT on ${musicianName}: ${total}s`
+            + (asked > total ? ` (capped from ${asked}s)` : '') + `, color=${color}`);
 
-        // Store color for use later in the method
         this._currentSpotlightColor = color;
 
-        console.log(`🔦 SPOTLIGHT on ${musicianName}: ${blackoutDuration}s blackout + ${glowDuration}s glow, color=${color}`);
-
-        // Darken the body background instead of using overlay
-        const originalBodyBg = document.body.style.background;
-        document.body.style.transition = `background ${blackoutDuration * 0.15}s ease-in`;
-        document.body.style.background = '#111';
-
-        // Fade everything except the spotlighted musician using :not selector
-        // Get all direct children of body and major containers, fade them all
-        const elementsToFade = [];
-
-        // All musician cards except this one
-        document.querySelectorAll('.musician-card').forEach(card => {
-            if (card !== musicianDiv) {
-                elementsToFade.push(card);
-            }
-        });
-
-        // All major page sections
-        document.querySelectorAll('.player-container > *:not(#webamp), .left-panel > *:not(#webamp-player), .right-panel, header, nav, .next-up, #rabbithole-next-up, .file-selector, .song-selector, #song-selector').forEach(el => {
-            if (!el.contains(musicianDiv)) {
-                elementsToFade.push(el);
-            }
-        });
-
-        // Parts chart and main window
-        const partsChart = document.getElementById('parts-chart-in-webamp') || document.getElementById('parts-chart');
-        const mainWindow = document.getElementById('main-window');
-        if (partsChart) elementsToFade.push(partsChart);
-        if (mainWindow) elementsToFade.push(mainWindow);
-
-        // Store original body background for cleanup
-        musicianDiv._originalBodyBg = originalBodyBg;
-
-        elementsToFade.forEach(el => {
-            el.style.opacity = '0.08';
-            el.style.transition = `opacity ${blackoutDuration * 0.15}s ease`;
-        });
-
-        // Add intense glow to the spotlighted musician
-        musicianDiv.classList.add('spotlight-active');
-
-        // Ensure glow isn't clipped - check ancestor containers
-        const ensembleContainer = musicianDiv.closest('#ensemble-display') || musicianDiv.parentElement;
-        if (ensembleContainer) {
-            ensembleContainer.style.overflow = 'visible';
-        }
-        musicianDiv.parentElement.style.overflow = 'visible';
-
-        // CRITICAL: Override player-content overflow which clips the glow
-        const playerContent = musicianDiv.closest('.player-content');
-        if (playerContent) {
-            playerContent.style.overflow = 'visible';
-            musicianDiv._playerContent = playerContent;
-        }
-
-        // Style the card and apply glow - use transform for zoom effect
-        musicianDiv.style.position = 'relative';
-        musicianDiv.style.zIndex = '10001';
-        musicianDiv.style.borderColor = '#ffd700';
-        musicianDiv.style.borderWidth = '3px';
-        musicianDiv.style.background = 'linear-gradient(135deg, #fffde7, #fff8e1)';
-        musicianDiv.style.transformOrigin = 'center center';
-
-        // Slow zoom from solo size (1.05) to spotlight size (1.15)
-        const zoomDuration = blackoutDuration * 0.8;
-        console.log(`🔍 Spotlight zoom: ${zoomDuration}s transition`);
-
-        // Force the browser to acknowledge current state
-        const currentTransform = getComputedStyle(musicianDiv).transform;
-        musicianDiv.style.transform = currentTransform === 'none' ? 'scale(1)' : currentTransform;
-
-        // Force reflow to ensure browser registers current state
-        musicianDiv.offsetHeight;
-
-        // Now apply transition and target scale
-        // Use setProperty with important to override CSS transitions
-        musicianDiv.style.setProperty('transition', `transform ${zoomDuration}s ease-out`, 'important');
-        musicianDiv.style.transform = 'scale(1.15)';
-
-        // Create a glowing backdrop element behind the musician card
-        const glowBackdrop = document.createElement('div');
-        glowBackdrop.className = 'spotlight-glow-backdrop';
-        glowBackdrop.style.cssText = `
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            width: 120%;
-            height: 120%;
-            background: radial-gradient(ellipse at center,
-                rgba(255, 215, 0, 0.8) 0%,
-                rgba(255, 140, 0, 0.6) 30%,
-                rgba(255, 69, 0, 0.4) 50%,
-                transparent 70%);
-            border-radius: 20px;
-            z-index: -1;
-            pointer-events: none;
-        `;
-
-        // Insert backdrop - musician div should already have position relative from CSS
-        musicianDiv.insertBefore(glowBackdrop, musicianDiv.firstChild);
-
-        // Apply intense box-shadow animation using color-based glow
-        const glow = this.createGlowKeyframes(this._currentSpotlightColor || 'coral', 1.6);
+        // The highlight: a contained pulse on the one card.
+        const glow = this.createGlowKeyframes(color, 0.9);
         const animName = `spotlight-pulse-${Date.now()}`;
         const styleSheet = document.createElement('style');
         styleSheet.textContent = `
             @keyframes ${animName} {
-                0%, 100% {
-                    box-shadow: ${glow.min};
-                }
-                50% {
-                    box-shadow: ${glow.max};
-                }
+                0%, 100% { box-shadow: ${glow.min}; }
+                50%      { box-shadow: ${glow.max}; }
             }
 
             #${musicianDiv.id}.spotlight-active {
@@ -1637,118 +1548,33 @@ class WebampChartifacts {
             }
         `;
         document.head.appendChild(styleSheet);
+        musicianDiv.classList.add('spotlight-active');
 
-        // Store references for cleanup
-        musicianDiv._spotlightBackdrop = glowBackdrop;
-
-        // Dim other musicians
-        Object.entries(this.trackData.ensemble).forEach(([name]) => {
-            if (name !== musicianName) {
-                const otherDiv = document.getElementById(`musician-${name.replace(/\s+/g, '-').toLowerCase()}`);
-                if (otherDiv) {
-                    otherDiv.style.opacity = '0.1';
-                    otherDiv.style.transition = `opacity ${blackoutDuration * 0.15}s ease`;
-                }
-            }
+        // Everyone else steps back half a pace.
+        const others = [];
+        Object.keys(this.trackData.ensemble || {}).forEach(name => {
+            if (name === musicianName) return;
+            const el = document.getElementById(
+                `musician-${name.replace(/\s+/g, '-').toLowerCase()}`);
+            if (!el) return;
+            el.style.transition = 'opacity 0.4s ease';
+            el.style.opacity = '0.55';
+            others.push(el);
         });
 
-        // Phase 1: End blackout after blackoutDuration (keep glow)
-        const fadeOutTime = 1.0; // seconds for transitions
         setTimeout(() => {
-            // Fade other musicians back in smoothly
-            Object.entries(this.trackData.ensemble).forEach(([name]) => {
-                if (name !== musicianName) {
-                    const otherDiv = document.getElementById(`musician-${name.replace(/\s+/g, '-').toLowerCase()}`);
-                    if (otherDiv) {
-                        otherDiv.style.transition = `opacity ${fadeOutTime}s ease-out`;
-                        otherDiv.style.opacity = '';
-                    }
-                }
-            });
+            musicianDiv.classList.remove('spotlight-active');
+            musicianDiv.style.animation = '';
+            musicianDiv.style.transition = 'box-shadow 0.6s ease-out';
+            musicianDiv.style.boxShadow = '';
+            others.forEach(el => { el.style.opacity = ''; });
 
-            // Fade other page elements back in smoothly
-            elementsToFade.forEach(el => {
-                el.style.transition = `opacity ${fadeOutTime}s ease-out`;
-                el.style.opacity = '';
-            });
-
-            // Restore body background
-            document.body.style.transition = `background ${fadeOutTime}s ease-out`;
-            document.body.style.background = musicianDiv._originalBodyBg || '';
-        }, blackoutDuration * 1000);
-
-        // Phase 2: End glow after blackoutDuration + glowDuration
-        const glowFadeTime = 2.0; // slower fade for the glow
-        setTimeout(() => {
-            // Fade out the glow and scale back to solo size (1.05) smoothly
-            // Clear previous transition first, then set new one
-            musicianDiv.style.removeProperty('transition');
-            musicianDiv.offsetHeight; // Force reflow
-            musicianDiv.style.setProperty('transition', `box-shadow ${glowFadeTime}s ease-out, border-color ${glowFadeTime}s ease-out, transform ${glowFadeTime}s ease-out, background ${glowFadeTime}s ease-out, border-width ${glowFadeTime}s ease-out`, 'important');
-
-            // Small delay to let transition register
             setTimeout(() => {
-                musicianDiv.style.boxShadow = 'none';
-                musicianDiv.style.borderColor = '';
-                musicianDiv.style.borderWidth = '';
-                musicianDiv.style.background = '';
-                musicianDiv.style.transform = 'scale(1.05)';  // Solo size, not normal
-                musicianDiv.classList.remove('spotlight-active');
-                musicianDiv.style.animation = '';
-            }, 50);
-
-            // Clean up after glow fade completes
-            setTimeout(() => {
-                // Remove stylesheet and backdrop
                 styleSheet.remove();
-                if (musicianDiv._spotlightBackdrop) {
-                    musicianDiv._spotlightBackdrop.remove();
-                    delete musicianDiv._spotlightBackdrop;
-                }
-                // Restore player-content overflow
-                if (musicianDiv._playerContent) {
-                    musicianDiv._playerContent.style.overflow = '';
-                    delete musicianDiv._playerContent;
-                }
-
-                // Clear all spotlight styles (keep transform at solo size - don't snap back)
-                musicianDiv.style.position = '';
                 musicianDiv.style.transition = '';
                 musicianDiv.style.boxShadow = '';
-                musicianDiv.style.zIndex = '';
-                // Don't clear transform - keep it at scale(1.05) for solo state
-                musicianDiv.style.transformOrigin = '';
-
-                // Defensive: a spotlight that gets interrupted (rapid solo
-                // changes, navigation, hot-swap of timeline) can leave the
-                // card with display:none / opacity:0 / visibility:hidden
-                // from a fade-out that never paired with a fade-in. Force
-                // visibility back to defaults — the regular update loop
-                // paints state via classes, not inline display/opacity.
-                musicianDiv.style.display = '';
-                musicianDiv.style.visibility = '';
-                if (musicianDiv.style.opacity === '0' ||
-                    musicianDiv.style.opacity === '0.08' ||
-                    musicianDiv.style.opacity === '0.1') {
-                    musicianDiv.style.opacity = '';
-                }
-
-                Object.entries(this.trackData.ensemble).forEach(([name]) => {
-                    const div = document.getElementById(`musician-${name.replace(/\s+/g, '-').toLowerCase()}`);
-                    if (div) {
-                        div.style.transition = '';
-                        // Same defensive clearing for non-spotlighted cards
-                        // whose opacity transitions might have been interrupted.
-                        if (div.style.opacity === '0.08' || div.style.opacity === '0.1') {
-                            div.style.opacity = '';
-                        }
-                    }
-                });
-                elementsToFade.forEach(el => {
-                    el.style.transition = '';
-                });
-            }, glowFadeTime * 1000 + 100);
-        }, (blackoutDuration + glowDuration) * 1000);
+            }, 700);
+        }, total * 1000);
     }
 
     flashEntireEnsemble() {
