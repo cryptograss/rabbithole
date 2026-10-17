@@ -14,6 +14,10 @@
          deferred, classic ones are not, so the global exists before anything
          imports vendor/webamp.mjs. See that file for why this is not a CDN
          import any more. -->
+    <!-- MediaWiki's content styles, for the wiki pane. Content module only:
+         the skin's chrome would restyle this shell's own UI. -->
+    <link rel="stylesheet"
+          href="/load.php?lang=en&modules=mediawiki.skinning.content.parsoid&only=styles&skin=vector">
     <script src="./vendor/webamp.bundle.js"></script>
 
     <!-- Resolve bare specifiers used by src/player/webamp-chartifacts.js
@@ -638,10 +642,51 @@
             border-color: #4a7c59;
         }
 
+        /* Was an iframe. It is a div now: same box, same name, so every
+           height rule in the bottom-bar section still applies, but the wiki
+           arrives as HTML we own rather than as a nested document we cannot
+           reach into or push a URL for. */
         .pickipedia-frame {
             width: 100%;
             height: 100%;
             border: none;
+            overflow-y: auto;
+            background: white;
+            padding: 1.2em 1.6em 2em;
+        }
+
+        /* The pane is wiki content without the wiki's document, so it does
+           not inherit MediaWiki's stylesheet the way the iframe did. Pull in
+           the content styles only — not the skin chrome — and cap images,
+           which otherwise arrive at their natural size and run off the page
+           (podcast artwork is 1400px square). */
+        .pickipedia-frame img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        .pickipedia-frame table {
+            max-width: 100%;
+        }
+
+        .pickipedia-frame h2 { font-size: 18px; margin: 1em 0 .3em; }
+        .pickipedia-frame h3 { font-size: 15px; margin: .8em 0 .3em; }
+        .pickipedia-frame p  { margin: .5em 0; }
+        .pickipedia-frame ul { margin: .4em 0 .4em 1.4em; }
+
+        .pickipedia-pane-title {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            font-size: 22px;
+            font-weight: 700;
+            color: #2d5016;
+            margin: 0 0 .2em;
+            border-bottom: 1px solid #e5e7e1;
+            padding-bottom: .2em;
+        }
+
+        .pickipedia-pane .pane-loading {
+            color: #6b7566;
+            font-size: 13px;
         }
 
         .connection-hint {
@@ -1205,7 +1250,7 @@
             </div>
         </div>
 
-        <iframe id="pickipedia-frame" class="pickipedia-frame" src="/wiki/Justin_Holmes"></iframe>
+        <div id="pickipedia-frame" class="pickipedia-frame"></div>
 
         <!-- Editor Panel -->
         <div id="editor-panel" class="editor-panel" style="display: none;">
@@ -1572,9 +1617,8 @@
         }
 
         async function openPaneForTrack(song) {
-            const frame = document.getElementById('pickipedia-frame');
-            const fallback = '/wiki/' + song._metadataTitle;
-            if (!song.title) { frame.src = fallback; return; }
+            const fallback = song._metadataTitle;
+            if (!song.title) { openWikiPage(fallback, { push: false }); return; }
 
             const songPage = 'Song:' + song.title;
             try {
@@ -1583,12 +1627,11 @@
                 });
                 const r = await fetch('/api.php?' + params);
                 const page = Object.values((await r.json()).query?.pages || {})[0];
-                frame.src = (page && page.missing === undefined)
-                    ? '/wiki/' + songPage.replace(/ /g, '_')
-                    : fallback;
+                const exists = page && page.missing === undefined;
+                openWikiPage(exists ? songPage : fallback, { push: false });
             } catch (err) {
                 console.warn('Could not check for a song page:', err);
-                frame.src = fallback;
+                openWikiPage(fallback, { push: false });
             }
         }
 
@@ -1651,11 +1694,77 @@
         }
         window.allSongs = songs;
 
+        // === The wiki pane ===
+        //
+        // Settled 2026-10-11 and only now built: no iframe. The wiki is
+        // fetched same-origin and put into a div we own, and the same click
+        // that moves the pane pushes the real wiki URL. So the address bar
+        // reads /wiki/Cory_Walker while the song keeps playing, and that URL
+        // is a thing you can send somebody.
+        //
+        // What this gives up: the metadata editor that lives on a
+        // Release:.../Metadata page. Injected HTML does not run scripts, so
+        // that editor no longer boots in the pane — the postMessage bridge
+        // below is now dead weight for that path. The shell's own Edit
+        // Timeline panel is untouched and is the editing route that matters.
+        async function openWikiPage(title, { push = true } = {}) {
+            const pane = document.getElementById('pickipedia-frame');
+            if (!pane) return;
+            const path = '/wiki/' + title.replace(/ /g, '_');
+            pane.innerHTML = '<div class="pane-loading">Loading ' + title + '…</div>';
+
+            try {
+                const params = new URLSearchParams({
+                    action: 'parse', page: title, prop: 'text|displaytitle',
+                    formatversion: '2', format: 'json', origin: '*'
+                });
+                const data = await (await fetch('/api.php?' + params)).json();
+                const parsed = data.parse;
+                if (!parsed) throw new Error(data.error?.info || 'no such page');
+
+                pane.innerHTML = '<h1 class="pickipedia-pane-title">'
+                    + (parsed.displaytitle || title) + '</h1>' + parsed.text;
+                pane.scrollTop = 0;
+                rewirePaneLinks(pane);
+                if (push) history.pushState({ wikiTitle: title }, '', path);
+                else history.replaceState({ wikiTitle: title }, '', path);
+            } catch (err) {
+                console.warn('Could not open', title, err);
+                pane.innerHTML = '<div class="pane-loading">Could not load '
+                    + title + ' — <a href="' + path + '">open it directly</a>.</div>';
+            }
+        }
+
+        // Links inside the pane stay inside the pane. Anything that is not an
+        // ordinary wiki page — an edit link, a Special: page, an off-site
+        // link — is left alone and opens the normal way.
+        function rewirePaneLinks(pane) {
+            pane.querySelectorAll('a[href^="/wiki/"]').forEach(a => {
+                const title = decodeURIComponent(
+                    a.getAttribute('href').slice('/wiki/'.length)).replace(/_/g, ' ');
+                if (/^(Special|File|Category):/.test(title)) return;
+                a.addEventListener('click', e => {
+                    e.preventDefault();
+                    openWikiPage(title);
+                });
+            });
+        }
+
+        window.addEventListener('popstate', (e) => {
+            const title = e.state && e.state.wikiTitle;
+            if (title) openWikiPage(title, { push: false });
+        });
+
         // Navigate to musician's PickiPedia page
         window.navigateToMusician = function(musicianName) {
-            const slug = musicianName.replace(/\s+/g, '_');
-            document.getElementById('pickipedia-frame').src = '/wiki/' + slug;
+            openWikiPage(musicianName);
         };
+
+        // With no ?track=, nothing else fills the pane. The iframe used to
+        // carry src="/wiki/Justin_Holmes" as its default; keep that.
+        if (!trackParam) {
+            openWikiPage('Justin Holmes', { push: false });
+        }
 
         // Load selected song
         window.loadSelectedSong = async function() {
