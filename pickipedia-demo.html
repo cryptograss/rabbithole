@@ -1079,6 +1079,19 @@
             overflow: hidden;
             white-space: nowrap;
         }
+
+        /* The block you are in, while the song plays.
+           This rule has to exist. .part-box.active sets the green, but the
+           rule above is a class deeper, so its `background: #fff` was beating
+           it and the active block came out white — the chart was tracking the
+           song correctly and saying so invisibly. Added the ground here, at
+           matching specificity, the moment Skyler noticed the cards were not
+           changing. */
+        body.bottom-bar .parts-chart .part-box.active {
+            background: #4a7c59;
+            border-color: #3c6749;
+            color: #fff;
+        }
     </style>
 </head>
 <body class="bottom-bar">
