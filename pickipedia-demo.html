@@ -1571,6 +1571,27 @@
             }
         }
 
+        async function openPaneForTrack(song) {
+            const frame = document.getElementById('pickipedia-frame');
+            const fallback = '/wiki/' + song._metadataTitle;
+            if (!song.title) { frame.src = fallback; return; }
+
+            const songPage = 'Song:' + song.title;
+            try {
+                const params = new URLSearchParams({
+                    action: 'query', titles: songPage, format: 'json', origin: '*'
+                });
+                const r = await fetch('/api.php?' + params);
+                const page = Object.values((await r.json()).query?.pages || {})[0];
+                frame.src = (page && page.missing === undefined)
+                    ? '/wiki/' + songPage.replace(/ /g, '_')
+                    : fallback;
+            } catch (err) {
+                console.warn('Could not check for a song page:', err);
+                frame.src = fallback;
+            }
+        }
+
         function populateSongInfoHeader(song) {
             if (!song) return;
             const header = document.getElementById('song-info-header');
@@ -1604,9 +1625,13 @@
                 // Hide the song selector — we're locked to one track in this mode.
                 const selector = document.getElementById('song-selector');
                 if (selector) selector.style.display = 'none';
-                // Park the right pane on this track's /Metadata page.
-                document.getElementById('pickipedia-frame').src =
-                    '/wiki/' + wikiSong._metadataTitle;
+                // Park the right pane on the song's own page, falling back to
+                // the track's /Metadata page. Skyler's idea, and the right one:
+                // a song should open on the song, not on the YAML somebody
+                // edits it with. See Song:August/mock for where the title match
+                // breaks — the release carries a title and a CID, and nothing
+                // that says which page is about the work.
+                openPaneForTrack(wikiSong);
                 // Populate the title + recording-info header.
                 populateSongInfoHeader(wikiSong);
                 // Cover and the rest of the record, under the title. Async and
