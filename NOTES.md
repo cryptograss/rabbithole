@@ -4,7 +4,7 @@
 
 ### What We Built
 Extracted Rabbithole from arthel into a standalone repo:
-- **Repo**: https://github.com/magent-cryptograss/rabbithole
+- **Repo**: https://github.com/cryptograss/rabbithole (was magent-cryptograss)
 - **Philosophy**: "discover music by connections, not algorithms"
 
 ### Architecture
@@ -14,7 +14,9 @@ src/
 ├── state.js           # RabbitholeState - following/queueing/history with localStorage
 ├── catalog.js         # CatalogAPI interface + StaticCatalog + PickiPediaCatalog
 ├── player/
-│   └── webamp-chartifacts.js  # 2000-line Webamp visualization (needs cleanup)
+│   └── webamp-chartifacts.js  # THE player. Retired name; being renamed
+│                               # to rabbithole-player.js. arthel's copy of
+│                               # this file is stale -- see README.
 └── styles/
     └── rabbithole.css
 ```

@@ -2,6 +2,36 @@
 
 **Discover music by connections, not algorithms.**
 
+> ## Which copy is this?
+>
+> **This repo is the player. Everything that looks like the player somewhere
+> else is a stale copy.**
+>
+> On 26 December 2025 the player was copied out of
+> [arthel](https://github.com/cryptograss/arthel) into this repo, byte for
+> byte — 2030 identical lines. Only this copy has moved since; arthel's has
+> not been touched since 24 November 2025. The copy kept the retired filename
+> `webamp-chartifacts.js`, because a rename in arthel does not travel through
+> a copy made from a file's contents.
+>
+> Nothing recorded any of that, so it cost real time three separate ways:
+> a reviewer reasonably read the retired name as evidence we were on the dead
+> copy; two days of work went into `pickipedia-demo.html` while the deployed
+> URL route serves `shell.html`; and three stylesheet rules for classes this
+> player *sets* were left behind in arthel, including `has-rabbit`, the
+> followed musician's card.
+>
+> So, as of 18 October 2026:
+>
+> | thing | the one that counts | stale copies |
+> |---|---|---|
+> | the player | `src/player/webamp-chartifacts.js` — being renamed to `rabbithole-player.js` | arthel's `src/sites/justinholmes.com/js/rabbithole_player.js` |
+> | the PickiPedia shell | `pickipedia-demo.html` | `shell.html` (April 2026) — but note Caddy's `/rabbithole/*` fallback serves **shell.html**, so deep links get the stale one until that is resolved |
+> | the built bundle | there isn't one; build it | `dist/` on disk, gitignored, dated February 2026, loaded by nothing |
+>
+> If you add a copy, add a line here. A copy without a note is a trap that
+> goes off months later.
+
 Rabbithole is a music player that lets you follow musicians through their discographies. Click on a musician, see what else they've played on, and go down the rabbithole.
 
 ## Philosophy
