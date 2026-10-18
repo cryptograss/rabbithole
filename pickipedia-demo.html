@@ -1939,7 +1939,9 @@
 
                 a.addEventListener('click', async e => {
                     e.preventDefault();
-                    if (action === 'queue') {
+                    if (action === 'trail') {
+                        await trailToHere(a, cid);
+                    } else if (action === 'queue') {
                         queueTrack(cid, a);
                     } else {
                         await playTrackInDock(cid);
@@ -1960,6 +1962,141 @@
          * it -- so a finished song just stopped. This defines it.
          * ------------------------------------------------------------------ */
         const rabbitholeQueue = [];
+
+        /* ------------------------------------------------------------------
+         * Trails: how you get from what is playing to the song you are
+         * reading about, through the people who played on both.
+         *
+         * Justin's third meaning of "Listen in Rabbithole", and the only one
+         * that earns the name. The graph is already on the wiki -- Has
+         * performer subobjects, one per person per song, carrying the
+         * instrument -- so every hop is true because somebody played it.
+         *
+         * The search itself is in src/trail.js and is tested there. This is
+         * only the fetching and the showing.
+         * ------------------------------------------------------------------ */
+        let performerGraphPromise = null;
+
+        function performerGraph() {
+            if (!performerGraphPromise) {
+                const params = new URLSearchParams({
+                    action: 'ask', format: 'json', origin: '*',
+                    query: '[[Has performer::+]]|?Has performer|?Has instrument|limit=500'
+                });
+                performerGraphPromise = fetch('/api.php?' + params)
+                    .then(r => r.json())
+                    .then(d => buildGraph(d.query && d.query.results))
+                    .catch(err => {
+                        console.warn('Could not read the performer graph', err);
+                        performerGraphPromise = null;
+                        return { band: {}, plays: {} };
+                    });
+            }
+            return performerGraphPromise;
+        }
+
+        /**
+         * The track CID a song page carries, read off its own listen button.
+         *
+         * This is the song-to-recording edge, and it does not exist as data:
+         * nothing on the wiki says "this composition was released as that
+         * CID". What does exist is the listen button, which a human put the
+         * CID into. So the button is the edge, for now. When a real property
+         * exists this should read that instead.
+         */
+        const cidForSong = {};
+
+        async function trackCidForSong(songTitle) {
+            if (cidForSong[songTitle] !== undefined) {
+                return cidForSong[songTitle];
+            }
+
+            const params = new URLSearchParams({
+                action: 'parse', page: songTitle, prop: 'text',
+                formatversion: '2', format: 'json', origin: '*'
+            });
+            try {
+                const data = await (await fetch('/api.php?' + params)).json();
+                const html = data.parse && data.parse.text;
+                const match = html && html.match(/[?&]track=([A-Za-z0-9]+)/);
+                cidForSong[songTitle] = match ? match[1] : null;
+            } catch (err) {
+                cidForSong[songTitle] = null;
+            }
+            return cidForSong[songTitle];
+        }
+
+        /** The song page for whatever is playing, as a page title. */
+        function playingSongTitle() {
+            const data = window.songChartifactsData;
+            return data && data.title ? 'Song:' + data.title : null;
+        }
+
+        async function trailToHere(button, targetCid) {
+            const target = 'Song:' + (
+                document.getElementById('pickipedia-frame')
+                    .shadowRoot.querySelector('.pane-title, .firstHeading')
+                    ?.textContent.replace(/^Song:/, '').trim() || ''
+            );
+            const from = playingSongTitle();
+
+            if (!from) {
+                flashButton(button, 'nothing playing to start from');
+                return;
+            }
+            if (from === target) {
+                flashButton(button, 'you are already here');
+                return;
+            }
+
+            flashButton(button, 'looking…');
+            const graph = await performerGraph();
+            const hops = findTrail(graph, from, target);
+
+            if (!hops) {
+                flashButton(button, 'no way there from here');
+                return;
+            }
+
+            renderTrail(from, hops);
+
+            // Queue the songs along the way, so the trail is a thing you can
+            // listen to rather than only read.
+            const queued = [];
+            for (const song of trailSongs(from, hops).slice(1)) {
+                const cid = await trackCidForSong(song);
+                if (cid && !rabbitholeQueue.includes(cid)) {
+                    rabbitholeQueue.push(cid);
+                    queued.push(song);
+                }
+            }
+            flashButton(button, hops.length + ' hop' + (hops.length === 1 ? '' : 's')
+                + ', ' + queued.length + ' queued');
+        }
+
+        function renderTrail(from, hops) {
+            const pane = document.getElementById('pickipedia-frame');
+            const root = pane && pane.shadowRoot;
+            if (!root) return;
+
+            root.querySelectorAll('.pp-trail').forEach(el => el.remove());
+
+            const panel = document.createElement('div');
+            panel.className = 'pp-trail';
+            panel.setAttribute('style', 'margin:.6em 0; padding:.6em .8em;'
+                + 'border:1px solid #c9d3c3; border-left:4px solid #4a7c59;'
+                + 'background:#f6f8f4; font-size:13px; line-height:1.5;');
+            panel.innerHTML = '<strong>Down the rabbithole from '
+                + from.replace(/^Song:/, '') + '</strong><ol style="margin:.4em 0 0; padding-left:1.4em;">'
+                + hops.map(hop => '<li>' + hop.via
+                    + (hop.instrument ? ' <em>(' + hop.instrument + ')</em>' : '')
+                    + ' played on both — to <strong>'
+                    + hop.to.replace(/^Song:/, '') + '</strong></li>').join('')
+                + '</ol>';
+
+            const body = root.querySelector('.mw-body-content') || root;
+            body.insertBefore(panel, body.firstChild);
+        }
 
         function queueTrack(cid, button) {
             if (rabbitholeQueue.includes(cid)) {
@@ -2089,6 +2226,7 @@
         }
 
         // Initialize player
+        const { buildGraph, findTrail, trailSongs } = await import('./src/trail.js');
         const { default: WebampChartifacts } = await import('./src/player/webamp-chartifacts.js');
 
         // In bottom-bar mode the cards live in #ensemble-display (in the
