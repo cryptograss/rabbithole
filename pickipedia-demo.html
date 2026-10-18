@@ -1687,9 +1687,19 @@
         // a div full of parsed wikitext inherits nothing. The iframe used to
         // bring all of this along for free; this is the price of the URL.
         const PANE_STYLES = [
+            // The same modules a real article page loads, in the same skin.
+            // This asked for Vector and for the generic content styles, and the
+            // wiki runs MonoBook -- but the one that actually mattered was
+            // ext.pickipediaContent.styles, the extension's own stylesheet. It
+            // is what draws the proposal markers, the verify affordances and
+            // the studio blocks, so without it every bot-written paragraph
+            // rendered as a bare grey bar with [unverified] floating beside it.
+            // That is what "the backdrop looks super broken" was.
             '<link rel="stylesheet" href="/load.php?lang=en&modules=',
-            'site.styles%7Cmediawiki.skinning.content.parsoid',
-            '&only=styles&skin=vector">',
+            'ext.pickipediaContent.styles%7Cskins.monobook.styles',
+            '&only=styles&skin=monobook">',
+            '<link rel="stylesheet" href="/load.php?lang=en&modules=',
+            'site.styles&only=styles&skin=monobook">',
             '<style>',
             ':host { display: block; font-size: 14px; line-height: 1.5;',
             '  color: #202122; font-family: -apple-system, BlinkMacSystemFont,',
@@ -1724,9 +1734,17 @@
                 if (!parsed) throw new Error(data.error?.info || 'no such page');
 
                 const root = pane.shadowRoot || pane.attachShadow({ mode: 'open' });
+                // Wrapped in the containers MonoBook's rules hang off.
+                // action=parse returns the parser output on its own, and most
+                // of a skin's typography is written as '#content .thing', so
+                // without these the rules match nothing.
                 root.innerHTML = PANE_STYLES
-                    + '<h1 class="pane-title">'
-                    + (parsed.displaytitle || title) + '</h1>' + parsed.text;
+                    + '<div id="globalWrapper"><div id="column-content">'
+                    + '<div id="content" class="mw-body"><div class="mw-body-content">'
+                    + '<h1 class="pane-title firstHeading">'
+                    + (parsed.displaytitle || title) + '</h1>'
+                    + parsed.text
+                    + '</div></div></div></div>';
                 pane.scrollTop = 0;
                 rewirePaneLinks(root);
                 if (push) history.pushState({ wikiTitle: title }, '', path);
