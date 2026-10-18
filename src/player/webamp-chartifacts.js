@@ -149,6 +149,9 @@ class WebampChartifacts {
             partBox.id = `part-${index}`;
             partBox.className = 'part-box';
             partBox.textContent = part;
+            partBox.title = 'Jump to this part';
+            partBox.style.cursor = 'pointer';
+            partBox.addEventListener('click', () => this.seekToPart(index));
             partsChart.appendChild(partBox);
         });
 
@@ -307,6 +310,9 @@ class WebampChartifacts {
             partBox.id = `part-${index}`;
             partBox.className = 'part-box';
             partBox.textContent = part;
+            partBox.title = 'Jump to this part';
+            partBox.style.cursor = 'pointer';
+            partBox.addEventListener('click', () => this.seekToPart(index));
             container.appendChild(partBox);
         });
     }
@@ -671,6 +677,56 @@ class WebampChartifacts {
             }
         });
         return momentTimes.sort((a, b) => a - b);
+    }
+
+    /**
+     * The start time of each part in extractSongParts(), in the same order.
+     *
+     * Built by the same filter deliberately: the parts strip is an index into
+     * the song, so a part and its time have to come from one pass or the strip
+     * will seek to the wrong place as soon as the two filters drift apart.
+     *
+     * @return {number[]} Seconds, parallel to extractSongParts().
+     */
+    extractSongPartTimes() {
+        if (this._cachedSongPartTimes) {
+            return this._cachedSongPartTimes;
+        }
+
+        const times = [];
+        const processedTimeline = this.processTimelineKeys();
+
+        Object.entries(processedTimeline)
+            .map(([timeStr, arrangement]) => ({ time: Number(timeStr), arrangement }))
+            .sort((a, b) => a.time - b.time)
+            .forEach(({ time, arrangement }) => {
+                if (arrangement.part && (arrangement._isSectionStart || !arrangement._isSubMoment)) {
+                    times.push(time);
+                }
+            });
+
+        this._cachedSongPartTimes = times;
+        return times;
+    }
+
+    /**
+     * Jump to a part of the song by its index in the parts strip.
+     *
+     * @param {number} index Position in extractSongParts().
+     * @return {boolean} Whether a seek happened.
+     */
+    seekToPart(index) {
+        const times = this.extractSongPartTimes();
+        const time = times[index];
+        if (time === undefined || !this.webamp) {
+            return false;
+        }
+
+        // Nudge past the boundary. Seeking exactly onto a part's start time
+        // lands on the frame before the arrangement changes often enough to
+        // look like the click did nothing.
+        this.webamp.seekToTime(Math.max(0, time + 0.05));
+        return true;
     }
 
     extractSongParts() {

@@ -155,3 +155,40 @@ describe( 'calculateDynamicWeight', () => {
 		expect( withRecent.calculateDynamicWeight( 'Kyle Tuttle', 0, null ) ).toBe( 30 + 2 * 5 );
 	} );
 } );
+
+describe( 'the parts strip as an index into the song', () => {
+	// A part and its start time have to come out of the same pass, or clicking
+	// the strip seeks to the wrong place the moment the two filters drift.
+	const self = withTrack( {
+		standardSectionLength: 10,
+		timeline: {
+			0: { part: 'intro' },
+			section1: { part: 'A' },
+			section2: { part: 'B' },
+		},
+	} );
+
+	it( 'gives one start time per part, in the same order', () => {
+		const parts = self.extractSongParts();
+		const times = self.extractSongPartTimes();
+
+		expect( parts ).toEqual( [ 'intro', 'A', 'B' ] );
+		expect( times ).toHaveLength( parts.length );
+		expect( times ).toEqual( [ 0, 10, 20 ] );
+	} );
+
+	it( 'seeks just past a part start, not exactly onto it', () => {
+		const seeked = [];
+		const player = withTrack( self.trackData, { webamp: { seekToTime: ( t ) => seeked.push( t ) } } );
+
+		expect( player.seekToPart( 2 ) ).toBe( true );
+		expect( seeked[ 0 ] ).toBeGreaterThan( 20 );
+		expect( seeked[ 0 ] ).toBeLessThan( 20.5 );
+	} );
+
+	it( 'does nothing for a part that is not there', () => {
+		const player = withTrack( self.trackData, { webamp: { seekToTime: () => {} } } );
+
+		expect( player.seekToPart( 99 ) ).toBe( false );
+	} );
+} );
