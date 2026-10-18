@@ -1191,8 +1191,24 @@ class WebampChartifacts {
                 this.triggerSpotlight(musicianDiv, musicianName, spotlightBlackout, spotlightGlow, spotlightColor);
             }
 
-            // Check if this musician has a role
-            if (currentSolo === musicianName) {
+            // Check if this musician has a role.
+            //
+            // The feature map comes first, and it is the half of 2e83c1a
+            // (15 Sep 2025, "Multiple feature artists now possible") that went
+            // missing: calculateDynamicWeight() still sorts the cards by scene,
+            // but nothing put the scene on the card, so cooldown, harmony and
+            // rhythm reordered silently and never changed colour. The CSS for
+            // them survived in arthel's stylesheet and read as dead code.
+            const features = arrangement ? arrangement.feature : null;
+            const musicianScene = features ? features[musicianName] : null;
+
+            if (musicianScene) {
+                // The scene is the class, so a timeline can name a role without
+                // the player having to know it in advance.
+                this.updateMusicianCard(
+                    musicianDiv, musicianName, instrument, [musicianScene], musicianScene === 'lead'
+                );
+            } else if (currentSolo === musicianName) {
                 // This musician is soloing
                 this.updateMusicianCard(musicianDiv, musicianName, instrument, ['lead'], true);
             } else if (currentPickup === musicianName) {

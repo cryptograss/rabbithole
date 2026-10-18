@@ -1,0 +1,66 @@
+/*
+ * Card scenes.
+ *
+ * A timeline names a musician's role at a moment -- lead, pickup, cooldown,
+ * harmony, rhythm -- and the player puts that name on the card as a class.
+ * The weighting switch in the player has handled all five since September
+ * 2025; three of them had no styling anywhere in this repo until now, so they
+ * reordered the cards and never changed their colour.
+ *
+ * lead, pickup, intro and out are styled by the shell and by the player's own
+ * injected rules. These are the three that were missing, plus the pickup
+ * animation that only ever existed in arthel's stylesheet.
+ */
+
+.musician-card.cooldown {
+	border: 2px solid #4caf50;
+	background: #f3e5f5;
+	color: #2e7d32;
+	transform: scale( 0.98 );
+	opacity: 0.9;
+}
+
+.musician-card.harmony {
+	border: 1px solid #9c27b0;
+	background: #f8f0fb;
+	color: #6a1b7a;
+}
+
+/*
+ * Rhythm is the quietest scene: it says somebody is holding the groove, which
+ * is worth seeing and not worth shouting. It had no styling in either repo, so
+ * this is new rather than ported.
+ */
+.musician-card.rhythm {
+	border: 1px solid #90a4ae;
+	background: #f5f7f8;
+	color: #455a64;
+}
+
+/* Ported from arthel's webamp-chartifacts.css, where nothing loaded it. */
+.musician-card.pickup {
+	animation: pickup-rise 2s ease-in-out;
+}
+
+@keyframes pickup-rise {
+	0% {
+		transform: scale( 1 );
+		box-shadow: 0 0 2px rgba( 255, 152, 0, 0.5 );
+	}
+
+	50% {
+		transform: scale( 1.03 );
+		box-shadow: 0 0 8px rgba( 255, 152, 0, 0.8 );
+	}
+
+	100% {
+		transform: scale( 1.02 );
+		box-shadow: 0 0 5px rgba( 255, 152, 0, 0.6 );
+	}
+}
+
+@media ( prefers-reduced-motion: reduce ) {
+	.musician-card.pickup {
+		animation: none;
+	}
+}
