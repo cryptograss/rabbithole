@@ -1930,12 +1930,82 @@
                 }
                 if (!cid) return;
 
+                let action;
+                try {
+                    action = new URL(a.href, location.origin).searchParams.get('action');
+                } catch (err) {
+                    action = null;
+                }
+
                 a.addEventListener('click', async e => {
                     e.preventDefault();
-                    await playTrackInDock(cid);
+                    if (action === 'queue') {
+                        queueTrack(cid, a);
+                    } else {
+                        await playTrackInDock(cid);
+                    }
                 });
             });
         }
+
+        /* ------------------------------------------------------------------
+         * The queue.
+         *
+         * Justin, 2026-10-18, on what "Listen in Rabbithole" could mean:
+         * listen now, listen next, or find me a rabbithole from here to there.
+         * This is the second one. The third needs the catalog and is not this.
+         *
+         * The player has been calling window.playNextInRabbithole() when a
+         * track ends since before any of this, and nothing has ever defined
+         * it -- so a finished song just stopped. This defines it.
+         * ------------------------------------------------------------------ */
+        const rabbitholeQueue = [];
+
+        function queueTrack(cid, button) {
+            if (rabbitholeQueue.includes(cid)) {
+                flashButton(button, 'already queued');
+                return;
+            }
+
+            rabbitholeQueue.push(cid);
+            flashButton(button, rabbitholeQueue.length === 1
+                ? 'queued — plays next'
+                : 'queued — ' + rabbitholeQueue.length + ' waiting');
+        }
+
+        /**
+         * Say something happened, where the thing happened.
+         *
+         * Two silent failures turned up today -- a play button that did
+         * nothing while the player was still loading, and a listen button
+         * whose only complaint was a console warning. Queueing is worse than
+         * both: it is invisible by nature, since nothing about the page
+         * changes. So the button says so itself.
+         */
+        function flashButton(button, message) {
+            if (!button) return;
+            const label = button.querySelector('span') || button;
+
+            // Remember the real label the first time, not whatever is showing.
+            // Clicking twice inside the flash window would otherwise capture
+            // the flashed text as the original and the button would keep it
+            // for good -- a button permanently reading "already queued".
+            if (label.dataset.restLabel === undefined) {
+                label.dataset.restLabel = label.textContent;
+            }
+            clearTimeout(label._flashTimer);
+
+            label.textContent = message;
+            label._flashTimer = setTimeout(() => {
+                label.textContent = label.dataset.restLabel;
+            }, 2200);
+        }
+
+        window.playNextInRabbithole = async function() {
+            const next = rabbitholeQueue.shift();
+            if (!next) return;
+            await playTrackInDock(next);
+        };
 
         async function playTrackInDock(cid) {
             // Open the dock first, so a slow fetch happens in front of the
