@@ -1716,6 +1716,159 @@
             '</style>'
         ].join('');
 
+
+        /* ------------------------------------------------------------------
+         * How much of the wiki the pane wears.
+         *
+         * Three ways, switchable from the pane itself, because this is a look
+         * to be judged rather than argued about:
+         *
+         *   content  the article and nothing else (what we have been looking at)
+         *   header   a small header we own: title, a search that works, and a
+         *            way out to the real page
+         *   skin     MonoBook's full chrome, fetched and injected
+         *
+         * The honest caveat on 'skin', and the reason it is not the default:
+         * injected HTML does not run scripts. The sidebar and tabs are real
+         * links and do work, but the search box is furniture -- it accepts
+         * typing and does nothing. A control that looks real and isn't is
+         * worse than no control, so it is labelled where it sits.
+         * ------------------------------------------------------------------ */
+        const PANE_MODES = ['content', 'header', 'skin'];
+
+        function paneMode() {
+            const saved = localStorage.getItem('rabbitholePaneMode');
+            return PANE_MODES.includes(saved) ? saved : 'content';
+        }
+
+        const CHROME_STYLES = [
+            '<style>',
+            '.pane-chrome { display: flex; align-items: center; gap: 8px;',
+            '  padding: 6px 8px; margin: -4px -4px 10px; background: #f3f5f1;',
+            '  border-bottom: 1px solid #d8ddd3; font-size: 13px;',
+            '  position: sticky; top: 0; z-index: 5; }',
+            '.pane-chrome .pane-search { flex: 1 1 auto; min-width: 60px;',
+            '  padding: 4px 6px; border: 1px solid #c3cbbb; border-radius: 3px;',
+            '  font: inherit; }',
+            '.pane-chrome a { color: #2d5016; text-decoration: none; }',
+            '.pane-chrome a:hover { text-decoration: underline; }',
+            '.pane-mode { font: inherit; padding: 3px; border: 1px solid #c3cbbb;',
+            '  border-radius: 3px; background: #fff; }',
+            '.pane-results { list-style: none; padding: 0; margin: 0; }',
+            '.pane-results li { padding: 5px 0; border-bottom: 1px solid #eceee8; }',
+            '.pane-results a { font-weight: 600; }',
+            '.pane-results .snippet { color: #5a6354; font-size: 12px; }',
+            '.pane-fake-note { background: #fff6d8; border: 1px solid #e3d08a;',
+            '  padding: 5px 8px; font-size: 12px; margin: 0 0 8px; }',
+            '</style>'
+        ].join('');
+
+        function modeSwitcher() {
+            const current = paneMode();
+            return '<select class="pane-mode" title="How much of the wiki to show">'
+                + PANE_MODES.map(function (m) {
+                    return '<option value="' + m + '"'
+                        + (m === current ? ' selected' : '') + '>' + m + '</option>';
+                }).join('')
+                + '</select>';
+        }
+
+        async function paneBody(title, parsed) {
+            const path = '/wiki/' + title.replace(/ /g, '_');
+            const mode = paneMode();
+
+            if (mode === 'skin') {
+                // MonoBook renders the chrome server-side, so take the real
+                // page rather than rebuilding it. action=parse gives only the
+                // article body, which is why this is a second fetch.
+                try {
+                    const html = await (await fetch(path)).text();
+                    const doc = new DOMParser().parseFromString(html, 'text/html');
+                    const wrapper = doc.getElementById('globalWrapper');
+                    if (wrapper) {
+                        wrapper.querySelectorAll('script, #siteNotice').forEach(function (el) {
+                            el.remove();
+                        });
+                        return CHROME_STYLES
+                            + '<div class="pane-chrome">' + modeSwitcher()
+                            + '<span>MonoBook, as the wiki renders it</span></div>'
+                            + '<div class="pane-fake-note">The search box below is '
+                            + 'furniture: injected HTML cannot run scripts, so it '
+                            + 'accepts typing and does nothing. The sidebar and tab '
+                            + 'links are real.</div>'
+                            + wrapper.outerHTML;
+                    }
+                } catch (err) {
+                    console.warn('Could not fetch the full page for skin mode', err);
+                }
+                // Fall through to the article rather than showing nothing.
+            }
+
+            // Wrapped in the containers MonoBook's rules hang off. action=parse
+            // returns the parser output on its own, and most of a skin's
+            // typography is written as '#content .thing', so without these the
+            // rules match nothing.
+            const article = '<div id="globalWrapper"><div id="column-content">'
+                + '<div id="content" class="mw-body"><div class="mw-body-content">'
+                + '<h1 class="pane-title firstHeading">'
+                + (parsed.displaytitle || title) + '</h1>'
+                + parsed.text
+                + '</div></div></div></div>';
+
+            if (mode === 'header') {
+                return CHROME_STYLES
+                    + '<div class="pane-chrome">' + modeSwitcher()
+                    + '<input class="pane-search" type="search" '
+                    + 'placeholder="Search PickiPedia" aria-label="Search PickiPedia">'
+                    + '<a href="' + path + '" target="_blank" rel="noopener">open ↗</a>'
+                    + '</div>' + article;
+            }
+
+            return CHROME_STYLES + '<div class="pane-chrome">' + modeSwitcher()
+                + '<span>article only</span></div>' + article;
+        }
+
+        function wirePaneChrome(root) {
+            rewirePaneLinks(root);
+
+            const select = root.querySelector('.pane-mode');
+            if (select) {
+                select.addEventListener('change', function () {
+                    localStorage.setItem('rabbitholePaneMode', select.value);
+                    // Re-render where we are, without adding a history entry.
+                    const here = decodeURIComponent(location.pathname.replace('/wiki/', ''))
+                        .replace(/_/g, ' ');
+                    openWikiPage(here || 'Justin Holmes', { push: false });
+                });
+            }
+
+            const search = root.querySelector('.pane-search');
+            if (search) {
+                search.addEventListener('keydown', async function (ev) {
+                    if (ev.key !== 'Enter' || !search.value.trim()) return;
+                    const params = new URLSearchParams({
+                        action: 'query', list: 'search', srsearch: search.value.trim(),
+                        srlimit: '15', format: 'json', formatversion: '2', origin: '*'
+                    });
+                    const data = await (await fetch('/api.php?' + params)).json();
+                    const hits = data.query?.search || [];
+                    const body = root.querySelector('.mw-body-content');
+                    if (!body) return;
+                    body.innerHTML = '<h1 class="pane-title">' + hits.length
+                        + ' result' + (hits.length === 1 ? '' : 's') + ' for '
+                        + search.value.trim() + '</h1><ul class="pane-results">'
+                        + hits.map(function (hit) {
+                            return '<li><a href="/wiki/'
+                                + encodeURIComponent(hit.title.replace(/ /g, '_'))
+                                + '">' + hit.title + '</a>'
+                                + '<div class="snippet">' + (hit.snippet || '')
+                                + '</div></li>';
+                        }).join('') + '</ul>';
+                    rewirePaneLinks(root);
+                });
+            }
+        }
+
         async function openWikiPage(title, { push = true } = {}) {
             const pane = document.getElementById('pickipedia-frame');
             if (!pane) return;
@@ -1734,17 +1887,8 @@
                 if (!parsed) throw new Error(data.error?.info || 'no such page');
 
                 const root = pane.shadowRoot || pane.attachShadow({ mode: 'open' });
-                // Wrapped in the containers MonoBook's rules hang off.
-                // action=parse returns the parser output on its own, and most
-                // of a skin's typography is written as '#content .thing', so
-                // without these the rules match nothing.
-                root.innerHTML = PANE_STYLES
-                    + '<div id="globalWrapper"><div id="column-content">'
-                    + '<div id="content" class="mw-body"><div class="mw-body-content">'
-                    + '<h1 class="pane-title firstHeading">'
-                    + (parsed.displaytitle || title) + '</h1>'
-                    + parsed.text
-                    + '</div></div></div></div>';
+                root.innerHTML = PANE_STYLES + await paneBody(title, parsed);
+                wirePaneChrome(root);
                 pane.scrollTop = 0;
                 rewirePaneLinks(root);
                 if (push) history.pushState({ wikiTitle: title }, '', path);
