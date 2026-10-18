@@ -1904,7 +1904,69 @@
         // Links inside the pane stay inside the pane. Anything that is not an
         // ordinary wiki page — an edit link, a Special: page, an off-site
         // link — is left alone and opens the normal way.
+        /**
+         * A Listen in Rabbithole button inside the pane does not go anywhere.
+         *
+         * Sky, 2026-10-18: "the listen on RH button with the chase will just
+         * expand that tab if its not open and start playing the song and just
+         * start playing it if the tab is open".
+         *
+         * Following the link would reload the shell, which throws away the
+         * player, the queue and whatever is playing -- the one thing a dock
+         * exists to avoid. So the click is caught, the track CID is lifted out
+         * of the href, and the running player is handed the new song.
+         *
+         * The href stays exactly as it is, because outside this shell -- on the
+         * wiki proper, in a Mood, in somebody's bookmarks -- following it is
+         * precisely the right behaviour.
+         */
+        function rewireListenButtons(pane) {
+            pane.querySelectorAll('a[href*="/rabbithole/"]').forEach(a => {
+                let cid;
+                try {
+                    cid = new URL(a.href, location.origin).searchParams.get('track');
+                } catch (err) {
+                    return;
+                }
+                if (!cid) return;
+
+                a.addEventListener('click', async e => {
+                    e.preventDefault();
+                    await playTrackInDock(cid);
+                });
+            });
+        }
+
+        async function playTrackInDock(cid) {
+            // Open the dock first, so a slow fetch happens in front of the
+            // player rather than behind a closed bar.
+            if (document.body.classList.contains('bar-collapsed')) {
+                window.toggleSidebar();
+            }
+
+            try {
+                const song = await loadTrackFromWiki(cid);
+                window.songChartifactsData = song;
+
+                if (window.chartifactsPlayer
+                    && typeof window.chartifactsPlayer.loadNewSong === 'function') {
+                    await window.chartifactsPlayer.loadNewSong(song);
+                    setTimeout(addMusicianClickHandlers, 500);
+                }
+
+                // The track is the shareable thing, so put it in the URL --
+                // replace, not push, so Back still means the page you came
+                // from rather than the same page minus a song.
+                const url = new URL(location.href);
+                url.searchParams.set('track', cid);
+                history.replaceState({ ...history.state, track: cid }, '', url);
+            } catch (err) {
+                console.warn('Could not play', cid, 'in the dock', err);
+            }
+        }
+
         function rewirePaneLinks(pane) {
+            rewireListenButtons(pane);
             pane.querySelectorAll('a[href^="/wiki/"]').forEach(a => {
                 const title = decodeURIComponent(
                     a.getAttribute('href').slice('/wiki/'.length)).replace(/_/g, ' ');
