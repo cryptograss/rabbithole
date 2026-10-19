@@ -2408,6 +2408,72 @@
             }
         });
 
+        /*
+         * ?rhdiag=1 -- an on-screen readout of what the audio is doing.
+         *
+         * Skyler hears the audio speed up and slow down on an iPhone, most
+         * audibly at the A that follows the first B of August (t=50, where
+         * the solo passes to Harry Clark). None of it reproduces on a
+         * desktop: the whole 4MB file buffers, there are no long tasks, and
+         * audio time tracks wall-clock time to within a tenth of a second
+         * across the stretch where he hears it. So the measurement has to
+         * happen on the phone, and a phone has no console you can read while
+         * you listen.
+         *
+         * What it shows: the media element's own currentTime against the
+         * wall clock. If they stay together, the audio is running at speed
+         * and what he is hearing is something else; if the audio falls
+         * behind in steps, it is stalling. Buffered end says whether the
+         * file is ahead of the playhead. Any waiting/stalled/ratechange the
+         * element fires is listed with the time it happened.
+         */
+        if (new URLSearchParams(location.search).get('rhdiag')) {
+            const box = document.createElement('div');
+            box.style.cssText = 'position:fixed; top:0; left:0; right:0; z-index:9999;'
+                + 'background:rgba(0,0,0,.85); color:#9f9; font:11px/1.35 monospace;'
+                + 'padding:6px 8px; white-space:pre; pointer-events:none;';
+            document.body.appendChild(box);
+
+            const waitForAudio = (tries = 0) => {
+                const p = window.chartifactsPlayer;
+                const audio = p && p.webamp && p.webamp.media
+                    && p.webamp.media._source && p.webamp.media._source._audio;
+                if (!audio) {
+                    if (tries < 100) setTimeout(() => waitForAudio(tries + 1), 200);
+                    return;
+                }
+                const events = [];
+                ['waiting', 'stalled', 'suspend', 'ratechange', 'seeking', 'error']
+                    .forEach(ev => audio.addEventListener(ev, () => {
+                        events.unshift(ev + '@' + audio.currentTime.toFixed(1));
+                        events.length = Math.min(events.length, 6);
+                    }));
+
+                let wall0 = null, audio0 = null, worst = 0;
+                setInterval(() => {
+                    const playing = !audio.paused && !audio.ended;
+                    if (!playing) { wall0 = null; box.textContent = 'paused'; return; }
+                    if (wall0 === null) {
+                        wall0 = performance.now(); audio0 = audio.currentTime; worst = 0;
+                    }
+                    const wall = (performance.now() - wall0) / 1000;
+                    const played = audio.currentTime - audio0;
+                    const drift = played - wall;
+                    if (Math.abs(drift) > Math.abs(worst)) worst = drift;
+                    const buf = audio.buffered.length
+                        ? audio.buffered.end(audio.buffered.length - 1) : 0;
+                    box.textContent =
+                        't=' + audio.currentTime.toFixed(1)
+                        + '  drift=' + drift.toFixed(2) + 's'
+                        + '  worst=' + worst.toFixed(2) + 's'
+                        + '  buffered=' + buf.toFixed(0) + 's'
+                        + '  rate=' + audio.playbackRate
+                        + '\n' + (events.length ? events.join(' ') : 'no stalls');
+                }, 250);
+            };
+            waitForAudio();
+        }
+
         if (isBottomBar) {
             // Initial icon points down (▼) = "click to collapse the bar".
             const initIcon = document.getElementById('minimize-icon');
