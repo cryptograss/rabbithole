@@ -2441,15 +2441,9 @@
         if (INITIAL_PARAMS.get('rhdiag')) {
             const box = document.createElement('div');
             box.style.cssText = 'position:fixed; top:0; left:0; right:0; z-index:9999;'
-                + 'background:#111; color:#eee; font:13px/1.45 system-ui, sans-serif;'
+                + 'background:#111; color:#eee; font:13px/1.4 system-ui, sans-serif;'
                 + 'padding:8px 10px; pointer-events:none;';
             document.body.appendChild(box);
-            const say = (line, detail) => {
-                box.innerHTML = '<b>' + line + '</b>'
-                    + (detail ? '<br><span style="color:#9c9; font-size:11px">'
-                        + detail + '</span>' : '');
-            };
-            say('Listening…', 'play the song; this bar keeps whatever it catches');
 
             const waitForAudio = (tries = 0) => {
                 const p = window.chartifactsPlayer;
@@ -2461,66 +2455,84 @@
                 }
 
                 /*
-                 * Latched, not live.
+                 * A list, not a latch.
                  *
-                 * The first version asked whoever was holding the phone to
-                 * watch a row of numbers and catch the moment -- which is
-                 * asking a listener to be an oscilloscope. This one does the
-                 * catching: once it has seen something worth reporting it
-                 * keeps saying so until the page is reloaded, so the screen
-                 * can be read at leisure and photographed whenever.
+                 * The first version reported the first thing it saw and then
+                 * stopped looking -- and the first thing it saw was itself.
+                 * iOS reports the element as playing a little before sound
+                 * actually flows, so the opening half-second of silence read
+                 * as the audio falling behind, the bar latched on it at
+                 * t=1.6s, and the spot that actually matters at t=50 was
+                 * never reached. Twice now this thing has cried wolf about
+                 * its own startup.
+                 *
+                 * So: measure drift only once the song has genuinely been
+                 * running (two seconds of audio actually advanced), keep the
+                 * findings as a list rather than a verdict, and re-arm after
+                 * each one so a single early artefact cannot blind the rest.
                  */
-                let verdict = null;
-                const latch = (line, detail) => {
-                    if (verdict) return;
-                    verdict = true;
-                    say(line, detail);
+                const findings = [];
+                const note = (line) => {
+                    if (findings.length && findings[findings.length - 1] === line) return;
+                    findings.push(line);
+                    if (findings.length > 5) findings.shift();
                 };
+                const render = (status) => {
+                    box.innerHTML = findings.length
+                        ? '<b>' + findings.join('</b><br><b>') + '</b>'
+                            + '<br><span style="color:#9c9; font-size:11px">'
+                            + status + '</span>'
+                        : '<b>Listening…</b><br><span style="color:#9c9; font-size:11px">'
+                            + status + '</span>';
+                };
+                render('play the song; this bar keeps everything it catches');
 
-                // A `waiting` at t=0 is the track loading, not a fault, and
-                // latching on it made the bar shout about a stall before a
-                // note had played. Only count one once the song is running.
-                // A seek lands outside what is buffered and fires `waiting`
-                // on the way to the new position. That is the seek working,
-                // not a fault, so give it a few seconds of grace.
+                // A seek lands outside what is buffered and fires `waiting` on
+                // the way; that is the seek working, not a fault.
                 let lastSeekAt = -1e9;
-                audio.addEventListener('seeking', () => { lastSeekAt = performance.now(); });
+                audio.addEventListener('seeking',
+                    () => { lastSeekAt = performance.now(); });
 
                 ['waiting', 'stalled', 'error'].forEach(ev =>
                     audio.addEventListener(ev, () => {
-                        if (audio.currentTime < 1) return;
+                        if (audio.currentTime < 3) return;
                         if (performance.now() - lastSeekAt < 3000) return;
-                        latch(
-                            'AUDIO STALLED at ' + audio.currentTime.toFixed(1) + 's',
-                            'the player ran out of sound to play ('
-                            + ev + '). Buffered to '
+                        note('STALLED at ' + audio.currentTime.toFixed(1) + 's'
+                            + ' (' + ev + ', buffered to '
                             + (audio.buffered.length
                                 ? audio.buffered.end(audio.buffered.length - 1).toFixed(0)
-                                : 0) + 's.');
+                                : 0) + 's)');
                     }));
 
-                audio.addEventListener('ratechange', () => latch(
-                    'PLAYBACK RATE CHANGED to ' + audio.playbackRate,
-                    'something set the speed; it should always be 1.'));
+                audio.addEventListener('ratechange', () => {
+                    if (audio.playbackRate !== 1) {
+                        note('RATE set to ' + audio.playbackRate
+                            + ' at ' + audio.currentTime.toFixed(1) + 's');
+                    }
+                });
 
-                // Drift: does audio time keep up with the wall clock? Measured
-                // over a rolling window so a pause or a seek re-baselines
-                // rather than registering as a fault.
+                // Drift: does audio time keep up with the wall clock?
                 let wall0 = null, audio0 = null, lastT = null;
+                const rebase = () => { wall0 = null; };
                 setInterval(() => {
                     const playing = !audio.paused && !audio.ended;
-                    if (!playing || (lastT !== null
-                            && Math.abs(audio.currentTime - lastT) > 1.5)) {
-                        wall0 = null;
-                        lastT = audio.currentTime;
-                        if (!verdict) {
-                            say(playing ? 'Listening…' : 'Paused',
-                                't=' + audio.currentTime.toFixed(1) + 's'
-                                + ' · nothing wrong caught yet');
-                        }
+                    const jumped = lastT !== null
+                        && Math.abs(audio.currentTime - lastT) > 1.5;
+                    lastT = audio.currentTime;
+
+                    if (!playing || jumped) {
+                        rebase();
+                        render((playing ? 'playing' : 'paused')
+                            + ' at ' + audio.currentTime.toFixed(1) + 's');
                         return;
                     }
-                    lastT = audio.currentTime;
+                    // Warm up: wait for the song to be properly under way
+                    // before believing anything the clock says.
+                    if (audio.currentTime < 3) {
+                        rebase();
+                        render('starting… ' + audio.currentTime.toFixed(1) + 's');
+                        return;
+                    }
                     if (wall0 === null) {
                         wall0 = performance.now(); audio0 = audio.currentTime;
                         return;
@@ -2528,18 +2540,14 @@
                     const wall = (performance.now() - wall0) / 1000;
                     const drift = (audio.currentTime - audio0) - wall;
                     if (wall > 2 && Math.abs(drift) > 0.25) {
-                        latch(
-                            'AUDIO ' + (drift < 0 ? 'FELL BEHIND' : 'RAN AHEAD')
-                            + ' by ' + Math.abs(drift).toFixed(2) + 's'
-                            + ' at ' + audio.currentTime.toFixed(1) + 's',
-                            'over ' + wall.toFixed(0) + 's of listening');
+                        note((drift < 0 ? 'FELL BEHIND ' : 'RAN AHEAD ')
+                            + Math.abs(drift).toFixed(2) + 's'
+                            + ' by ' + audio.currentTime.toFixed(1) + 's');
+                        rebase();
                         return;
                     }
-                    if (!verdict) {
-                        say('Listening…',
-                            't=' + audio.currentTime.toFixed(1) + 's · in time'
-                            + ' · nothing wrong caught yet');
-                    }
+                    render('playing at ' + audio.currentTime.toFixed(1) + 's'
+                        + (findings.length ? '' : ' · nothing caught yet'));
                 }, 250);
             };
             waitForAudio();
