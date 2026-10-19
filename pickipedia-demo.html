@@ -1158,7 +1158,7 @@
 
                ┌───────────────────────────────┐
                │ ▣ Paint Exchange          🐰 ▼ │
-               │ [ Paint Exchange ▾ ] ✎Edit ⬤ txt │
+               │ [Paint Exchange ▾][Edit] ⬤ txt │
                ├───────────────┬───────────────┤
                │    webamp     │ cards         │
                ├───────────────┴───────────────┤
@@ -1197,12 +1197,16 @@
                    skin sits at its start, the cards are pushed past it by a
                    margin. Column 1 is then free to be the cover, and the
                    selector can have everything to the right of it. */
-                grid-template-columns: 44px minmax( 0, 1fr ) auto auto;
+                /* Column one is sized by the track list, not by a number:
+                   the cover sits at its left edge on the first line and the
+                   list fills it on the second, so the editor button starts
+                   exactly where the list ends and the words fit. */
+                grid-template-columns: auto auto minmax( 0, 1fr ) auto;
                 grid-template-rows: auto auto 100px;
                 grid-template-areas:
-                    "art  title  title  header"
-                    "sel  sel    switch switch"
-                    "row  row    row    row";
+                    "title title title header"
+                    "sel   edit  edit  switch"
+                    "row   row   row   row";
                 /* Whatever the phone thinks about text size, the dock is
                    laid out in the sizes written here. iOS inflates text in
                    some layouts, which would push a control past the width
@@ -1225,7 +1229,7 @@
             body.bottom-bar .song-title-display {
                 grid-area: title;
                 font-size: 15px;
-                margin: 3px 0 0 6px;
+                margin: 3px 0 0 44px;
                 white-space: nowrap;
                 overflow: hidden;
                 text-overflow: ellipsis;
@@ -1233,6 +1237,7 @@
 
             body.bottom-bar .rabbithole-header {
                 grid-area: header;
+                justify-self: end;
                 flex-direction: row;
                 align-items: center;
                 gap: 4px;
@@ -1267,8 +1272,13 @@
 
             /* The cover tucked into the top left corner, with the track
                list on its own line underneath. */
+            /* The cover and the title share the first line's cell, the
+               cover at its left edge and the title padded past it. Giving
+               the cover a column of its own would tie it to whatever sizes
+               that column -- which is the track list below -- and the title
+               would start 150px in, adrift of the cover it belongs to. */
             body.bottom-bar .album-art {
-                grid-area: art;
+                grid-area: title;
                 justify-self: start;
                 align-self: start;
                 width: 34px;
@@ -1401,14 +1411,14 @@
                "Edit Timeline" does not fit in that gap; a pencil and "Edit"
                do, and the full words stay in its tooltip. */
             body.bottom-bar .editor-toggle-btn {
-                grid-area: sel;
-                justify-self: end;
+                grid-area: edit;
+                justify-self: start;
                 align-self: center;
                 width: auto;
                 min-width: 0;
                 height: 24px;
                 padding: 0 8px;
-                margin: 0 6px 2px 0;
+                margin: 0 4px 2px 6px;
                 font-size: 11px;
                 line-height: 22px;
                 white-space: nowrap;
@@ -2676,27 +2686,22 @@
         }
 
         /*
-         * The editor button's two labels, long and short.
+         * The editor button's two labels, in one place.
          *
-         * It shares a row with the track list and the switch on a phone, and
-         * "Edit Timeline" does not fit in the gap between them. The words
-         * stay in the tooltip either way, so nothing is lost but width.
+         * They used to be written as strings at the two points that toggle
+         * the editor, which meant anything done to the label elsewhere was
+         * undone the first time it was pressed.
          */
         const EDITOR_LABELS = {
-            open: { long: 'Edit Timeline', short: '\u270E Edit' },
-            close: { long: 'Close Editor', short: '\u2715 Close' },
+            open: 'Edit Timeline',
+            close: 'Close Editor',
         };
-
-        function isNarrowDock() {
-            return window.matchMedia('( max-width: 720px )').matches;
-        }
 
         window.setEditorButtonLabel = function (which) {
             const btn = document.getElementById('editor-toggle-btn');
             if (!btn) return;
-            const pair = EDITOR_LABELS[which];
-            btn.textContent = isNarrowDock() ? pair.short : pair.long;
-            btn.title = pair.long;
+            btn.textContent = EDITOR_LABELS[which];
+            btn.title = EDITOR_LABELS[which];
         };
 
         /*
