@@ -876,6 +876,50 @@
             margin-left: 0;
         }
 
+        /* === The bar on a narrow screen ===
+
+           The bar is a row of items that mostly refuse to shrink: the webamp
+           skin is a fixed 290px, each musician card is 160px, the header is
+           80px. On a desktop that row fits. On an iPhone (390px) it is about
+           800px wide inside a 390px viewport, and `overflow-x: hidden` means
+           the part past the fold is not clipped-but-reachable, it is simply
+           gone: no song select, no Edit Timeline, no musician cards, no
+           collapse button. Measured on a 390px viewport, 19 October 2026.
+
+           Until the bar has a real small-screen layout, let it scroll, and
+           pin the header to the left edge so the collapse control is always
+           where the thumb expects it. Scrolling a dock sideways is not the
+           answer; it is the difference between awkward and unusable. */
+        @media ( max-width: 720px ) {
+            body.bottom-bar #rabbithole-sidebar {
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+            }
+
+            /* Header first and pinned, so ▼ never scrolls away. */
+            body.bottom-bar .rabbithole-header {
+                order: 0;
+                position: sticky;
+                left: 0;
+                z-index: 1;
+                width: 56px;
+                background: white;
+            }
+
+            body.bottom-bar .rabbithole-header h1,
+            body.bottom-bar .rabbithole-header .alpha {
+                display: none;
+            }
+
+            /* The ensemble must not try to fill a row wider than the screen;
+               let it take the width its cards need and scroll with them. */
+            body.bottom-bar #ensemble-display {
+                flex: 0 0 auto;
+                flex-wrap: nowrap;
+                overflow-y: visible;
+            }
+        }
+
         /* === Collapsed bottom-bar (body.bar-collapsed) === */
         body.bottom-bar.bar-collapsed #rabbithole-sidebar {
             height: 40px;
