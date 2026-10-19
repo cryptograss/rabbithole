@@ -1156,14 +1156,14 @@
 
            Skyler's layout, holding the phone upright, second pass:
 
-               ┌──────────────────────────────┐
-               │ Paint Exchange        ▣  🐰 ▼ │
-               │ [ 2. Paint Exchange ▾ ] ⬤ txt │
-               ├──────────────┬───────────────┤
-               │   webamp     │ cards         │
-               ├──────────────┴───────────────┤
-               │ A A B A A B A A B A          │
-               └──────────────────────────────┘
+               ┌───────────────────────────────┐
+               │ ▣ Paint Exchange  ⬤ txt  🐰 ▼ │
+               │ ▣ [ 2. Paint Exchange       ▾ ] │
+               ├───────────────┬───────────────┤
+               │    webamp     │ cards         │
+               ├───────────────┴───────────────┤
+               │ A A B A A B A A B A           │
+               └───────────────────────────────┘
 
            Two control rows rather than one. The first pass crammed the title,
            the album, the selector, the switch and the collapse arrow into a
@@ -1190,18 +1190,25 @@
                 /* 236px is the painted width of the skin at 0.85 -- see
                    .webamp-wrapper below. The cards begin where the skin
                    actually ends rather than where its wrapper does. */
-                /* Four columns, and the fixed one is the player's. Five
-                   columns did not fit: 236 for the player plus the switch,
-                   the cover and the header came to 393 on a 390px screen and
-                   everything in the bar hung 11px off the right edge. The
-                   switch moves down beside the track list, which is where
-                   there is room for its words. */
-                grid-template-columns: 236px minmax( 0, 1fr ) auto auto;
+                /* The player used to own column 1 at 236px, so every control
+                   above it had to fit in what was left -- which is what kept
+                   squeezing the track selector however it was arranged. The
+                   player and the cards share one full-width cell instead: the
+                   skin sits at its start, the cards are pushed past it by a
+                   margin. Column 1 is then free to be the cover, and the
+                   selector can have everything to the right of it. */
+                grid-template-columns: 52px minmax( 0, 1fr ) auto auto;
                 grid-template-rows: auto auto 100px;
                 grid-template-areas:
-                    "title    title    art    header"
-                    "albumrow albumrow switch switch"
-                    "player   cards    cards  cards";
+                    "art  title  switch header"
+                    "art  sel    sel    sel"
+                    "row  row    row    row";
+                /* Whatever the phone thinks about text size, the dock is
+                   laid out in the sizes written here. iOS inflates text in
+                   some layouts, which would push a control past the width
+                   measured for it. */
+                -webkit-text-size-adjust: 100%;
+                text-size-adjust: 100%;
                 align-items: start;
                 overflow-x: hidden;
                 padding-bottom: 32px;
@@ -1258,19 +1265,22 @@
                 display: contents;
             }
 
+            /* The cover in the top left corner, holding the left edge of
+               both control rows. */
             body.bottom-bar .album-art {
                 grid-area: art;
-                justify-self: end;
-                width: 26px;
-                height: 26px;
-                align-self: center;
-                margin: 2px 2px 0 0;
+                justify-self: start;
+                align-self: start;
+                width: 44px;
+                height: 44px;
+                margin: 4px 4px 0 4px;
             }
 
             /* --- Row 2: the track list, the whole width of the screen --- */
             body.bottom-bar .album-track-select,
             body.bottom-bar .song-select {
-                grid-area: albumrow;
+                grid-area: sel;
+                font-size: 12px;
                 justify-self: stretch;
                 width: auto;
                 max-width: none;
@@ -1318,15 +1328,19 @@
                The cost is tap targets: Webamp's play button goes from about
                12px to about 10px. A number to look at on a real phone. */
             body.bottom-bar .webamp-wrapper {
-                grid-area: player;
+                grid-area: row;
+                justify-self: start;
                 width: 290px;
                 height: 116px;
                 transform: scale( 0.85 );
                 transform-origin: top left;
             }
 
+            /* Same cell as the player, pushed past the skin's painted
+               edge: 290 x 0.85 leaves the window ending at 234. */
             body.bottom-bar #ensemble-display {
-                grid-area: cards;
+                grid-area: row;
+                margin-left: 236px;
                 flex-direction: column;
                 flex-wrap: nowrap;
                 gap: 1px;
