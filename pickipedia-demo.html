@@ -1157,8 +1157,8 @@
            Skyler's layout, holding the phone upright, second pass:
 
                ┌──────────────────────────────┐
-               │ Paint Exchange        🐰  ▼ │
-               │ ▣ 2. Paint Exchange ▾  ⬤ txt │
+               │ Paint Exchange        ▣  🐰 ▼ │
+               │ [ 2. Paint Exchange ▾ ] ⬤ txt │
                ├──────────────┬───────────────┤
                │   webamp     │ cards         │
                ├──────────────┴───────────────┤
@@ -1190,10 +1190,16 @@
                 /* 236px is the painted width of the skin at 0.85 -- see
                    .webamp-wrapper below. The cards begin where the skin
                    actually ends rather than where its wrapper does. */
-                grid-template-columns: 236px 1fr auto auto;
+                /* Four columns, and the fixed one is the player's. Five
+                   columns did not fit: 236 for the player plus the switch,
+                   the cover and the header came to 393 on a 390px screen and
+                   everything in the bar hung 11px off the right edge. The
+                   switch moves down beside the track list, which is where
+                   there is room for its words. */
+                grid-template-columns: 236px minmax( 0, 1fr ) auto auto;
                 grid-template-rows: auto auto 100px;
                 grid-template-areas:
-                    "title    title    title  header"
+                    "title    title    art    header"
                     "albumrow albumrow switch switch"
                     "player   cards    cards  cards";
                 align-items: start;
@@ -1240,23 +1246,36 @@
                 display: none;
             }
 
-            /* --- Row 2: the record, and the one switch worth having --- */
-            /* The album art and the track list get a row to themselves, so
-               the selector is wide enough to read a track name in. */
+            /* The cover goes up into the corner beside the logo, per
+               Skyler, which leaves the whole of the next row for the track
+               list. A select is as wide as its widest option needs to be,
+               not its selected one -- "8. Swords to Ploughshares" is half
+               again as long as "2. Paint Exchange" -- so measuring the
+               selected text and calling it a fit was the wrong check, and
+               giving it the row is the only answer that holds for every
+               record. */
             body.bottom-bar .album-row {
-                grid-area: albumrow;
-                margin: 2px 0 2px 6px;
+                display: contents;
             }
 
-            /* With no ?track= there is no album row, and this is the only
-               thing naming the song -- same cell, same width. */
+            body.bottom-bar .album-art {
+                grid-area: art;
+                justify-self: end;
+                width: 26px;
+                height: 26px;
+                align-self: center;
+                margin: 2px 2px 0 0;
+            }
+
+            /* --- Row 2: the track list, the whole width of the screen --- */
+            body.bottom-bar .album-track-select,
             body.bottom-bar .song-select {
                 grid-area: albumrow;
                 justify-self: stretch;
                 width: auto;
                 max-width: none;
                 height: 26px;
-                margin: 3px 0 2px 6px;
+                margin: 2px 6px 3px;
             }
 
             /* Studio, date and engineer are a desktop line; at 390px they
@@ -1273,8 +1292,8 @@
                 align-self: center;
                 flex-direction: row;
                 align-items: center;
-                gap: 5px;
-                margin: 0 6px 2px 4px;
+                gap: 4px;
+                margin: 2px 4px 0 4px;
             }
 
             body.bottom-bar .auto-switch-caption {
