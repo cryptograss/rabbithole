@@ -1850,6 +1850,23 @@
                     + ' -- nothing to play.');
             }
             song.audioFile = IPFS_GATEWAY + '/ipfs/' + encoding.cid;
+
+            /*
+             * While the Release page is open, take what the album row needs.
+             *
+             * Without this the four built-in songs had no cover and no track
+             * list -- the album row only ever filled in for a ?track= link --
+             * so the default page looked like a different, poorer app than
+             * the one a listen button opens. Skyler kept being shown layout
+             * changes to a row that was not on his screen.
+             *
+             * `album` holds the parent release's CID because that is what
+             * loadAlbum wants; the four songs used to carry a record's name
+             * there, which nothing could look up.
+             */
+            if (release.parent_release) song.album = release.parent_release;
+            song._trackCid = song.trackCid;
+            if (release.title) song.title = release.title;
             return song;
         }
 
@@ -2011,9 +2028,22 @@
                 window.songChartifactsData = songs['august'];
             }
         } else {
-            await resolveAudioFile(songs['august']).catch(
+            const first = songs['august'];
+            await resolveAudioFile(first).catch(
                 err => console.error('Could not resolve the default track:', err));
-            window.songChartifactsData = songs['august'];
+            window.songChartifactsData = first;
+            populateSongInfoHeader(first);
+            // The cover and the title, but not the album's track list: the
+            // demo selector is still the way around these four, because they
+            // carry hand-written timelines the wiki does not have yet. Two
+            // selectors in one row would be two ways to do one thing, and on
+            // a phone they share a cell and land on top of each other.
+            populateAlbumRow(first)
+                .then(() => {
+                    const albumSel = document.getElementById('album-track-select');
+                    if (albumSel) albumSel.style.display = 'none';
+                })
+                .catch(err => console.warn('Could not build the album row:', err));
         }
         window.allSongs = songs;
 
@@ -2609,6 +2639,13 @@
             }
 
             window.songChartifactsData = newSong;
+            populateSongInfoHeader(newSong);
+            populateAlbumRow(newSong)
+                .then(() => {
+                    const albumSel = document.getElementById('album-track-select');
+                    if (albumSel) albumSel.style.display = 'none';
+                })
+                .catch(err => console.warn('Could not build the album row:', err));
 
             if (window.chartifactsPlayer && typeof window.chartifactsPlayer.loadNewSong === 'function') {
                 await window.chartifactsPlayer.loadNewSong(newSong);
