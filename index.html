@@ -977,6 +977,13 @@
             }
         }
 
+        // Keep iOS off Webamp's Web Audio graph, which warps the sound
+        // there. Must run before the player module, because Webamp builds
+        // the graph as it initialises. See src/player/ios-web-audio.js.
+        const { installWebAudioBypass, followVolume } =
+            await import('/src/player/ios-web-audio.js');
+        const webAudioBypassed = installWebAudioBypass(window.location.search);
+
         // Import and initialize the WebampChartifacts player
         const { default: WebampChartifacts } = await import('/src/player/webamp-chartifacts.js');
 
@@ -984,6 +991,23 @@
             embedMode: false,
             fixedPosition: false
         });
+
+        // With the graph bypassed the volume slider drives a gain node that
+        // is downstream of nothing; point it at the element instead.
+        if (webAudioBypassed) {
+            const wireVolume = (tries = 0) => {
+                const media = window.chartifactsPlayer
+                    && window.chartifactsPlayer.webamp
+                    && window.chartifactsPlayer.webamp.media;
+                if (!media || !followVolume(media)) {
+                    if (tries < 50) setTimeout(() => wireVolume(tries + 1), 200);
+                    return;
+                }
+                media.setVolume(
+                    window.chartifactsPlayer.webamp.store.getState().media.volume);
+            };
+            wireVolume();
+        }
 
         // Wait for ensemble to be created, then make musician names clickable
         const waitForEnsemble = setInterval(() => {

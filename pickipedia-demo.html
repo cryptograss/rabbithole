@@ -2410,6 +2410,14 @@
 
         // Initialize player
         const { buildGraph, findTrail, trailSongs } = await import('./src/trail.js');
+
+        // Before the player module loads, because Webamp builds its audio
+        // graph as it initialises and the graph is what warps the sound on
+        // an iPhone. See src/player/ios-web-audio.js.
+        const { installWebAudioBypass, followVolume, shouldBypassWebAudio } =
+            await import('./src/player/ios-web-audio.js');
+        const bypassed = installWebAudioBypass(window.location.search);
+
         const { default: WebampChartifacts } = await import('./src/player/webamp-chartifacts.js');
 
         // In bottom-bar mode the cards live in #ensemble-display (in the
@@ -2426,6 +2434,23 @@
                 }
             }
         });
+
+        // With the graph bypassed the volume slider drives a gain node that
+        // is downstream of nothing; point it at the element instead.
+        if (bypassed) {
+            const wireVolume = (tries = 0) => {
+                const media = window.chartifactsPlayer
+                    && window.chartifactsPlayer.webamp
+                    && window.chartifactsPlayer.webamp.media;
+                if (!media || !followVolume(media)) {
+                    if (tries < 50) setTimeout(() => wireVolume(tries + 1), 200);
+                    return;
+                }
+                const state = window.chartifactsPlayer.webamp.store.getState();
+                media.setVolume(state.media.volume);
+            };
+            wireVolume();
+        }
 
         /*
          * ?rhdiag=1 -- an on-screen readout of what the audio is doing.
