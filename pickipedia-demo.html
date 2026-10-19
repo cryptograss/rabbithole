@@ -1156,14 +1156,14 @@
 
            Skyler's layout, holding the phone upright, second pass:
 
-               ┌──────────────────────────────┐
-               │ Paint Exchange        ▣  🐰 ▼ │
-               │ [ 2. Paint Exchange ▾ ] ⬤ txt │
-               ├──────────────┬───────────────┤
-               │   webamp     │ cards         │
-               ├──────────────┴───────────────┤
-               │ A A B A A B A A B A          │
-               └──────────────────────────────┘
+               ┌───────────────────────────────┐
+               │ ▣ 🐰 ✎ Paint Exchange  ⬤ txt ▼ │
+               │ ▣ [ 2. Paint Exchange       ▾ ] │
+               ├───────────────┬───────────────┤
+               │    webamp     │ cards         │
+               ├───────────────┴───────────────┤
+               │ A A B A A B A A B A           │
+               └───────────────────────────────┘
 
            Two control rows rather than one. The first pass crammed the title,
            the album, the selector, the switch and the collapse arrow into a
@@ -1190,18 +1190,19 @@
                 /* 236px is the painted width of the skin at 0.85 -- see
                    .webamp-wrapper below. The cards begin where the skin
                    actually ends rather than where its wrapper does. */
-                /* Four columns, and the fixed one is the player's. Five
-                   columns did not fit: 236 for the player plus the switch,
-                   the cover and the header came to 393 on a 390px screen and
-                   everything in the bar hung 11px off the right edge. The
-                   switch moves down beside the track list, which is where
-                   there is room for its words. */
-                grid-template-columns: 236px minmax( 0, 1fr ) auto auto;
+                /* The player's 236px used to be column 1, and every control
+                   above had to fit in what was left of the grid after it --
+                   which is what kept squeezing the track selector. The player
+                   and the cards now share one full-width cell instead: the
+                   skin sits at its start and the cards are pushed past it by
+                   a margin. That frees all six columns for the controls, and
+                   the selector can have a whole row to itself. */
+                grid-template-columns: 48px auto auto minmax( 0, 1fr ) auto auto;
                 grid-template-rows: auto auto 100px;
                 grid-template-areas:
-                    "title    title    art    header"
-                    "albumrow albumrow switch switch"
-                    "player   cards    cards  cards";
+                    "art  logo edit title switch collapse"
+                    "art  sel  sel  sel   sel    sel"
+                    "row  row  row  row   row    row";
                 align-items: start;
                 overflow-x: hidden;
                 padding-bottom: 32px;
@@ -1224,21 +1225,28 @@
                 text-overflow: ellipsis;
             }
 
+            /* The header holds the logo and the collapse arrow together
+               everywhere else; here they want opposite ends of the row, so
+               it becomes display:contents and its two children are placed
+               separately -- the rabbit beside the pencil on the left, the
+               arrow hard right. */
             body.bottom-bar .rabbithole-header {
-                grid-area: header;
-                flex-direction: row;
-                align-items: center;
-                gap: 4px;
-                width: auto;
-                height: auto;
-                padding: 2px 4px 0 0;
-                position: static;
+                display: contents;
             }
 
             body.bottom-bar .rabbithole-header img {
+                grid-area: logo;
                 display: block;
-                width: 20px;
-                height: 20px;
+                align-self: start;
+                width: 22px;
+                height: 22px;
+                margin: 4px 2px 0 2px;
+            }
+
+            body.bottom-bar .rabbithole-header .minimize-btn {
+                grid-area: collapse;
+                align-self: start;
+                margin: 3px 4px 0 2px;
             }
 
             body.bottom-bar .rabbithole-header h1,
@@ -1258,19 +1266,21 @@
                 display: contents;
             }
 
+            /* The cover in the top left, big enough to be a cover: it
+               holds the whole left edge of both control rows. */
             body.bottom-bar .album-art {
                 grid-area: art;
-                justify-self: end;
-                width: 26px;
-                height: 26px;
-                align-self: center;
-                margin: 2px 2px 0 0;
+                justify-self: start;
+                align-self: start;
+                width: 42px;
+                height: 42px;
+                margin: 4px 4px 0 4px;
             }
 
             /* --- Row 2: the track list, the whole width of the screen --- */
             body.bottom-bar .album-track-select,
             body.bottom-bar .song-select {
-                grid-area: albumrow;
+                grid-area: sel;
                 justify-self: stretch;
                 width: auto;
                 max-width: none;
@@ -1289,7 +1299,7 @@
             body.bottom-bar .auto-switch {
                 grid-area: switch;
                 justify-self: end;
-                align-self: center;
+                align-self: start;
                 flex-direction: row;
                 align-items: center;
                 gap: 4px;
@@ -1318,15 +1328,19 @@
                The cost is tap targets: Webamp's play button goes from about
                12px to about 10px. A number to look at on a real phone. */
             body.bottom-bar .webamp-wrapper {
-                grid-area: player;
+                grid-area: row;
+                justify-self: start;
                 width: 290px;
                 height: 116px;
                 transform: scale( 0.85 );
                 transform-origin: top left;
             }
 
+            /* Same cell as the player, pushed past the skin's painted
+               edge: 290 x 0.85 leaves the window ending at 234. */
             body.bottom-bar #ensemble-display {
-                grid-area: cards;
+                grid-area: row;
+                margin-left: 236px;
                 flex-direction: column;
                 flex-wrap: nowrap;
                 gap: 1px;
@@ -1358,18 +1372,40 @@
                 max-width: 100%;
             }
 
-            /* The editor is a desktop job -- a timeline is edited with a
-               keyboard -- and the button costs a row here. */
-            body.bottom-bar .editor-toggle-btn,
+            /* Editing a timeline wants a keyboard, but the way in should
+               still be there. The words cost 77px of a row that has none to
+               spare, so on a phone it is a pencil with the words in its
+               tooltip -- say if you would rather have them back and lose
+               something else. */
+            body.bottom-bar .editor-toggle-btn {
+                grid-area: edit;
+                align-self: start;
+                width: 26px;
+                height: 24px;
+                min-width: 0;
+                padding: 0;
+                margin: 3px 2px 0 0;
+                font-size: 0;
+                line-height: 24px;
+                text-align: center;
+            }
+
+            body.bottom-bar .editor-toggle-btn::before {
+                content: '\270E';
+                font-size: 14px;
+            }
+
             body.bottom-bar .inline-carrot-btn {
                 display: none;
             }
 
-            /* Hide the editor's toggle row but not the one the auto-switch
-               lives in: that element carries both classes, and hiding
-               .toggle-row took the switch with it. */
-            body.bottom-bar .toggle-row:not( .auto-switch-row ) {
-                display: none;
+            /* The editor's row holds the pencil, so it must not be hidden
+               and must not be a box: display:contents lets the button be a
+               grid item in its own right. The auto-switch lives in a sibling
+               carrying both class names -- hiding .toggle-row outright took
+               the switch with it once already. */
+            body.bottom-bar .toggle-row {
+                display: contents;
             }
 
             /* --- Row 4: the whole song, readable --- */
