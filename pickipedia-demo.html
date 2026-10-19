@@ -1983,13 +1983,30 @@
             }
         }
 
-        async function openWikiPage(title, { push = true } = {}) {
+        async function openWikiPage(title, { push = true, force = false } = {}) {
             const pane = document.getElementById('pickipedia-frame');
             if (!pane) return;
             const path = '/wiki/' + title.replace(/ /g, '_');
+
+            // Already here. Re-fetching and rebuilding the article that is
+            // already in the pane costs a request and two layouts and shows
+            // a "Loading" flash for nothing -- whether the repeat comes from
+            // tapping a musician card for whoever is already on screen, from
+            // a popstate, or from a solo returning with no one in between.
+            // August does not happen to do the last one; other songs will.
+            if (!force && pane.dataset.wikiTitle === title) {
+                if (push) history.pushState({ wikiTitle: title }, '', path);
+                return;
+            }
+
             const shadow = pane.shadowRoot || pane.attachShadow({ mode: 'open' });
-            shadow.innerHTML = PANE_STYLES
-                + '<div class="pane-loading">Loading ' + title + '…</div>';
+            // Only blank the pane when there is nothing in it. Replacing a
+            // rendered article with "Loading" and then with the next article
+            // is two layouts and a flash where one layout will do.
+            if (!pane.dataset.wikiTitle) {
+                shadow.innerHTML = PANE_STYLES
+                    + '<div class="pane-loading">Loading ' + title + '…</div>';
+            }
 
             try {
                 const params = new URLSearchParams({
@@ -2002,6 +2019,7 @@
 
                 const root = pane.shadowRoot || pane.attachShadow({ mode: 'open' });
                 root.innerHTML = PANE_STYLES + await paneBody(title, parsed);
+                pane.dataset.wikiTitle = title;
                 wirePaneChrome(root);
                 pane.scrollTop = 0;
                 rewirePaneLinks(root);
