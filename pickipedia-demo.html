@@ -1158,7 +1158,7 @@
 
                ┌───────────────────────────────┐
                │ ▣ Paint Exchange  ⬤ txt  🐰 ▼ │
-               │ ▣ [ 2. Paint Exchange       ▾ ] │
+               │ [ 2. Paint Exchange ▾ ]         │
                ├───────────────┬───────────────┤
                │    webamp     │ cards         │
                ├───────────────┴───────────────┤
@@ -1197,11 +1197,11 @@
                    skin sits at its start, the cards are pushed past it by a
                    margin. Column 1 is then free to be the cover, and the
                    selector can have everything to the right of it. */
-                grid-template-columns: 52px minmax( 0, 1fr ) auto auto;
+                grid-template-columns: 44px minmax( 0, 1fr ) auto auto;
                 grid-template-rows: auto auto 100px;
                 grid-template-areas:
                     "art  title  switch header"
-                    "art  sel    sel    sel"
+                    "sel  sel    sel    sel"
                     "row  row    row    row";
                 /* Whatever the phone thinks about text size, the dock is
                    laid out in the sizes written here. iOS inflates text in
@@ -1265,15 +1265,15 @@
                 display: contents;
             }
 
-            /* The cover in the top left corner, holding the left edge of
-               both control rows. */
+            /* The cover tucked into the top left corner, with the track
+               list on its own line underneath. */
             body.bottom-bar .album-art {
                 grid-area: art;
                 justify-self: start;
                 align-self: start;
-                width: 44px;
-                height: 44px;
-                margin: 4px 4px 0 4px;
+                width: 34px;
+                height: 34px;
+                margin: 4px 2px 0 4px;
             }
 
             /* --- Row 2: the track list, the whole width of the screen --- */
@@ -1292,9 +1292,10 @@
                 grid-area: sel;
                 justify-self: start;
                 width: max-content;
-                max-width: 100%;
+                max-width: calc( 100% - 10px );
                 height: 26px;
-                margin: 2px 6px 3px;
+                font-size: 11px;
+                margin: 2px 4px 3px 4px;
             }
 
             /* Studio, date and engineer are a desktop line; at 390px they
@@ -2642,6 +2643,30 @@
         if (!trackParam) {
             openWikiPage('Justin Holmes', { push: false });
         }
+
+        /*
+         * On a phone, the track list says the song and nothing else.
+         *
+         * "August - Vowel Sounds" is two facts, and the row already carries
+         * the second one as the cover beside it. Dropping the album halves
+         * the longest label, which is the one thing that decides how wide
+         * the control has to be -- and the control has been reading as cut
+         * on an iPhone at widths that cannot cut it here, so leave it less
+         * to render rather than keep guessing at the width.
+         *
+         * The full labels stay on a desktop, where there is room for both
+         * facts and the album is worth having in the list.
+         */
+        function shortenTrackLabelsOnNarrowScreens() {
+            if (!window.matchMedia('( max-width: 720px )').matches) return;
+            document.querySelectorAll('#song-selector option').forEach(o => {
+                if (o.dataset.fullLabel === undefined) {
+                    o.dataset.fullLabel = o.textContent;
+                }
+                o.textContent = o.dataset.fullLabel.split(' - ')[0];
+            });
+        }
+        shortenTrackLabelsOnNarrowScreens();
 
         // Load selected song
         window.loadSelectedSong = async function() {
