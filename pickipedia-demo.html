@@ -1158,7 +1158,7 @@
 
                ┌───────────────────────────────┐
                │ ▣ Paint Exchange          🐰 ▼ │
-               │ [ 2. Paint Exchange ▾ ] ⬤ txt │
+               │ [ Paint Exchange ▾ ] ✎Edit ⬤ txt │
                ├───────────────┬───────────────┤
                │    webamp     │ cards         │
                ├───────────────┴───────────────┤
@@ -1324,7 +1324,7 @@
                 flex-direction: row;
                 align-items: center;
                 gap: 4px;
-                margin: 0 6px 2px 4px;
+                margin: 0 2px 2px 4px;
             }
 
             body.bottom-bar .auto-switch-caption {
@@ -1395,16 +1395,36 @@
 
             /* The editor is a desktop job -- a timeline is edited with a
                keyboard -- and the button costs a row here. */
-            body.bottom-bar .editor-toggle-btn,
+            /* Editing a timeline wants a keyboard, but the way in should
+               still be there. It shares the track list's row and sits at the
+               far end of it, which puts it between the list and the switch.
+               "Edit Timeline" does not fit in that gap; a pencil and "Edit"
+               do, and the full words stay in its tooltip. */
+            body.bottom-bar .editor-toggle-btn {
+                grid-area: sel;
+                justify-self: end;
+                align-self: center;
+                width: auto;
+                min-width: 0;
+                height: 24px;
+                padding: 0 8px;
+                margin: 0 6px 2px 0;
+                font-size: 11px;
+                line-height: 22px;
+                white-space: nowrap;
+            }
+
             body.bottom-bar .inline-carrot-btn {
                 display: none;
             }
 
-            /* Hide the editor's toggle row but not the one the auto-switch
-               lives in: that element carries both classes, and hiding
-               .toggle-row took the switch with it. */
-            body.bottom-bar .toggle-row:not( .auto-switch-row ) {
-                display: none;
+            /* Neither toggle row is a box here: one holds the switch, the
+               other holds the editor button, and both of those are placed by
+               name in the grid. Hiding a row to get rid of it has now taken
+               the switch with it once and the editor button twice -- the
+               wrapper was never the thing that wanted hiding. */
+            body.bottom-bar .toggle-row {
+                display: contents;
             }
 
             /* --- Row 4: the whole song, readable --- */
@@ -2656,6 +2676,30 @@
         }
 
         /*
+         * The editor button's two labels, long and short.
+         *
+         * It shares a row with the track list and the switch on a phone, and
+         * "Edit Timeline" does not fit in the gap between them. The words
+         * stay in the tooltip either way, so nothing is lost but width.
+         */
+        const EDITOR_LABELS = {
+            open: { long: 'Edit Timeline', short: '\u270E Edit' },
+            close: { long: 'Close Editor', short: '\u2715 Close' },
+        };
+
+        function isNarrowDock() {
+            return window.matchMedia('( max-width: 720px )').matches;
+        }
+
+        window.setEditorButtonLabel = function (which) {
+            const btn = document.getElementById('editor-toggle-btn');
+            if (!btn) return;
+            const pair = EDITOR_LABELS[which];
+            btn.textContent = isNarrowDock() ? pair.short : pair.long;
+            btn.title = pair.long;
+        };
+
+        /*
          * On a phone, the track list says the song and nothing else.
          *
          * "August - Vowel Sounds" is two facts, and the row already carries
@@ -2678,6 +2722,7 @@
             });
         }
         shortenTrackLabelsOnNarrowScreens();
+        window.setEditorButtonLabel('open');
 
         // Load selected song
         window.loadSelectedSong = async function() {
@@ -3148,7 +3193,7 @@
                 layout.classList.remove('with-editor');
                 panel.style.display = 'none';
                 btn.classList.remove('active');
-                btn.textContent = 'Edit Timeline';
+                window.setEditorButtonLabel('open');
 
                 // Clean up
                 if (keyboardShortcuts) keyboardShortcuts.dispose();
@@ -3162,7 +3207,7 @@
                 layout.classList.add('with-editor');
                 panel.style.display = 'block';
                 btn.classList.add('active');
-                btn.textContent = 'Close Editor';
+                window.setEditorButtonLabel('close');
 
                 // Initialize editor
                 await initializeEditor();
