@@ -1291,7 +1291,9 @@
                 title: "August",
                 album: "Vowel Sounds",
                 duration: 180,
-                audioFile: "/audio/August.flac",
+                // No file was ever served at /audio/August.flac. The track lives
+                // on IPFS; trackCid is how we reach it.
+                trackCid: "QmS3QEZFa1c75BBa9vwNEsXkS6GBmS75Cs6RyDJBXqRx8a",
                 ensemble: {
                     "Justin Holmes": ["guitar", "tin whistle"],
                     "Kyle Tuttle": ["5-string banjo"],
@@ -1332,7 +1334,9 @@
                 title: "Silver 44",
                 album: "4masks",
                 duration: 215,
-                audioFile: "/audio/silver-44.flac",
+                // No file was ever served at /audio/silver-44.flac. The track lives
+                // on IPFS; trackCid is how we reach it.
+                trackCid: "QmXJ8Ko7nx4SDrvRh3J5AZDjHf46UWbW3SaVymRhEhqHBv",
                 ensemble: {
                     "Justin Holmes": ["guitar", "tin whistle", "vocals"],
                     "Kyle Tuttle": ["5-string banjo"],
@@ -1358,7 +1362,9 @@
                 title: "Barlow's Jig",
                 album: "Vowel Sounds",
                 duration: 160,
-                audioFile: "/audio/barlows-jig.flac",
+                // No file was ever served at /audio/barlows-jig.flac. The track lives
+                // on IPFS; trackCid is how we reach it.
+                trackCid: "QmX4AtCi3kZr3up9KhVG18nZxbtJ1vrMpWj3J1FeSUHLmN",
                 ensemble: {
                     "Justin Holmes": ["guitar"],
                     "Kyle Tuttle": ["5-string banjo"],
@@ -1385,7 +1391,9 @@
                 title: "Paint Exchange",
                 album: "4masks",
                 duration: 240,
-                audioFile: "/audio/0 - Paint Exchange.flac",
+                // No file was ever served at /audio/0 - Paint Exchange.flac. The track lives
+                // on IPFS; trackCid is how we reach it.
+                trackCid: "QmcBuh5HCvVCCdCz6KqWf891QkXeKc3T7QBaToYE8mSLtS",
                 ensemble: {
                     "Justin Holmes": ["mandolin", "throatsinging"],
                     "Cory Walker": ["5-string banjo"],
@@ -1519,6 +1527,42 @@
             return {};
         }
 
+        /*
+         * Which encoding this browser can actually decode.
+         *
+         * Every Release carries ogg and flac. Ogg is a quarter the size, so
+         * it is the default -- but Safari went most of its life unable to
+         * decode Ogg Vorbis at all, and an iPhone that cannot decode it plays
+         * silence without saying why. FLAC Safari has handled since Safari 11.
+         *
+         * So ask the browser rather than guess from a version number: a
+         * `canPlayType` of "probably" or "maybe" is the only claim either of
+         * us has. Prefer ogg when it is playable, fall back to flac, and if
+         * the browser disclaims both, hand back ogg and let the error surface
+         * rather than silently returning nothing.
+         */
+        function pickEncoding(encodings) {
+            if (!encodings) return null;
+            const probe = document.createElement('audio');
+            const ok = type => {
+                const verdict = probe.canPlayType(type);
+                return verdict === 'probably' || verdict === 'maybe';
+            };
+            if (encodings.ogg && ok('audio/ogg; codecs="vorbis"')) {
+                return { cid: encodings.ogg, format: 'ogg' };
+            }
+            if (encodings.flac && ok('audio/flac')) {
+                return { cid: encodings.flac, format: 'flac' };
+            }
+            if (encodings.ogg) {
+                console.warn(
+                    'This browser claims it can play neither ogg nor flac; '
+                    + 'trying ogg anyway.');
+                return { cid: encodings.ogg, format: 'ogg' };
+            }
+            return null;
+        }
+
         async function loadTrackFromWiki(cid) {
             const trackData = await fetchYamlPage('Release:' + cid);
             if (!trackData) {
@@ -1527,16 +1571,16 @@
             const metadataData = await fetchYamlPage('Release:' + cid + '/Metadata') || {};
             const metadata = extractMetadata(metadataData);
 
-            const oggCid = trackData.encodings?.ogg;
-            if (!oggCid) {
-                throw new Error('Track has no OGG encoding for playback');
+            const encoding = pickEncoding(trackData.encodings);
+            if (!encoding) {
+                throw new Error('Track has no encoding this browser can play');
             }
 
             return {
                 title: trackData.title || metadata.title || cid,
                 album: trackData.parent_release || metadata.album || '',
                 duration: trackData.duration || 180,
-                audioFile: IPFS_GATEWAY + '/ipfs/' + oggCid,
+                audioFile: IPFS_GATEWAY + '/ipfs/' + encoding.cid,
                 ensemble: metadata.ensemble,
                 timeline: metadata.timeline,
                 standardSectionLength: metadata.standardSectionLength,
@@ -1547,6 +1591,30 @@
                 _sessionType: metadata.sessionType,
                 _engineer: metadata.engineer
             };
+        }
+
+        /*
+         * The four built-in songs name a trackCid, not a file.
+         *
+         * They used to name /audio/August.flac and friends, which nothing has
+         * ever served -- 404 on the preview and on production alike, which is
+         * why picking a song from the dropdown played silence. The audio was
+         * always on IPFS; only the ?track= path knew how to reach it.
+         *
+         * Resolved once per song and cached on the object, so switching back
+         * and forth does not re-fetch the Release page.
+         */
+        async function resolveAudioFile(song) {
+            if (!song || song.audioFile || !song.trackCid) return song;
+            const release = await fetchYamlPage('Release:' + song.trackCid);
+            const encoding = pickEncoding(release && release.encodings);
+            if (!encoding) {
+                throw new Error(
+                    'No playable encoding on Release:' + song.trackCid
+                    + ' -- nothing to play.');
+            }
+            song.audioFile = IPFS_GATEWAY + '/ipfs/' + encoding.cid;
+            return song;
         }
 
         // The album this track belongs to: title and the full track list.
@@ -1707,6 +1775,8 @@
                 window.songChartifactsData = songs['august'];
             }
         } else {
+            await resolveAudioFile(songs['august']).catch(
+                err => console.error('Could not resolve the default track:', err));
             window.songChartifactsData = songs['august'];
         }
         window.allSongs = songs;
@@ -2163,6 +2233,27 @@
          * both: it is invisible by nature, since nothing about the page
          * changes. So the button says so itself.
          */
+        /*
+         * flashButton rewrites the element's own text, which is right for a
+         * button and wrong for a <select> -- setting textContent on a select
+         * throws its options away. So for a control that owns its contents,
+         * put the message beside it instead.
+         */
+        function flashBeside(el, message) {
+            if (!el || !el.parentNode) return;
+            let note = el.parentNode.querySelector('.inline-flash-note');
+            if (!note) {
+                note = document.createElement('span');
+                note.className = 'inline-flash-note';
+                note.style.cssText =
+                    'margin-left:6px; font-size:11px; color:#a00; white-space:nowrap;';
+                el.parentNode.insertBefore(note, el.nextSibling);
+            }
+            clearTimeout(note._flashTimer);
+            note.textContent = message;
+            note._flashTimer = setTimeout(() => { note.textContent = ''; }, 4000);
+        }
+
         function flashButton(button, message) {
             if (!button) return;
             const label = button.querySelector('span') || button;
@@ -2251,6 +2342,17 @@
             const songKey = selector.value;
             const newSong = songs[songKey];
             if (!newSong) return;
+
+            // Silence with nothing in the console was the bug three times
+            // this week. If the audio cannot be resolved, say so where a
+            // person will see it.
+            try {
+                await resolveAudioFile(newSong);
+            } catch (err) {
+                console.error('Could not resolve audio for', songKey, err);
+                flashBeside(selector, 'no audio for this track');
+                return;
+            }
 
             window.songChartifactsData = newSong;
 
