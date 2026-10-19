@@ -776,6 +776,14 @@
             grid-template-columns: 1fr 360px;
         }
 
+        /* The dock's height, in one place: the bar is this tall and the
+           article beside it is the rest. Two numbers would drift the moment
+           the small-screen layout made the dock taller, and the article
+           would either be cut off or leave a gap under the bar. */
+        body.bottom-bar {
+            --rh-dock-height: 152px;
+        }
+
         body.bottom-bar #rabbithole-sidebar {
             position: fixed;
             bottom: 0;
@@ -787,7 +795,7 @@
                lands exactly on the strip's top edge: 2 + 116 + 34 = 152. At
                140 it overlapped the strip by twelve pixels and the strip's
                background painted over the bottom of the player. */
-            height: 152px;
+            height: var(--rh-dock-height);
             /* Room for the song-parts strip, which is absolutely positioned
                against this box. box-sizing is border-box globally, so the bar
                stays 152px tall and the main row gets 116px of it — exactly
@@ -811,11 +819,11 @@
         }
 
         body.bottom-bar .pickipedia-frame {
-            height: calc(100vh - 152px);
+            height: calc(100vh - var(--rh-dock-height));
         }
 
         body.bottom-bar .editor-panel {
-            height: calc(100vh - 152px);
+            height: calc(100vh - var(--rh-dock-height));
         }
 
         /* Pull .player-container's children up to be direct flex items of
@@ -874,50 +882,6 @@
 
         body.bottom-bar .minimize-btn {
             margin-left: 0;
-        }
-
-        /* === The bar on a narrow screen ===
-
-           The bar is a row of items that mostly refuse to shrink: the webamp
-           skin is a fixed 290px, each musician card is 160px, the header is
-           80px. On a desktop that row fits. On an iPhone (390px) it is about
-           800px wide inside a 390px viewport, and `overflow-x: hidden` means
-           the part past the fold is not clipped-but-reachable, it is simply
-           gone: no song select, no Edit Timeline, no musician cards, no
-           collapse button. Measured on a 390px viewport, 19 October 2026.
-
-           Until the bar has a real small-screen layout, let it scroll, and
-           pin the header to the left edge so the collapse control is always
-           where the thumb expects it. Scrolling a dock sideways is not the
-           answer; it is the difference between awkward and unusable. */
-        @media ( max-width: 720px ) {
-            body.bottom-bar #rabbithole-sidebar {
-                overflow-x: auto;
-                -webkit-overflow-scrolling: touch;
-            }
-
-            /* Header first and pinned, so ▼ never scrolls away. */
-            body.bottom-bar .rabbithole-header {
-                order: 0;
-                position: sticky;
-                left: 0;
-                z-index: 1;
-                width: 56px;
-                background: white;
-            }
-
-            body.bottom-bar .rabbithole-header h1,
-            body.bottom-bar .rabbithole-header .alpha {
-                display: none;
-            }
-
-            /* The ensemble must not try to fill a row wider than the screen;
-               let it take the width its cards need and scroll with them. */
-            body.bottom-bar #ensemble-display {
-                flex: 0 0 auto;
-                flex-wrap: nowrap;
-                overflow-y: visible;
-            }
         }
 
         /* === Collapsed bottom-bar (body.bar-collapsed) === */
@@ -1182,6 +1146,209 @@
             border-color: #3c6749;
             color: #fff;
         }
+        /* === The bar on a narrow screen ===
+
+           Last in the file on purpose. The bottom-bar rules above set `order`
+           and widths on the same selectors at the same specificity, so a
+           media query placed earlier loses every tie -- which is how the
+           first attempt at this layout ended up with the controls pushed off
+           the bottom of the dock while .song-info-header kept order: 70.
+
+           The bar is otherwise a single row of things that refuse to shrink:
+           the webamp skin is a fixed 290px, each musician card 160px. On a
+           390px phone that row measured 1741px, and `overflow-x: hidden`
+           meant everything past the fold was gone rather than reachable.
+
+           This is the layout Skyler asked for, holding the phone upright:
+           the album and the artist toggle on their own row above the player,
+           the player on the left with the musician cards beside it, and the
+           song parts along the bottom where all of them can be read.
+
+               ┌──────────────────────────────┐
+               │ album · auto-switch        ▼ │
+               ├──────────────┬───────────────┤
+               │   webamp     │ cards         │
+               ├──────────────┴───────────────┤
+               │ A A B A A B A A B A          │
+               └──────────────────────────────┘
+
+           Grid, not flex: every child is placed by name, so nothing depends
+           on `order` arithmetic against the desktop rules, and a child nobody
+           thought about cannot wrap itself onto a row of its own. */
+        @media ( max-width: 720px ) {
+            body.bottom-bar {
+                --rh-dock-height: 200px;
+            }
+
+            body.bottom-bar #rabbithole-sidebar {
+                display: grid;
+                /* The skin, scaled (below), and whatever is left for cards. */
+                grid-template-columns: 247px 1fr auto auto;
+                grid-template-rows: auto 100px;
+                grid-template-areas:
+                    "info   info  switch collapse"
+                    "player cards cards  cards";
+                align-items: start;
+                overflow-x: hidden;
+                padding-bottom: 32px;
+                gap: 0;
+            }
+
+            /* --- The controls row --- */
+            body.bottom-bar .song-info-header {
+                grid-area: info;
+                width: auto;
+                padding: 3px 0 0 6px;
+                align-self: start;
+            }
+
+            /* In track mode the selector is hidden and the album row carries
+               the title; with no track it is the only thing naming the song,
+               so both are placed in the same cell and whichever exists shows. */
+            body.bottom-bar .song-select {
+                grid-area: info;
+                justify-self: start;
+                align-self: start;
+                width: auto;
+                max-width: 180px;
+                height: 26px;
+                margin: 3px 0 0 6px;
+            }
+
+            /* The switch goes back beside its caption -- this row has the
+               width the desktop bar did not. */
+            /* The switch keeps its own cell so it cannot land on top of
+               the album row. Its caption does not fit beside a title on a
+               390px screen, so the control carries a title attribute
+               instead -- it is a toggle next to a collapse arrow, and what
+               it does is in the tooltip and on the desktop layout. */
+            body.bottom-bar .auto-switch {
+                grid-area: switch;
+                align-self: start;
+                flex-direction: row;
+                gap: 0;
+                margin: 6px 4px 0 0;
+            }
+
+            body.bottom-bar .auto-switch-caption {
+                display: none;
+            }
+
+            /* Just the collapse control, against the right edge. */
+            body.bottom-bar .rabbithole-header {
+                grid-area: collapse;
+                justify-self: end;
+                align-self: start;
+                width: auto;
+                height: auto;
+                padding: 2px 4px 0;
+                position: static;
+            }
+
+            body.bottom-bar .rabbithole-header img,
+            body.bottom-bar .rabbithole-header h1,
+            body.bottom-bar .rabbithole-header .alpha {
+                display: none;
+            }
+
+            /* --- The player, and who is playing --- */
+            /* 290px of skin leaves 100px beside it, which is not a card.
+               The skin is a bitmap and scales cleanly, so take 15% off it:
+               290 becomes 247 and the cards get 143px, enough for a name.
+
+               A transform does not change layout, so the wrapper keeps its
+               natural 290x116 and the grid track is set to the painted size.
+               The two numbers have to be kept in step by hand -- 247 and 100
+               are 290 and 116 times 0.85.
+
+               The cost is tap targets: Webamp's play button goes from about
+               12px to about 10px. Skyler confirmed touch works at full size
+               and this is a judgement about how much smaller is still
+               hittable; it is a number to look at on a real phone rather
+               than one to trust. */
+            body.bottom-bar .webamp-wrapper {
+                grid-area: player;
+                width: 290px;
+                height: 116px;
+                transform: scale( 0.85 );
+                transform-origin: top left;
+            }
+
+            body.bottom-bar #ensemble-display {
+                grid-area: cards;
+                flex-direction: column;
+                flex-wrap: nowrap;
+                gap: 1px;
+                padding: 1px 2px;
+                min-width: 0;
+                max-height: 100px;
+                overflow-y: auto;
+            }
+
+            /* One column, one line each: six of them fit the 116px row. */
+            body.bottom-bar #ensemble-display .musician-card {
+                flex: 0 0 auto;
+                width: auto;
+                max-width: 100%;
+                min-width: 0;
+                padding: 0 4px;
+                font-size: 9.5px;
+                line-height: 1.6;
+                overflow: hidden;
+            }
+
+            /* The name is in a child, so the card clipping is not enough --
+               the text has to be told to end in an ellipsis where it sits.
+               Without this the cards ran past the right edge of the screen. */
+            body.bottom-bar #ensemble-display .musician-card .musician-name {
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                max-width: 100%;
+            }
+
+            /* The editor is a desktop job -- a timeline is edited with a
+               keyboard -- and the button costs a row here. */
+            body.bottom-bar .editor-toggle-btn,
+            body.bottom-bar .inline-carrot-btn {
+                display: none;
+            }
+
+            /* The editor's toggle row goes, but not the one the auto-switch
+               lives in: that element carries both classes, and hiding
+               .toggle-row took the switch with it. It stays display:contents
+               so the switch is a grid item in its own right. */
+            body.bottom-bar .toggle-row:not( .auto-switch-row ) {
+                display: none;
+            }
+
+            /* --- The whole song, readable --- */
+            /* The label was eating 64px of a 390px strip and the part names
+               were cut to two letters. The strip says what it is by being a
+               row of song sections; it does not need to be told. */
+            body.bottom-bar .data-section .section-label {
+                display: none;
+            }
+
+            body.bottom-bar .data-section {
+                height: 32px;
+                padding: 0 4px;
+                gap: 0;
+            }
+
+            body.bottom-bar .parts-chart {
+                height: 28px;
+                gap: 2px;
+            }
+
+            body.bottom-bar .parts-chart .part-box {
+                height: 28px;
+                line-height: 27px;
+                font-size: 9px;
+                letter-spacing: 0;
+            }
+        }
+
     </style>
 </head>
 <body class="bottom-bar">
@@ -1233,7 +1400,7 @@
                 </select>
 
                 <div class="toggle-row auto-switch-row">
-                    <label class="auto-switch">
+                    <label class="auto-switch" title="Auto-switch artist profiles: follow the solo into each player's page">
                         <span class="toggle-switch">
                             <input type="checkbox" id="auto-switch-toggle" checked>
                             <span class="toggle-slider"></span>
