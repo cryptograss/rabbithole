@@ -1554,6 +1554,14 @@
          */
         function pickEncoding(encodings) {
             if (!encodings) return null;
+
+            // ?enc=flac / ?enc=ogg forces one, for telling a decoding fault
+            // apart from everything else without changing any code.
+            const forced = INITIAL_PARAMS.get('enc');
+            if (forced && encodings[forced]) {
+                return { cid: encodings[forced], format: forced };
+            }
+
             const probe = document.createElement('audio');
             const ok = type => {
                 const verdict = probe.canPlayType(type);
