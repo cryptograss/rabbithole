@@ -23,6 +23,10 @@ const SPOTLIGHT_MAX_SECONDS = 4;
 const DEBUG = (() => {
     try {
         if (typeof window === 'undefined') return false;
+        // The host page captures the query before it soft-navigates and
+        // throws it away; prefer that over reading location.search here,
+        // which by now may be /wiki/<page> with no query at all.
+        if (window.__rhdebug) return true;
         if (new URLSearchParams(window.location.search).get('rhdebug')) return true;
         return window.localStorage.getItem('rabbitholeDebug') === '1';
     } catch (err) {

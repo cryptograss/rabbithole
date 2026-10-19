@@ -1285,6 +1285,17 @@
     </div>
 
     <script type="module">
+        /*
+         * The query string, read once and kept.
+         *
+         * The pane soft-navigates with history.replaceState to /wiki/<page>,
+         * and that drops the query. Anything read from location.search after
+         * the first navigation finds nothing -- which is how ?rhdiag=1 came
+         * to do nothing at all while the file plainly contained it.
+         */
+        const INITIAL_PARAMS = new URLSearchParams(window.location.search);
+        window.__rhdebug = INITIAL_PARAMS.get('rhdebug');
+
         // Song data
         const songs = {
             'august': {
@@ -1743,7 +1754,7 @@
         // jsyaml is loaded as a UMD global from the <script> tag in <head>.
         const jsYaml = window.jsyaml;
 
-        const trackParam = new URLSearchParams(window.location.search).get('track');
+        const trackParam = INITIAL_PARAMS.get('track');
         if (trackParam) {
             try {
                 const wikiSong = await loadTrackFromWiki(trackParam);
@@ -2427,12 +2438,18 @@
          * file is ahead of the playhead. Any waiting/stalled/ratechange the
          * element fires is listed with the time it happened.
          */
-        if (new URLSearchParams(location.search).get('rhdiag')) {
+        if (INITIAL_PARAMS.get('rhdiag')) {
             const box = document.createElement('div');
             box.style.cssText = 'position:fixed; top:0; left:0; right:0; z-index:9999;'
-                + 'background:rgba(0,0,0,.85); color:#9f9; font:11px/1.35 monospace;'
-                + 'padding:6px 8px; white-space:pre; pointer-events:none;';
+                + 'background:#111; color:#eee; font:13px/1.45 system-ui, sans-serif;'
+                + 'padding:8px 10px; pointer-events:none;';
             document.body.appendChild(box);
+            const say = (line, detail) => {
+                box.innerHTML = '<b>' + line + '</b>'
+                    + (detail ? '<br><span style="color:#9c9; font-size:11px">'
+                        + detail + '</span>' : '');
+            };
+            say('Listening…', 'play the song; this bar keeps whatever it catches');
 
             const waitForAudio = (tries = 0) => {
                 const p = window.chartifactsPlayer;
@@ -2442,33 +2459,87 @@
                     if (tries < 100) setTimeout(() => waitForAudio(tries + 1), 200);
                     return;
                 }
-                const events = [];
-                ['waiting', 'stalled', 'suspend', 'ratechange', 'seeking', 'error']
-                    .forEach(ev => audio.addEventListener(ev, () => {
-                        events.unshift(ev + '@' + audio.currentTime.toFixed(1));
-                        events.length = Math.min(events.length, 6);
+
+                /*
+                 * Latched, not live.
+                 *
+                 * The first version asked whoever was holding the phone to
+                 * watch a row of numbers and catch the moment -- which is
+                 * asking a listener to be an oscilloscope. This one does the
+                 * catching: once it has seen something worth reporting it
+                 * keeps saying so until the page is reloaded, so the screen
+                 * can be read at leisure and photographed whenever.
+                 */
+                let verdict = null;
+                const latch = (line, detail) => {
+                    if (verdict) return;
+                    verdict = true;
+                    say(line, detail);
+                };
+
+                // A `waiting` at t=0 is the track loading, not a fault, and
+                // latching on it made the bar shout about a stall before a
+                // note had played. Only count one once the song is running.
+                // A seek lands outside what is buffered and fires `waiting`
+                // on the way to the new position. That is the seek working,
+                // not a fault, so give it a few seconds of grace.
+                let lastSeekAt = -1e9;
+                audio.addEventListener('seeking', () => { lastSeekAt = performance.now(); });
+
+                ['waiting', 'stalled', 'error'].forEach(ev =>
+                    audio.addEventListener(ev, () => {
+                        if (audio.currentTime < 1) return;
+                        if (performance.now() - lastSeekAt < 3000) return;
+                        latch(
+                            'AUDIO STALLED at ' + audio.currentTime.toFixed(1) + 's',
+                            'the player ran out of sound to play ('
+                            + ev + '). Buffered to '
+                            + (audio.buffered.length
+                                ? audio.buffered.end(audio.buffered.length - 1).toFixed(0)
+                                : 0) + 's.');
                     }));
 
-                let wall0 = null, audio0 = null, worst = 0;
+                audio.addEventListener('ratechange', () => latch(
+                    'PLAYBACK RATE CHANGED to ' + audio.playbackRate,
+                    'something set the speed; it should always be 1.'));
+
+                // Drift: does audio time keep up with the wall clock? Measured
+                // over a rolling window so a pause or a seek re-baselines
+                // rather than registering as a fault.
+                let wall0 = null, audio0 = null, lastT = null;
                 setInterval(() => {
                     const playing = !audio.paused && !audio.ended;
-                    if (!playing) { wall0 = null; box.textContent = 'paused'; return; }
+                    if (!playing || (lastT !== null
+                            && Math.abs(audio.currentTime - lastT) > 1.5)) {
+                        wall0 = null;
+                        lastT = audio.currentTime;
+                        if (!verdict) {
+                            say(playing ? 'Listening…' : 'Paused',
+                                't=' + audio.currentTime.toFixed(1) + 's'
+                                + ' · nothing wrong caught yet');
+                        }
+                        return;
+                    }
+                    lastT = audio.currentTime;
                     if (wall0 === null) {
-                        wall0 = performance.now(); audio0 = audio.currentTime; worst = 0;
+                        wall0 = performance.now(); audio0 = audio.currentTime;
+                        return;
                     }
                     const wall = (performance.now() - wall0) / 1000;
-                    const played = audio.currentTime - audio0;
-                    const drift = played - wall;
-                    if (Math.abs(drift) > Math.abs(worst)) worst = drift;
-                    const buf = audio.buffered.length
-                        ? audio.buffered.end(audio.buffered.length - 1) : 0;
-                    box.textContent =
-                        't=' + audio.currentTime.toFixed(1)
-                        + '  drift=' + drift.toFixed(2) + 's'
-                        + '  worst=' + worst.toFixed(2) + 's'
-                        + '  buffered=' + buf.toFixed(0) + 's'
-                        + '  rate=' + audio.playbackRate
-                        + '\n' + (events.length ? events.join(' ') : 'no stalls');
+                    const drift = (audio.currentTime - audio0) - wall;
+                    if (wall > 2 && Math.abs(drift) > 0.25) {
+                        latch(
+                            'AUDIO ' + (drift < 0 ? 'FELL BEHIND' : 'RAN AHEAD')
+                            + ' by ' + Math.abs(drift).toFixed(2) + 's'
+                            + ' at ' + audio.currentTime.toFixed(1) + 's',
+                            'over ' + wall.toFixed(0) + 's of listening');
+                        return;
+                    }
+                    if (!verdict) {
+                        say('Listening…',
+                            't=' + audio.currentTime.toFixed(1) + 's · in time'
+                            + ' · nothing wrong caught yet');
+                    }
                 }, 250);
             };
             waitForAudio();
