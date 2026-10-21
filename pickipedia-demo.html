@@ -1180,7 +1180,23 @@
            Grid, not flex: every child is placed by name, so nothing depends
            on `order` arithmetic against the desktop rules, and a child nobody
            thought about cannot wrap itself onto a row of its own. */
-        @media ( max-width: 720px ) {
+        /* Up to 1100px, not 720.
+        
+           The desktop bar is a row of fixed widths: the header 80, the skin
+           290, the title block 220, the selector 200, the switch 44, the
+           carrot 34, the editor 77. That is 945px before a single musician
+           card, and the cards are the only flexible item -- so anywhere
+           under about 1100px they are what gives. Measured at 844x390: the
+           ensemble collapses to 8px wide and the header hangs 15px off the
+           right edge, with nothing to say anything is missing.
+
+           That is two reports at once. It is a phone held sideways, and it
+           is also what Justin hit in Firefox: zooming in shrinks the
+           viewport in CSS pixels, so most of the ensemble vanished and
+           there was no indication of it. The grid layout below handles a
+           short row properly, so it should be in charge wherever the flex
+           row cannot fit, not only on a phone held upright. */
+        @media ( max-width: 1100px ) {
             body.bottom-bar {
                 --rh-dock-height: 226px;
             }
@@ -1462,6 +1478,61 @@
                 line-height: 27px;
                 font-size: 9px;
                 letter-spacing: 0;
+            }
+        }
+
+        /* === A screen with no height ===
+
+           A phone held sideways is 844 wide and 390 tall. The grid above
+           gives it a 226px dock, which is 58% of the screen, and the wiki
+           gets the rest -- about four lines of an article under a player.
+
+           Height is the scarce thing here, so the two control rows become
+           one. The cover and the title go: at 844px wide the track list
+           already names the song, and Webamp's own title bar is scrolling
+           it. What is left is the player, who is playing, and the song
+           parts -- the three things the dock is for.
+
+           Last in the file, after the width query, so it wins where both
+           apply. */
+        @media ( max-height: 520px ) and ( max-width: 1100px ) {
+            body.bottom-bar {
+                --rh-dock-height: 182px;
+            }
+
+            body.bottom-bar #rabbithole-sidebar {
+                grid-template-rows: auto 116px;
+                grid-template-areas:
+                    "sel  edit  switch header"
+                    "row  row   row    row";
+            }
+
+            body.bottom-bar .album-art,
+            body.bottom-bar .song-title-display {
+                display: none;
+            }
+
+            body.bottom-bar .rabbithole-header {
+                align-self: center;
+            }
+
+            body.bottom-bar .auto-switch {
+                align-self: center;
+            }
+
+            /* The cards get the width the landscape screen has, so they can
+               stand in columns again rather than one tall list. */
+            body.bottom-bar #ensemble-display {
+                flex-direction: row;
+                flex-wrap: wrap;
+                align-content: flex-start;
+                max-height: 116px;
+            }
+
+            body.bottom-bar #ensemble-display .musician-card {
+                flex: 0 0 auto;
+                width: 160px;
+                max-width: 100%;
             }
         }
 
@@ -2718,8 +2789,19 @@
          * The full labels stay on a desktop, where there is room for both
          * facts and the album is worth having in the list.
          */
+        /* The other half of shortenTrackLabelsOnNarrowScreens: a window
+           dragged wide again should get its album names back. */
+        function restoreTrackLabelsOnWideScreens() {
+            if (window.matchMedia('( max-width: 1100px )').matches) return;
+            document.querySelectorAll('#song-selector option').forEach(o => {
+                if (o.dataset.fullLabel !== undefined) {
+                    o.textContent = o.dataset.fullLabel;
+                }
+            });
+        }
+
         function shortenTrackLabelsOnNarrowScreens() {
-            if (!window.matchMedia('( max-width: 720px )').matches) return;
+            if (!window.matchMedia('( max-width: 1100px )').matches) return;
             document.querySelectorAll('#song-selector option').forEach(o => {
                 if (o.dataset.fullLabel === undefined) {
                     o.dataset.fullLabel = o.textContent;
@@ -2727,8 +2809,29 @@
                 o.textContent = o.dataset.fullLabel.split(' - ')[0];
             });
         }
-        shortenTrackLabelsOnNarrowScreens();
-        window.setEditorButtonLabel('open');
+        /*
+         * Both label choices depend on how wide the viewport is, and a
+         * viewport changes width without a reload: a phone is rotated, a
+         * window is dragged, a page is zoomed. Chosen once at load, the
+         * long labels survive into a layout with no room for them -- the
+         * track list keeps its album suffix, grows by 60px, and shoves the
+         * editor button into the switch. Seen by rotating a 390px portrait
+         * page to landscape and back.
+         *
+         * So re-decide whenever the viewport changes. Both functions are
+         * idempotent and keep the full text on the element, so this can run
+         * as often as it likes.
+         */
+        function relabelForViewport() {
+            shortenTrackLabelsOnNarrowScreens();
+            restoreTrackLabelsOnWideScreens();
+            window.setEditorButtonLabel(
+                document.querySelector('.layout.with-editor') ? 'close' : 'open');
+        }
+
+        relabelForViewport();
+        window.addEventListener('resize', relabelForViewport);
+        window.addEventListener('orientationchange', relabelForViewport);
 
         // Load selected song
         window.loadSelectedSong = async function() {
@@ -2979,6 +3082,30 @@
                 }
             };
             pinWebamp();
+
+            /*
+             * And again whenever the viewport changes.
+             *
+             * Webamp's window is draggable and carries its position in a
+             * transform on its parent. Pinning it once at startup is not
+             * enough: rotating the phone, or resetting a zoom, leaves that
+             * transform holding a position that no longer means what it did
+             * and the player drifts out of the corner of the bar -- 8px
+             * right after one rotation here, and Justin watched it jump in
+             * Firefox when he reset the zoom.
+             *
+             * This puts it back. It does not stop the dragging, which is
+             * the real fix and belongs upstream in Webamp; until that
+             * exists, a window that wanders home on the next resize is a
+             * good deal better than one that stays where it was pushed.
+             */
+            let repinTimer = null;
+            const repin = () => {
+                clearTimeout(repinTimer);
+                repinTimer = setTimeout(() => pinWebamp(), 60);
+            };
+            window.addEventListener('resize', repin);
+            window.addEventListener('orientationchange', repin);
         }
 
         // Listen for "Apply Changes" from the editor inside the iframe
