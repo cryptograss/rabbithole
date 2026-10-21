@@ -2075,7 +2075,30 @@
             // is exactly the case on the preview container, so asking only for
             // the thumb made the cover vanish in the one place anybody is
             // looking at it. The full file is 400px square; CSS sizes it.
-            return ii.thumburl || ii.url || null;
+            return sameOrigin(ii.thumburl || ii.url || null);
+        }
+
+        /*
+         * The wiki answers with absolute URLs built from its own $wgServer,
+         * so a cover came back as http://…:4009/images/… -- the wiki's port,
+         * not the page's. Every other request this page makes is relative and
+         * goes through whatever host served it; only the images jumped
+         * straight at the wiki. Anyone who can reach the page but not that
+         * port gets no cover and no error, which is how Skyler ended up
+         * looking at an empty square and reasonably reading it as a layout
+         * fault.
+         *
+         * Same path, this origin. The wiki's own images route is proxied, so
+         * there is nothing to configure.
+         */
+        function sameOrigin(url) {
+            if (!url) return null;
+            try {
+                const u = new URL(url, window.location.href);
+                return u.pathname + u.search;
+            } catch (err) {
+                return url;
+            }
         }
 
         async function populateAlbumRow(song) {
