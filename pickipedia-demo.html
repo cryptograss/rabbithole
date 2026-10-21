@@ -365,6 +365,14 @@
             border: 1px solid #d4d8d2;
         }
 
+        /* A cover that did not arrive still occupies its square, dashed and
+           marked, so "no cover" and "no room for a cover" look different. */
+        .album-art.album-art-missing {
+            border: 1px dashed #b05a3c;
+            background: repeating-linear-gradient(
+                45deg, #f6ece8, #f6ece8 5px, #efe0da 5px, #efe0da 10px );
+        }
+
         .album-track-select {
             flex: 1 1 auto;
             min-width: 0;
@@ -2134,7 +2142,23 @@
 
             const artUrl = await findAlbumArt(album.cid);
             if (artUrl) {
-                art.onerror = () => { art.style.display = 'none'; };
+                /*
+                 * A cover that fails used to hide itself, which is the worst
+                 * of both: no picture and no sign there was meant to be one.
+                 * Skyler spent three rounds describing an empty square as a
+                 * layout fault because nothing on the page said otherwise.
+                 *
+                 * Now a failure shows: the slot keeps its size and turns
+                 * into a marked box, and the reason goes on the element for
+                 * anyone who looks.
+                 */
+                art.onerror = () => {
+                    art.classList.add('album-art-missing');
+                    art.alt = 'cover did not load';
+                    art.title = 'The cover failed to load from ' + artUrl;
+                    console.warn('Album art failed to load:', artUrl);
+                };
+                art.classList.remove('album-art-missing');
                 art.src = artUrl;
                 art.alt = album.title || 'album art';
                 art.style.display = '';
