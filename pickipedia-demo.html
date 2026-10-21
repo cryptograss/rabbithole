@@ -1182,7 +1182,7 @@
            thought about cannot wrap itself onto a row of its own. */
         @media ( max-width: 720px ) {
             body.bottom-bar {
-                --rh-dock-height: 210px;
+                --rh-dock-height: 226px;
             }
 
             body.bottom-bar #rabbithole-sidebar {
@@ -1202,7 +1202,10 @@
                    list fills it on the second, so the editor button starts
                    exactly where the list ends and the words fit. */
                 grid-template-columns: auto auto minmax( 0, 1fr ) auto;
-                grid-template-rows: auto auto 100px;
+                /* 116px because that is how tall the skin is. It was 100
+                   while the skin was scaled to 0.85; at full size the skin
+                   overflowed its row and painted over the song parts. */
+                grid-template-rows: auto auto 116px;
                 grid-template-areas:
                     "title title title header"
                     "sel   edit  edit  switch"
@@ -1346,38 +1349,36 @@
             }
 
             /* --- Row 3: the player, and who is playing --- */
-            /* 290px of skin leaves 100px beside it, which is not a card.
-               The skin is a bitmap and scales cleanly, so take 15% off.
-
-               A transform does not change layout, so the wrapper keeps its
-               natural 290x116 and the grid track is set to the painted size.
-               The skin's own window is 275px wide inside that wrapper, so at
-               0.85 it ends at 234px -- the track is 236, not 247, which is
-               what moves the cards up against the player rather than leaving
-               a dead strip between them.
-
-               The cost is tap targets: Webamp's play button goes from about
-               12px to about 10px. A number to look at on a real phone. */
+            /* Full size, because the buttons are the point.
+               
+               This was 0.85 for a while: 290px of skin leaves only 100px
+               beside it, and 100px is not a card, so shrinking the skin
+               bought the names some room. Skyler put a thumb on it and said
+               it wants to be bigger, which settles it -- a play button you
+               have to aim at is worse than a name that ends in an ellipsis.
+               At full size the skin's own window ends at 275px and the cards
+               get the 113px left over. */
             body.bottom-bar .webamp-wrapper {
                 grid-area: row;
                 justify-self: start;
                 width: 290px;
                 height: 116px;
-                transform: scale( 0.85 );
-                transform-origin: top left;
             }
 
-            /* Same cell as the player, pushed past the skin's painted
-               edge: 290 x 0.85 leaves the window ending at 234. */
+            /* Same cell as the player, pushed past the skin's painted edge.
+               The wrapper is 290px but the window Webamp draws inside it is
+               275, so the cards start there rather than at the wrapper's
+               edge -- otherwise there is a 15px strip of nothing between
+               the player and the names. */
             body.bottom-bar #ensemble-display {
                 grid-area: row;
-                margin-left: 236px;
+                margin-left: 277px;
                 flex-direction: column;
                 flex-wrap: nowrap;
                 gap: 1px;
                 padding: 1px 2px;
                 min-width: 0;
-                max-height: 100px;
+                max-height: 116px;
                 overflow-y: auto;
             }
 
