@@ -3106,6 +3106,44 @@
             };
             window.addEventListener('resize', repin);
             window.addEventListener('orientationchange', repin);
+
+            /*
+             * And hold it there.
+             *
+             * Checked upstream rather than hoping: Webamp's public Options
+             * today are availableSkins, enableDoubleSizeMode, enableHotkeys,
+             * enableMediaSession, filePickers, the three handle* callbacks,
+             * initialSkin, initialTracks, requireButterchurnPresets,
+             * windowLayout and zIndex. There is no sticky mode and nothing
+             * tracking one -- the only issue whose title matches, #129, is
+             * about windows snapping to each other and was closed in 2016.
+             * We are on 1.5.0 against a current 2.3.1, and none of the
+             * versions between add one.
+             *
+             * So pin it here. Webamp carries the window's position as a
+             * transform on its parent; anything that moves it -- a drag, a
+             * zoom, a rotation -- writes that attribute, and this writes it
+             * back. The same trick the full-mode layout already uses, which
+             * is where I should have looked first.
+             *
+             * This is a dock, not a desktop: the player has one place to be.
+             */
+            const holdWebampStill = (attempts = 0) => {
+                const mainWindow = document.querySelector('#main-window');
+                if (!mainWindow || !mainWindow.parentElement) {
+                    if (attempts < 30) setTimeout(() => holdWebampStill(attempts + 1), 100);
+                    return;
+                }
+                const parent = mainWindow.parentElement;
+                const HOME = 'translate(0px, 0px)';
+                new MutationObserver(() => {
+                    if (parent.style.transform !== HOME) {
+                        parent.style.transform = HOME;
+                    }
+                }).observe(parent, { attributes: true, attributeFilter: ['style'] });
+                parent.style.transform = HOME;
+            };
+            holdWebampStill();
         }
 
         // Listen for "Apply Changes" from the editor inside the iframe
