@@ -36,9 +36,9 @@ const DEBUG = (() => {
 
 const trace = DEBUG ? console.log.bind(console) : () => {};
 
-class WebampChartifacts {
+class RabbitholeWebampPlayer {
     constructor(containerId, trackData, options = {}) {
-        trace('DEBUG: WebampChartifacts constructor called with container:', containerId);
+        trace('DEBUG: RabbitholeWebampPlayer constructor called with container:', containerId);
         trace('DEBUG: Track data:', trackData);
         trace('DEBUG: Options:', options);
 
@@ -88,7 +88,7 @@ class WebampChartifacts {
             return;
         }
 
-        const styleId = `webamp-chartifacts-dynamic-styles`;
+        const styleId = `rabbithole-player-dynamic-styles`;
         // Remove existing dynamic styles if they exist
         const existingStyle = document.getElementById(styleId);
         if (existingStyle) {
@@ -2067,7 +2067,7 @@ class WebampChartifacts {
 
 // Export for use in pages
 if (typeof window !== 'undefined') {
-    window.WebampChartifacts = WebampChartifacts;
+    window.RabbitholeWebampPlayer = RabbitholeWebampPlayer;
 }
 
-export default WebampChartifacts;
+export default RabbitholeWebampPlayer;

@@ -16,7 +16,7 @@
          import any more. -->
     <script src="./vendor/webamp.bundle.js"></script>
 
-    <!-- Resolve bare specifiers used by src/player/webamp-chartifacts.js
+    <!-- Resolve bare specifiers used by src/player/rabbithole-player.js
          and src/editor/* (which were Vite-resolved at dev time). jsDelivr's
          +esm shim auto-converts npm packages to ES modules — where it works.
          It does not work for webamp, which is why that one is vendored. -->
@@ -2781,12 +2781,12 @@
             await import('./src/player/ios-web-audio.js');
         const bypassed = installWebAudioBypass(window.location.search);
 
-        const { default: WebampChartifacts } = await import('./src/player/webamp-chartifacts.js');
+        const { default: RabbitholeWebampPlayer } = await import('./src/player/rabbithole-player.js');
 
         // In bottom-bar mode the cards live in #ensemble-display (in the
         // middle zone of the bar). Default mode keeps cards inside webamp.
         const isBottomBar = document.body.classList.contains('bottom-bar');
-        window.chartifactsPlayer = new WebampChartifacts('webamp-player', window.songChartifactsData, {
+        window.chartifactsPlayer = new RabbitholeWebampPlayer('webamp-player', window.songChartifactsData, {
             embedMode: isBottomBar,
             fixedPosition: false,
             onSoloChange: (musicianName) => {

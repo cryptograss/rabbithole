@@ -14,7 +14,7 @@ src/
 ├── state.js           # RabbitholeState - following/queueing/history with localStorage
 ├── catalog.js         # CatalogAPI interface + StaticCatalog + PickiPediaCatalog
 ├── player/
-│   └── webamp-chartifacts.js  # THE player. Retired name; being renamed
+│   └── rabbithole-player.js   # THE player
 │                               # to rabbithole-player.js. arthel's copy of
 │                               # this file is stale -- see README.
 └── styles/
@@ -26,7 +26,7 @@ src/
 - Demo page at index.html runs on port 4000
 - **Problem**: Demo shows "Loading player" - needs debugging
   - Demo catalog has placeholder audio URL (justinholmes.com)
-  - WebampChartifacts may have initialization issues without real audio
+  - RabbitholeWebampPlayer may have initialization issues without real audio
 
 ### Next Steps
 1. **Debug player loading** - Check browser console, possibly use Vibium for visual debugging
@@ -37,7 +37,7 @@ src/
    - `Has duration::`
    - `Has ensemble::` (JSON or structured)
    - `Has timeline::` (JSON)
-4. **Refactor WebampChartifacts** - Break 2000-line monolith into:
+4. **Refactor RabbitholeWebampPlayer** - Break 2000-line monolith into:
    - webamp.js (Webamp integration)
    - ensemble.js (musician card display)
    - timeline.js (parts/timeline visualization)

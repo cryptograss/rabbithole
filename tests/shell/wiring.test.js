@@ -61,7 +61,7 @@ describe( 'which file is the product', () => {
 } );
 
 describe( 'card scenes', () => {
-	const player = read( 'src/player/webamp-chartifacts.js' );
+	const player = read( 'src/player/rabbithole-player.js' );
 
 	// The scenes Justin's feature map can name, from the weighting switch.
 	const scenes = [ ...player.matchAll( /case '([a-z]+)':/g ) ].map( ( m ) => m[ 1 ] );

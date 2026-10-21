@@ -984,10 +984,10 @@
             await import('/src/player/ios-web-audio.js');
         const webAudioBypassed = installWebAudioBypass(window.location.search);
 
-        // Import and initialize the WebampChartifacts player
-        const { default: WebampChartifacts } = await import('/src/player/webamp-chartifacts.js');
+        // Import and initialize the RabbitholeWebampPlayer player
+        const { default: RabbitholeWebampPlayer } = await import('/src/player/rabbithole-player.js');
 
-        window.chartifactsPlayer = new WebampChartifacts('webamp-player', window.songChartifactsData, {
+        window.chartifactsPlayer = new RabbitholeWebampPlayer('webamp-player', window.songChartifactsData, {
             embedMode: false,
             fixedPosition: false
         });

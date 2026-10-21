@@ -7,13 +7,13 @@
  * only `this.trackData` and the caches it sets.
  */
 import { describe, it, expect } from 'vitest';
-import WebampChartifacts from '../../src/player/webamp-chartifacts.js';
+import RabbitholeWebampPlayer from '../../src/player/rabbithole-player.js';
 
 // A receiver with the prototype behind it, so the methods under test can call
 // their siblings, but without running the constructor -- which builds a Webamp
 // and a DOM.
 function player( fields ) {
-	return Object.assign( Object.create( WebampChartifacts.prototype ), fields );
+	return Object.assign( Object.create( RabbitholeWebampPlayer.prototype ), fields );
 }
 
 function withTrack( trackData, extra = {} ) {

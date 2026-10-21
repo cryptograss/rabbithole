@@ -11,7 +11,7 @@
 > [arthel](https://github.com/cryptograss/arthel) into this repo, byte for
 > byte — 2030 identical lines. Only this copy has moved since; arthel's has
 > not been touched since 24 November 2025. The copy kept the retired filename
-> `webamp-chartifacts.js`, because a rename in arthel does not travel through
+> `rabbithole-player.js`, because a rename in arthel does not travel through
 > a copy made from a file's contents.
 >
 > Nothing recorded any of that, so it cost real time three separate ways:
@@ -25,7 +25,7 @@
 >
 > | thing | the one that counts | stale copies |
 > |---|---|---|
-> | the player | `src/player/webamp-chartifacts.js` — being renamed to `rabbithole-player.js` | arthel's `src/sites/justinholmes.com/js/rabbithole_player.js` |
+> | the player | `src/player/rabbithole-player.js` | arthel's `src/sites/justinholmes.com/js/rabbithole_player.js` |
 > | the PickiPedia shell | `pickipedia-demo.html` | `shell.html` (April 2026) — but note Caddy's `/rabbithole/*` fallback serves **shell.html**, so deep links get the stale one until that is resolved |
 > | the built bundle | there isn't one; build it | `dist/` on disk, gitignored, dated February 2026, loaded by nothing |
 >
@@ -150,7 +150,7 @@ rabbithole/
 │   ├── state.js           # RabbitholeState - following/queueing logic
 │   ├── catalog.js         # CatalogAPI + implementations
 │   ├── player/
-│   │   ├── index.js       # WebampChartifacts player
+│   │   ├── index.js       # RabbitholeWebampPlayer
 │   │   ├── ensemble.js    # Ensemble display component
 │   │   ├── timeline.js    # Timeline/parts visualization
 │   │   └── webamp.js      # Webamp integration
