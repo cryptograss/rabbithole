@@ -488,9 +488,9 @@
         };
 
         // Initialize player
-        const { default: WebampChartifacts } = await import('/src/player/webamp-chartifacts.js');
+        const { default: RabbitholeWebampPlayer } = await import('/src/player/rabbithole-player.js');
 
-        window.chartifactsPlayer = new WebampChartifacts('webamp-player', window.songChartifactsData, {
+        window.chartifactsPlayer = new RabbitholeWebampPlayer('webamp-player', window.songChartifactsData, {
             embedMode: false,
             fixedPosition: false
         });

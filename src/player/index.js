@@ -1,7 +1,7 @@
 /**
  * Rabbithole Player Components
  *
- * WebampChartifacts - Main player with real-time visualization
+ * RabbitholeWebampPlayer - Main player with real-time visualization
  */
 
-export { default as WebampChartifacts } from './webamp-chartifacts.js';
+export { default as RabbitholeWebampPlayer } from './rabbithole-player.js';

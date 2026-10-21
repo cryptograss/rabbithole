@@ -7,7 +7,7 @@
 
 export { RabbitholeState } from './state.js';
 export { CatalogAPI, StaticCatalog, PickiPediaCatalog } from './catalog.js';
-export { default as WebampChartifacts } from './player/webamp-chartifacts.js';
+export { default as RabbitholeWebampPlayer } from './player/rabbithole-player.js';
 
 import { RabbitholeState } from './state.js';
 import { StaticCatalog, PickiPediaCatalog } from './catalog.js';
@@ -30,7 +30,7 @@ export class RabbitholePlayer {
         });
 
         this.catalogData = {};
-        this.player = null;  // WebampChartifacts instance
+        this.player = null;  // RabbitholeWebampPlayer instance
         this.currentTrack = null;
 
         // UI callbacks
@@ -68,8 +68,8 @@ export class RabbitholePlayer {
             this.player.loadNewSong(track);
         } else {
             // Dynamically import to avoid bundling Webamp if not needed
-            const { default: WebampChartifacts } = await import('./player/webamp-chartifacts.js');
-            this.player = new WebampChartifacts(this.containerId, track, {
+            const { default: RabbitholeWebampPlayer } = await import('./player/rabbithole-player.js');
+            this.player = new RabbitholeWebampPlayer(this.containerId, track, {
                 embedMode: false
             });
         }

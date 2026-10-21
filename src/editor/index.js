@@ -14,7 +14,7 @@ export { KeyboardShortcuts } from './keyboard-shortcuts.js';
  * @param {Object} options
  * @param {string} options.containerId - Editor container element ID
  * @param {Object} options.trackData - Initial track data
- * @param {Object} options.player - WebampChartifacts player instance
+ * @param {Object} options.player - RabbitholeWebampPlayer instance
  * @param {string} options.recordingTitle - PickiPedia recording title
  * @param {Function} options.onSave - Callback when save is requested
  * @returns {Promise<Object>} Editor instance with all components
