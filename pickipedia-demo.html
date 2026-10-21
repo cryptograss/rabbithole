@@ -1221,7 +1221,7 @@
                    everything else begins to the right of it. Column two is
                    sized by the track list, so the editor button starts where
                    the list ends whatever the phone does to the text. */
-                grid-template-columns: 44px auto minmax( 0, 1fr ) auto;
+                grid-template-columns: 60px auto minmax( 0, 1fr ) auto;
                 /* 116px because that is how tall the skin is. It was 100
                    while the skin was scaled to 0.85; at full size the skin
                    overflowed its row and painted over the song parts. */
@@ -1300,12 +1300,14 @@
                the cover a column of its own would tie it to whatever sizes
                that column -- which is the track list below -- and the title
                would start 150px in, adrift of the cover it belongs to. */
+            /* The cover holds the left of the whole control block, and the
+               track list and the editor button begin to the right of it. */
             body.bottom-bar .album-art {
                 grid-area: art;
                 justify-self: start;
                 align-self: start;
-                width: 34px;
-                height: 34px;
+                width: 52px;
+                height: 52px;
                 margin: 4px 2px 0 4px;
             }
 
@@ -1360,16 +1362,20 @@
                 margin: 0 2px 2px 4px;
             }
 
-            /* 60px, not 76. Giving the cover a column of its own took 44px
-               out of the control row, and the editor button was the thing
-               that got squeezed -- it ended up 9px under the switch. The
-               caption wraps to three short lines instead of two and the
-               button fits. */
+            /* "Follow artist", not "Auto-switch artist profiles".
+            
+               The cover's column grew to 60px to hold a cover worth looking
+               at, and that comes out of a 390px row -- the editor button was
+               what paid, landing under the switch. The caption is where the
+               slack is: three words of jargon wrapped over three lines, for
+               a control whose full name is in its tooltip and on every
+               screen wider than this. Say if the short wording reads wrong;
+               it is one string. */
             body.bottom-bar .auto-switch-caption {
                 display: block;
                 font-size: 9px;
-                line-height: 1.15;
-                max-width: 60px;
+                line-height: 1.2;
+                max-width: 58px;
                 text-align: left;
             }
 
@@ -2812,6 +2818,23 @@
          */
         /* The other half of shortenTrackLabelsOnNarrowScreens: a window
            dragged wide again should get its album names back. */
+        /* The switch's caption, long and short. Same reasoning as the track
+           list: the full name goes in the tooltip, so nothing is lost. */
+        const SWITCH_CAPTION = {
+            long: 'Auto-switch artist profiles',
+            short: 'Follow artist',
+        };
+
+        function setSwitchCaptionForViewport() {
+            const cap = document.querySelector('.auto-switch-caption');
+            const label = document.querySelector('.auto-switch');
+            if (!cap) return;
+            const narrow = window.matchMedia('( max-width: 1100px )').matches;
+            cap.textContent = narrow ? SWITCH_CAPTION.short : SWITCH_CAPTION.long;
+            if (label) label.title = SWITCH_CAPTION.long
+                + ': follow the solo into each player\'s page';
+        }
+
         function restoreTrackLabelsOnWideScreens() {
             if (window.matchMedia('( max-width: 1100px )').matches) return;
             document.querySelectorAll('#song-selector option').forEach(o => {
@@ -2846,6 +2869,7 @@
         function relabelForViewport() {
             shortenTrackLabelsOnNarrowScreens();
             restoreTrackLabelsOnWideScreens();
+            setSwitchCaptionForViewport();
             window.setEditorButtonLabel(
                 document.querySelector('.layout.with-editor') ? 'close' : 'open');
         }
