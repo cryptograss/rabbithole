@@ -1524,15 +1524,29 @@
             }
 
             body.bottom-bar #rabbithole-sidebar {
-                /* No cover here, so no column for one. */
-                grid-template-columns: auto auto minmax( 0, 1fr ) auto;
+                grid-template-columns: auto auto auto minmax( 0, 1fr ) auto;
                 grid-template-rows: auto 116px;
                 grid-template-areas:
-                    "sel  edit  switch header"
-                    "row  row   row    row";
+                    "art  sel  edit  switch header"
+                    "row  row  row   row    row";
             }
 
-            body.bottom-bar .album-art,
+            /* The cover stays, smaller, at the head of the one control row.
+            
+               It used to be hidden here along with the title, on the
+               reasoning that height is scarce in landscape -- and that is
+               true of the title, which needs a line of its own. The cover
+               does not: it fits beside the track list at 28px. Hiding it
+               cost four rounds of this, because Skyler was testing sideways
+               and I was measuring upright, and neither of us said so. */
+            body.bottom-bar .album-art {
+                grid-area: art;
+                width: 28px;
+                height: 28px;
+                align-self: center;
+                margin: 0 2px 2px 4px;
+            }
+
             body.bottom-bar .song-title-display {
                 display: none;
             }
