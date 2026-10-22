@@ -957,6 +957,57 @@
             align-self: flex-start;
         }
 
+        /* The cover beside the title rather than under it, which is what the
+           phone layout already does. A column of its own, spanning both
+           lines, so the title and the track list begin to its right and
+           neither has to dodge it.
+
+           Fenced to the wide screen on purpose. These are descendant
+           selectors, so they outrank the narrow-screen rules further down
+           the file on specificity and would win the tie whatever the
+           viewport -- which would undo the 52px cover on the phone. */
+        @media (min-width: 1101px) {
+            body.bottom-bar .song-info-header {
+                width: 250px;
+                display: grid;
+                grid-template-columns: 34px minmax(0, 1fr);
+                grid-template-areas:
+                    "art title"
+                    "art album"
+                    "meta meta";
+                column-gap: 6px;
+                row-gap: 2px;
+                text-align: left;
+            }
+
+            /* The row stops being a box so its two children can take their
+               own cells -- the same trick .player-container uses. */
+            body.bottom-bar .song-info-header .album-row {
+                display: contents;
+            }
+
+            body.bottom-bar .song-info-header .song-title-display {
+                grid-area: title;
+                align-self: end;
+                margin: 0;
+                font-size: 16px;
+            }
+
+            body.bottom-bar .song-info-header .album-art {
+                grid-area: art;
+                align-self: center;
+            }
+
+            body.bottom-bar .song-info-header .album-track-select {
+                grid-area: album;
+                align-self: start;
+            }
+
+            body.bottom-bar .song-info-header .recording-metadata {
+                grid-area: meta;
+            }
+        }
+
         body.bottom-bar .song-select {
             order: 80;
             width: 200px;
