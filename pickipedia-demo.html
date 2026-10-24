@@ -332,11 +332,17 @@
 
         /* The A/B switch. Deliberately plain and labelled with which layout
            you are looking at, so a screenshot says which one it is. */
-        .layout-ab {
+        .layout-ab-wrap {
             position: fixed;
             top: 4px;
             right: 4px;
             z-index: 2000;
+            display: flex;
+            gap: 4px;
+            align-items: center;
+        }
+
+        .layout-ab {
             font: 600 11px/1 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
             padding: 5px 9px;
             border: 1px solid #c3cbbb;
@@ -351,6 +357,13 @@
             background: #4a7c59;
             color: #fff;
             border-color: #3c6749;
+        }
+
+        /* Only shown once a person has overruled the window, so there is
+           always a way back to "decide for me". */
+        .layout-ab-auto {
+            opacity: 0.75;
+            font-weight: 500;
         }
 
         /* Track title + recording info, shown when loaded via ?track=. */
@@ -1720,32 +1733,97 @@
     </style>
 </head>
 <body class="bottom-bar">
-    <!-- A/B switch between the two docks, for Skyler to compare. The class
-         has to be right before the player initialises -- in sidebar mode the
-         musician cards live in a Webamp window rather than in the bar -- so
-         this runs here, above everything, and the switch is a reload rather
-         than a live class change. -->
+    <!--
+      Which dock to wear.
+
+      The shape of the dock follows the shape of the window by default: a
+      side column costs width, a bottom bar costs height, and a screen always
+      has more of one than the other. Wide gets the sidebar, narrow gets the
+      bar, at the same 1100px the stylesheet switches at.
+
+      A person can overrule that, and the choice sticks -- Skyler, 2026-10-24:
+      "I also like the ability to switch them back and forth for user
+      preferences". Order of precedence, highest first: ?layout= in the URL
+      (so a link can show somebody a particular one without changing their
+      setting), then their stored choice, then the window.
+
+      This has to run before the player initialises: the two layouts put the
+      musician cards in different places at startup, so the class cannot be
+      swapped live without rebuilding the player. Hence a reload.
+    -->
     <script>
         (function () {
-            var want = new URLSearchParams(window.location.search).get('layout');
-            if (want === 'sidebar') document.body.classList.remove('bottom-bar');
-            window.__rhLayout = want === 'sidebar' ? 'sidebar' : 'bar';
+            var AUTO_AT = 1100;
+            var KEY = 'rabbitholeLayout';
+
+            function stored() {
+                try { return window.localStorage.getItem(KEY); } catch (e) { return null; }
+            }
+
+            var fromUrl = new URLSearchParams(window.location.search).get('layout');
+            var saved = (fromUrl === 'auto') ? null : stored();
+            var auto = window.innerWidth >= AUTO_AT ? 'sidebar' : 'bar';
+
+            if (fromUrl === 'auto') {
+                try { window.localStorage.removeItem(KEY); } catch (e) {}
+            }
+
+            var layout = (fromUrl === 'bar' || fromUrl === 'sidebar') ? fromUrl
+                       : (saved === 'bar' || saved === 'sidebar') ? saved
+                       : auto;
+
+            if (layout === 'sidebar') document.body.classList.remove('bottom-bar');
+
+            // The page's own address, captured before anything else runs:
+            // the pane rewrites the URL to the article being read, so by the
+            // time somebody clicks the switch, window.location is a /wiki/
+            // path and reloading it would leave the shell entirely. Same
+            // class of bug as the query string the pane threw away on
+            // 21 Oct.
+            window.__rhPageUrl = window.location.href;
+            window.__rhLayout = layout;
+            window.__rhLayoutAuto = auto;
+            window.__rhLayoutPinned = !!saved || fromUrl === 'bar' || fromUrl === 'sidebar';
+            window.__rhLayoutKey = KEY;
         })();
     </script>
-    <a id="layout-ab" class="layout-ab" href="#"></a>
+
+    <div class="layout-ab-wrap">
+        <a id="layout-ab" class="layout-ab" href="#"></a>
+        <a id="layout-ab-auto" class="layout-ab layout-ab-auto" href="#" hidden
+           title="Go back to choosing by window size">auto</a>
+    </div>
     <script>
         (function () {
             var other = window.__rhLayout === 'sidebar' ? 'bar' : 'sidebar';
-            var url = new URL(window.location.href);
-            url.searchParams.set('layout', other);
-            // A cache-buster too: a URL the browser has seen before can come
-            // back out of a restored tab, which cost us an evening on 21 Oct.
-            url.searchParams.set('v', Date.now().toString(36));
+
+            function go(choice) {
+                try {
+                    if (choice === null) window.localStorage.removeItem(window.__rhLayoutKey);
+                    else window.localStorage.setItem(window.__rhLayoutKey, choice);
+                } catch (e) {}
+                var url = new URL(window.__rhPageUrl);
+                // The choice is stored, so it does not need to ride in the
+                // URL -- and leaving it out keeps a copied address neutral.
+                url.searchParams.delete('layout');
+                // A cache-buster: a URL the browser has seen before can come
+                // back out of a restored tab, which cost us an evening on
+                // 21 Oct.
+                url.searchParams.set('v', Date.now().toString(36));
+                window.location.href = url.toString();
+            }
+
             var a = document.getElementById('layout-ab');
-            a.href = url.toString();
             a.textContent = window.__rhLayout === 'sidebar'
-                ? 'Sidebar — switch to bottom bar'
-                : 'Bottom bar — switch to sidebar';
+                ? 'Sidebar \u2014 switch to bottom bar'
+                : 'Bottom bar \u2014 switch to sidebar';
+            a.onclick = function (e) { e.preventDefault(); go(other); };
+
+            var reset = document.getElementById('layout-ab-auto');
+            if (window.__rhLayoutPinned && window.__rhLayout !== window.__rhLayoutAuto) {
+                reset.hidden = false;
+                reset.onclick = function (e) { e.preventDefault(); go(null); };
+            }
         })();
     </script>
 
