@@ -330,6 +330,29 @@
             position: relative;
         }
 
+        /* The A/B switch. Deliberately plain and labelled with which layout
+           you are looking at, so a screenshot says which one it is. */
+        .layout-ab {
+            position: fixed;
+            top: 4px;
+            right: 4px;
+            z-index: 2000;
+            font: 600 11px/1 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            padding: 5px 9px;
+            border: 1px solid #c3cbbb;
+            border-radius: 11px;
+            background: #fffdf5;
+            color: #2d5016;
+            text-decoration: none;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+        }
+
+        .layout-ab:hover {
+            background: #4a7c59;
+            color: #fff;
+            border-color: #3c6749;
+        }
+
         /* Track title + recording info, shown when loaded via ?track=. */
         .song-info-header {
             text-align: center;
@@ -1639,6 +1662,35 @@
     </style>
 </head>
 <body class="bottom-bar">
+    <!-- A/B switch between the two docks, for Skyler to compare. The class
+         has to be right before the player initialises -- in sidebar mode the
+         musician cards live in a Webamp window rather than in the bar -- so
+         this runs here, above everything, and the switch is a reload rather
+         than a live class change. -->
+    <script>
+        (function () {
+            var want = new URLSearchParams(window.location.search).get('layout');
+            if (want === 'sidebar') document.body.classList.remove('bottom-bar');
+            window.__rhLayout = want === 'sidebar' ? 'sidebar' : 'bar';
+        })();
+    </script>
+    <a id="layout-ab" class="layout-ab" href="#"></a>
+    <script>
+        (function () {
+            var other = window.__rhLayout === 'sidebar' ? 'bar' : 'sidebar';
+            var url = new URL(window.location.href);
+            url.searchParams.set('layout', other);
+            // A cache-buster too: a URL the browser has seen before can come
+            // back out of a restored tab, which cost us an evening on 21 Oct.
+            url.searchParams.set('v', Date.now().toString(36));
+            var a = document.getElementById('layout-ab');
+            a.href = url.toString();
+            a.textContent = window.__rhLayout === 'sidebar'
+                ? 'Sidebar — switch to bottom bar'
+                : 'Bottom bar — switch to sidebar';
+        })();
+    </script>
+
     <div class="layout">
         <div id="rabbithole-sidebar">
             <div class="rabbithole-header" id="rabbithole-header">
