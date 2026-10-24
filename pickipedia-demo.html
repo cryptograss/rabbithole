@@ -338,6 +338,9 @@
             right: 4px;
             z-index: 2000;
             display: flex;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+            max-width: calc(100vw - 8px);
             gap: 4px;
             align-items: center;
         }
@@ -362,8 +365,15 @@
         /* Only shown once a person has overruled the window, so there is
            always a way back to "decide for me". */
         .layout-ab-auto {
-            opacity: 0.75;
             font-weight: 500;
+        }
+
+        /* A stored choice is overriding the window. Amber so it reads as a
+           state somebody set, rather than as the normal furniture. */
+        .layout-ab-pinned,
+        .layout-ab-pinned + .layout-ab-auto {
+            background: #fff6d8;
+            border-color: #e3d08a;
         }
 
         /* Track title + recording info, shown when loaded via ?track=. */
@@ -1784,6 +1794,12 @@
             window.__rhLayout = layout;
             window.__rhLayoutAuto = auto;
             window.__rhLayoutPinned = !!saved || fromUrl === 'bar' || fromUrl === 'sidebar';
+            // Whether a *stored* choice is in force, as against one that
+            // came in on the URL for this load only. A stored one overrides
+            // the window on every visit, so it has to be visible: Skyler met
+            // the sidebar on a phone on 2026-10-24 with nothing on screen to
+            // say why.
+            window.__rhLayoutSaved = saved || null;
             window.__rhLayoutKey = KEY;
         })();
     </script>
@@ -1813,15 +1829,25 @@
                 window.location.href = url.toString();
             }
 
-            var a = document.getElementById('layout-ab');
-            a.textContent = window.__rhLayout === 'sidebar'
-                ? 'Sidebar \u2014 switch to bottom bar'
-                : 'Bottom bar \u2014 switch to sidebar';
-            a.onclick = function (e) { e.preventDefault(); go(other); };
+            var name = window.__rhLayout === 'sidebar' ? 'Sidebar' : 'Bottom bar';
+            var otherName = other === 'sidebar' ? 'sidebar' : 'bottom bar';
+            var saved = !!window.__rhLayoutSaved;
 
+            var a = document.getElementById('layout-ab');
+            a.textContent = saved
+                ? name + ' (saved) \u2014 switch to ' + otherName
+                : name + ' \u2014 switch to ' + otherName;
+            a.onclick = function (e) { e.preventDefault(); go(other); };
+            if (saved) a.classList.add('layout-ab-pinned');
+
+            // Shown whenever a stored choice exists, not only when it
+            // disagrees with the window: a setting you cannot see is a
+            // setting you cannot undo, and on a phone there is no hover to
+            // hide the explanation in.
             var reset = document.getElementById('layout-ab-auto');
-            if (window.__rhLayoutPinned && window.__rhLayout !== window.__rhLayoutAuto) {
+            if (saved) {
                 reset.hidden = false;
+                reset.textContent = 'use auto';
                 reset.onclick = function (e) { e.preventDefault(); go(null); };
             }
         })();
