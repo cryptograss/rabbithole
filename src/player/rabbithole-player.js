@@ -422,8 +422,16 @@ class RabbitholeWebampPlayer {
             }
         });
 
-        // Detect mobile viewport
-        const isMobile = window.innerWidth <= 768;
+        // Detect mobile viewport.
+        //
+        // 1100, not 768, and it matters: below 768 the cards flow under the
+        // player, above it they are absolutely positioned 120px down -- a
+        // number that assumes the main window is where a desktop puts it.
+        // A phone held sideways is 844px wide, so it took the desktop branch
+        // and the cards landed on top of the skin. That is the "player cards
+        // overlapping into the webamp" Skyler reported on 2026-10-24.
+        // 1100 is the same breakpoint the stylesheet switches layouts at.
+        const isMobile = window.innerWidth <= 1100;
 
         // Try to intercept and override the transform
         if (mainWindowParent.style.transform) {
@@ -449,17 +457,25 @@ class RabbitholeWebampPlayer {
         ensembleDiv.id = 'ensemble-display-in-webamp';
         ensembleDiv.className = 'ensemble-display-in-webamp';
 
-        // Position ensemble - use relative positioning on mobile for proper flow
-        if (isMobile) {
-            ensembleDiv.style.position = 'relative';
-            ensembleDiv.style.width = '100%';
-            ensembleDiv.style.marginTop = '10px';
-        } else {
-            ensembleDiv.style.position = 'absolute';
-            // ensembleDiv.style.left = '0px';
-            ensembleDiv.style.top = '120px'; // Below main window (120px height + 10px gap)
-            ensembleDiv.style.width = '269px';
-        }
+        /*
+         * Position the ensemble under the player.
+         *
+         * The parent is Webamp's own window wrapper, which is absolutely
+         * positioned and has no width of its own -- so `position: relative`
+         * lays the cards out from the *top* of that wrapper, straight over
+         * the skin, and `width: 100%` collapses them to a few pixels. Both
+         * were live faults: Skyler saw the cards overlapping the player and
+         * showing through it on 2026-10-24.
+         *
+         * So: absolute, offset by the main window's measured height rather
+         * than by the 120px somebody counted once. A skin is not obliged to
+         * be 116px tall, and on a phone it is not where a desktop puts it.
+         */
+        const mainWindowHeight = mainWindow ? mainWindow.offsetHeight : 116;
+        ensembleDiv.style.position = 'absolute';
+        ensembleDiv.style.left = '0px';
+        ensembleDiv.style.top = (mainWindowHeight + 10) + 'px';
+        ensembleDiv.style.width = isMobile ? '272px' : '269px';
         // ensembleDiv.style.maxHeight = 'none'; // No height limit - show all content
         ensembleDiv.style.overflow = 'visible'; // No scrollbars
 
@@ -973,10 +989,18 @@ class RabbitholeWebampPlayer {
     }
 
     initEnsembleGrid(gridElement) {
-        // Initialize Packery for ensemble (better for smooth repositioning)
+        // Packery positions every card absolutely, which is why a CSS grid or
+        // flex rule on this container does nothing at all -- the column count
+        // lives here, in columnWidth. A full-width column is one card per
+        // row; half gets two side by side, which is what a short screen
+        // wants. Skyler, 2026-10-24: "put the player cards next to each
+        // other". The cards take a matching width from the stylesheet.
+        const full = gridElement.offsetWidth;
+        const twoUp = window.innerWidth <= 1100;
+
         this.packery = new Packery(gridElement, {
             itemSelector: '.musician-item',
-            columnWidth: gridElement.offsetWidth,  // Use actual grid width
+            columnWidth: twoUp ? Math.floor((full - 2) / 2) : full,
             gutter: 2,            // Small gap between items (matches CSS)
             transitionDuration: '0.4s'
         });

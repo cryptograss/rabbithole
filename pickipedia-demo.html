@@ -1659,6 +1659,64 @@
             }
         }
 
+        /* === The sidebar on a narrow screen ===
+
+           Until now every narrow-screen rule in this file was scoped to
+           body.bottom-bar, so a phone in sidebar mode got the desktop
+           stylesheet and nothing else: a fixed 320px column out of 390,
+           leaving the wiki 70px and rendering an article one letter per
+           line. Skyler, 2026-10-24: scoot the column back and put the cards
+           next to each other.
+
+           Scoped to :not(.bottom-bar) so none of it can reach the bar. */
+        @media (max-width: 1100px) {
+            /* 292, not narrower, and this is the hard floor: the Winamp skin
+               is 275px of fixed bitmap and does not scale. A column narrower
+               than that pushes the player out through the side of the
+               sidebar and the cards pile up under it. So "scoot it back" can
+               only buy the 28px between here and the old 320. */
+            body:not(.bottom-bar) .layout {
+                grid-template-columns: 292px 1fr;
+            }
+
+            body:not(.bottom-bar) .layout.minimized {
+                grid-template-columns: 44px 1fr;
+            }
+
+            /* Two across rather than a stack of six. The column count is
+               set in Packery (see initEnsembleGrid) because it positions
+               every card absolutely; all this does is give a card the width
+               of the column it is being put in. A little under half, not
+               exactly half: Packery measures a card's outer width, so a
+               border that takes it one pixel over the column drops it onto
+               a row of its own -- which is what 134 did. */
+            body:not(.bottom-bar) .ensemble-display-in-webamp .musician-item {
+                width: 118px;
+                box-sizing: border-box;
+            }
+
+            body:not(.bottom-bar) .musician-card {
+                padding: 3px 6px;
+                min-width: 0;
+            }
+
+            body:not(.bottom-bar) .musician-card .musician-name {
+                font-size: 12px;
+                overflow-wrap: anywhere;
+            }
+
+            /* 0.4 reads as a rendering fault on a small screen rather than
+               as "not soloing" -- which is exactly how it was reported. The
+               dim still says what it said, just less drastically. */
+            body:not(.bottom-bar) .musician-card.out {
+                opacity: 0.7;
+            }
+
+            body:not(.bottom-bar) .rabbithole-header h1 {
+                font-size: 15px;
+            }
+        }
+
     </style>
 </head>
 <body class="bottom-bar">
