@@ -376,6 +376,25 @@
             border-color: #e3d08a;
         }
 
+        /* The YAML export, shown when the clipboard is refused or just so a
+           person can see what they are pasting before they paste it. */
+        .yaml-export-box {
+            margin: 8px 0;
+            padding: 8px;
+            border: 1px solid #c3cbbb;
+            border-radius: 4px;
+            background: #fffdf5;
+            font-size: 12px;
+        }
+
+        .yaml-export-box textarea {
+            width: 100%;
+            min-height: 160px;
+            font-family: ui-monospace, Menlo, Consolas, monospace;
+            font-size: 11px;
+            white-space: pre;
+        }
+
         /* Track title + recording info, shown when loaded via ?track=. */
         .song-info-header {
             text-align: center;
@@ -1946,6 +1965,7 @@
             <div id="timeline-editor-container"></div>
             <div class="editor-save-section">
                 <button id="save-to-wiki-btn" class="btn-save-wiki" disabled>Save to PickiPedia</button>
+                <button id="export-yaml-btn" class="btn-save-wiki">Copy YAML</button>
                 <span id="save-status"></span>
             </div>
             <div id="keyboard-help"></div>
@@ -2318,6 +2338,19 @@
             if (release.parent_release) song.album = release.parent_release;
             song._trackCid = song.trackCid;
             if (release.title) song.title = release.title;
+
+            /*
+             * Where the editor writes.
+             *
+             * Only the ?track= path set this, so a song picked from the
+             * dropdown fell through to the legacy
+             * Recording:<Title> (<Album>)/Rabbithole subpage -- a page family
+             * that does not exist for any track and that nothing reads. That
+             * is where Skyler's Silver 44 timeline went on 24 October.
+             * The player reads Release:<cid>/Metadata; the editor must write
+             * the same page or the save is theatre.
+             */
+            song._metadataTitle = 'Release:' + song.trackCid + '/Metadata';
             return song;
         }
 
@@ -3797,6 +3830,74 @@
 
             // Set up save button
             document.getElementById('save-to-wiki-btn').addEventListener('click', saveToWiki);
+            document.getElementById('export-yaml-btn').addEventListener('click', exportYaml);
+        }
+
+        /*
+         * The YAML, in your hand.
+         *
+         * Saving to the wiki needs a logged-in session and the right to edit
+         * the Release namespace, and neither is true of somebody reading the
+         * demo. Copying the text and pasting it into the page needs nobody to
+         * grant anybody anything, and it is the same bytes the save would
+         * have written. Skyler's call, 2026-10-25: export and paste first,
+         * wire up real saving after.
+         */
+        function currentMetadataYaml() {
+            const song = window.rabbitholeSongData;
+            return jsYaml.dump({
+                timeline: editableData.workingData.timeline || {},
+                ensemble: editableData.workingData.ensemble || {},
+                ...(editableData.workingData.standardSectionLength != null
+                    ? { standardSectionLength: editableData.workingData.standardSectionLength }
+                    : {}),
+                ...(song && song.title ? { title: song.title } : {})
+            }, { sortKeys: false, lineWidth: 120 });
+        }
+
+        async function exportYaml() {
+            if (!editableData) return;
+            const statusSpan = document.getElementById('save-status');
+            const yamlBody = currentMetadataYaml();
+            const page = (window.rabbitholeSongData || {})._metadataTitle;
+
+            let copied = false;
+            try {
+                await navigator.clipboard.writeText(yamlBody);
+                copied = true;
+            } catch (err) {
+                // Clipboard needs a secure context, and the preview is plain
+                // HTTP. Falling back to showing the text is not a failure --
+                // it is the same text, selectable.
+                if (window.__rhdebug) console.log('clipboard refused, showing the text', err);
+            }
+
+            const box = document.createElement('div');
+            box.className = 'yaml-export-box';
+            box.innerHTML = '<p><strong>' + (copied ? 'Copied.' : 'Select and copy this.')
+                + '</strong> Paste it as the whole contents of '
+                + (page
+                    ? '<a href="/index.php?title=' + encodeURIComponent(page)
+                      + '&action=edit" target="_blank" rel="noopener"><code>'
+                      + page + '</code></a>'
+                    : 'the track\u2019s <code>Release:&lt;cid&gt;/Metadata</code> page')
+                + '.</p>';
+            const ta = document.createElement('textarea');
+            ta.readOnly = true;
+            ta.value = yamlBody;
+            box.appendChild(ta);
+            const close = document.createElement('button');
+            close.textContent = 'Close';
+            close.onclick = () => box.remove();
+            box.appendChild(close);
+
+            const panel = document.getElementById('editor-panel');
+            const old = panel.querySelector('.yaml-export-box');
+            if (old) old.remove();
+            panel.appendChild(box);
+            ta.focus();
+            ta.select();
+            statusSpan.textContent = '';
         }
 
         async function saveToWiki() {
