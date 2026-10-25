@@ -324,6 +324,8 @@ export class TimelineEditor {
         `;
 
         this._attachEventListeners();
+        if (this._rulerMove) window.removeEventListener('mousemove', this._rulerMove);
+        if (this._rulerUp) window.removeEventListener('mouseup', this._rulerUp);
         this._attachRulerListeners();
         this._highlightCurrentMarker();
     }
@@ -461,41 +463,245 @@ export class TimelineEditor {
         const hover = track.querySelector('.ruler-hover');
         const hoverTime = track.querySelector('.ruler-hover-time');
 
-        const timeAt = (e) => {
+        const timeAt = (clientY) => {
             const rect = track.getBoundingClientRect();
-            const y = Math.max(0, Math.min(rect.height, e.clientY - rect.top));
+            const y = Math.max(0, Math.min(rect.height, clientY - rect.top));
             return Math.round((y / rect.height) * duration * 10) / 10;
         };
 
-        track.addEventListener('mousemove', (e) => {
-            const t = timeAt(e);
+        const showHover = (clientY) => {
             const rect = track.getBoundingClientRect();
             hover.hidden = false;
-            hover.style.top = `${((e.clientY - rect.top) / rect.height) * 100}%`;
-            hoverTime.textContent = this.formatTime(t);
+            hover.style.top = `${((clientY - rect.top) / rect.height) * 100}%`;
+            hoverTime.textContent = this.formatTime(timeAt(clientY));
+        };
+
+        /*
+         * Scrub, then click.
+         *
+         * Skyler, 2026-10-25: a ruler you can scroll through until you get
+         * the right time, and then click. So dragging moves the playhead
+         * with you -- you hear where you are, which is the only way to find
+         * the moment a solo changes -- and a click that did not drag opens
+         * the form for that moment.
+         */
+        let dragging = false;
+        let startY = 0;
+        let moved = false;
+
+        track.addEventListener('mousedown', (e) => {
+            if (e.target.closest('.ruler-marker')) return;
+            dragging = true;
+            moved = false;
+            startY = e.clientY;
+            showHover(e.clientY);
+            e.preventDefault();
+        });
+
+        window.addEventListener('mousemove', this._rulerMove = (e) => {
+            if (!dragging) return;
+            if (Math.abs(e.clientY - startY) > 3) moved = true;
+            showHover(e.clientY);
+            if (moved) this.seekTo(timeAt(e.clientY));
+        });
+
+        window.addEventListener('mouseup', this._rulerUp = (e) => {
+            if (!dragging) return;
+            dragging = false;
+            const t = timeAt(e.clientY);
+            if (moved) {
+                this.seekTo(t);
+            } else {
+                this.openMarkerForm(t, null);
+            }
+        });
+
+        track.addEventListener('mousemove', (e) => {
+            if (!dragging) showHover(e.clientY);
         });
 
         track.addEventListener('mouseleave', () => {
-            hover.hidden = true;
+            if (!dragging) hover.hidden = true;
         });
 
-        track.addEventListener('click', (e) => {
-            const marker = e.target.closest('.ruler-marker');
-            if (marker) {
-                const t = parseFloat(marker.dataset.time);
+        // A marker on the line opens itself, filled in.
+        track.querySelectorAll('.ruler-marker').forEach(m => {
+            m.addEventListener('mousedown', (e) => e.stopPropagation());
+            m.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const t = parseFloat(m.dataset.time);
                 this.data.selectedMarkerTime = t;
                 this.seekTo(t);
-                this.render();
-                return;
-            }
-            this.seekTo(timeAt(e));
-        });
-
-        track.addEventListener('dblclick', (e) => {
-            if (e.target.closest('.ruler-marker')) return;
-            this.addMarkerAt(timeAt(e));
+                this.openMarkerForm(t, t);
+            });
         });
     }
+
+    /**
+     * The template box: what happens at this moment, as a form.
+     *
+     * Skyler asked for "a template box with the different options" rather
+     * than a YAML field, and he is right -- the keys of a marker are a
+     * short, known list, and typing them out is work a form can do. The
+     * YAML is still underneath and still reachable; this is a way in that
+     * does not require remembering the vocabulary.
+     */
+    openMarkerForm(time, existingTime) {
+        this.closeMarkerForm();
+
+        const t = Math.round(time * 10) / 10;
+        const data = existingTime !== null ? (this.data.getMarker(existingTime) || {}) : {};
+        const musicians = this.data.getMusicianNames();
+        const parts = ['intro', 'A', 'B', 'outro'];
+
+        const who = (name, selected) => `<option value="${this._escapeHtml(name)}"${
+            selected === name ? ' selected' : ''}>${this._escapeHtml(name)}</option>`;
+
+        const box = document.createElement('div');
+        box.className = 'marker-form';
+        box.innerHTML = `
+            <div class="marker-form-head">
+                <strong>${existingTime !== null ? 'Marker at' : 'New marker at'}</strong>
+                <input type="text" class="mf-time" value="${this.formatTime(t)}">
+                <button class="mf-close" title="Close">✕</button>
+            </div>
+
+            <label class="mf-row">
+                <span>Part</span>
+                <span class="mf-parts">
+                    ${parts.map(pt => `<button class="mf-part${data.part === pt ? ' on' : ''}"
+                        data-part="${pt}">${pt}</button>`).join('')}
+                </span>
+            </label>
+
+            <label class="mf-row">
+                <span>Solo</span>
+                <select class="mf-solo">
+                    <option value="">— nobody —</option>
+                    ${musicians.map(n => who(n, data.solo)).join('')}
+                </select>
+            </label>
+
+            <label class="mf-row">
+                <span>Pickup</span>
+                <select class="mf-pickup">
+                    <option value="">— none —</option>
+                    ${musicians.map(n => who(n, data.pickup)).join('')}
+                </select>
+            </label>
+
+            <details class="mf-more"${Object.keys(data).some(k =>
+                !['solo', 'pickup', 'part'].includes(k)) ? ' open' : ''}>
+                <summary>Everything else</summary>
+                <textarea class="mf-yaml" spellcheck="false"
+                    placeholder="musicians:&#10;  band: in&#10;instrumentChanges:&#10;  Name: tin whistle">${
+                    this._escapeHtml(this._extraYaml(data))}</textarea>
+            </details>
+
+            <div class="mf-actions">
+                ${existingTime !== null
+                    ? '<button class="mf-delete">Delete</button>'
+                    : ''}
+                <button class="mf-cancel">Cancel</button>
+                <button class="mf-save">${existingTime !== null ? 'Save' : 'Add marker'}</button>
+            </div>
+            <div class="mf-error"></div>
+        `;
+
+        this.container.querySelector('.timeline-editor').appendChild(box);
+        this._formFor = existingTime;
+
+        box.querySelectorAll('.mf-part').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.preventDefault();
+                const on = btn.classList.contains('on');
+                box.querySelectorAll('.mf-part').forEach(b => b.classList.remove('on'));
+                if (!on) btn.classList.add('on');
+            });
+        });
+
+        box.querySelector('.mf-close').addEventListener('click', () => this.closeMarkerForm());
+        box.querySelector('.mf-cancel').addEventListener('click', () => this.closeMarkerForm());
+        box.querySelector('.mf-save').addEventListener('click', () => this._saveMarkerForm(t));
+        const del = box.querySelector('.mf-delete');
+        if (del) {
+            del.addEventListener('click', () => {
+                this.data.deleteMarker(existingTime);
+                this._notifyTimelineChange();
+                this.closeMarkerForm();
+                this.render();
+            });
+        }
+
+        const solo = box.querySelector('.mf-solo');
+        if (solo) solo.focus();
+    }
+
+    closeMarkerForm() {
+        const old = this.container.querySelector('.marker-form');
+        if (old) old.remove();
+        this._formFor = undefined;
+    }
+
+    /**
+     * The keys the form has no field for, as YAML, so nothing is lost by
+     * opening a marker in the form and saving it again.
+     */
+    _extraYaml(data) {
+        const rest = {};
+        Object.keys(data).forEach(k => {
+            if (!['solo', 'pickup', 'part'].includes(k)) rest[k] = data[k];
+        });
+        return Object.keys(rest).length
+            ? jsYaml.dump(rest, { indent: 2, lineWidth: -1 }).trim()
+            : '';
+    }
+
+    _saveMarkerForm(fallbackTime) {
+        const box = this.container.querySelector('.marker-form');
+        if (!box) return;
+        const errorDiv = box.querySelector('.mf-error');
+
+        const typed = this.parseTime(box.querySelector('.mf-time').value);
+        const time = Math.round((typed === null ? fallbackTime : typed) * 10) / 10;
+
+        let marker = {};
+        try {
+            const extra = box.querySelector('.mf-yaml').value.trim();
+            if (extra) {
+                const parsed = jsYaml.load(extra);
+                if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+                    throw new Error('that part has to be key: value pairs');
+                }
+                marker = { ...parsed };
+            }
+        } catch (err) {
+            errorDiv.textContent = err.message;
+            return;
+        }
+
+        const part = box.querySelector('.mf-part.on');
+        if (part) marker.part = part.dataset.part;
+        const solo = box.querySelector('.mf-solo').value;
+        if (solo) marker.solo = solo;
+        const pickup = box.querySelector('.mf-pickup').value;
+        if (pickup) marker.pickup = pickup;
+
+        this.data._saveUndoState();
+
+        // Moving an existing marker means taking it out of its old slot.
+        if (this._formFor !== null && this._formFor !== undefined) {
+            delete this.data.workingData.timeline[String(this._formFor)];
+        }
+
+        this.data.workingData.timeline[String(time)] = marker;
+        this.data._notifyChange();
+        this._notifyTimelineChange();
+        this.data.selectedMarkerTime = time;
+        this.closeMarkerForm();
+        this.render();
+    }
+
 
     renderMarkerRow(entry, index, musicians) {
         const { time, data } = entry;
@@ -1064,6 +1270,12 @@ export class TimelineEditor {
      */
     dispose() {
         clearInterval(this._seekWhenReady);
+        // The scrub listens on the window, so that a drag that leaves the
+        // ruler still tracks; it has to be taken off again by hand.
+        if (this._rulerMove) window.removeEventListener('mousemove', this._rulerMove);
+        if (this._rulerUp) window.removeEventListener('mouseup', this._rulerUp);
+        this._rulerMove = null;
+        this._rulerUp = null;
         this.data.onChange = null;
         if (this.player) {
             this.player._timeUpdateCallback = null;

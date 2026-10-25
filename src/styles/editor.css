@@ -839,3 +839,136 @@
     text-overflow: ellipsis;
     white-space: nowrap;
 }
+
+/* The template box. Skyler, 2026-10-25: click the ruler and a box pops up
+   with the options, rather than a field you have to know the words for. */
+.marker-form {
+    position: absolute;
+    right: 12px;
+    top: 56px;
+    width: 300px;
+    z-index: 30;
+    background: #fffdf5;
+    border: 1px solid #4a7c59;
+    border-radius: 6px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
+    padding: 10px;
+    font-size: 12px;
+}
+
+.timeline-editor { position: relative; }
+
+.marker-form-head {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 8px;
+}
+
+.marker-form-head strong { color: #2d5016; }
+
+.mf-time {
+    width: 72px;
+    font-family: ui-monospace, Menlo, Consolas, monospace;
+    font-size: 12px;
+    padding: 2px 4px;
+    border: 1px solid #c3cbbb;
+    border-radius: 3px;
+}
+
+.mf-close {
+    margin-left: auto;
+    border: none;
+    background: none;
+    cursor: pointer;
+    color: #7d8a7d;
+}
+
+.mf-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 6px;
+}
+
+.mf-row > span:first-child {
+    flex: 0 0 52px;
+    color: #4a5a4a;
+}
+
+.mf-row select {
+    flex: 1 1 auto;
+    min-width: 0;
+    padding: 3px;
+    border: 1px solid #c3cbbb;
+    border-radius: 3px;
+}
+
+.mf-parts { display: flex; gap: 4px; }
+
+.mf-part {
+    border: 1px solid #c3cbbb;
+    background: #fff;
+    border-radius: 3px;
+    padding: 3px 9px;
+    cursor: pointer;
+    font-size: 11px;
+}
+
+.mf-part.on {
+    background: #4a7c59;
+    border-color: #3c6749;
+    color: #fff;
+}
+
+.mf-more { margin: 8px 0; }
+
+.mf-more summary {
+    cursor: pointer;
+    color: #4a5a4a;
+    font-size: 11px;
+}
+
+.mf-yaml {
+    width: 100%;
+    min-height: 72px;
+    margin-top: 6px;
+    font-family: ui-monospace, Menlo, Consolas, monospace;
+    font-size: 11px;
+    box-sizing: border-box;
+}
+
+.mf-actions {
+    display: flex;
+    gap: 6px;
+    justify-content: flex-end;
+    margin-top: 8px;
+}
+
+.mf-actions button {
+    border: 1px solid #c3cbbb;
+    background: #fff;
+    border-radius: 4px;
+    padding: 4px 10px;
+    cursor: pointer;
+}
+
+/* .mf-actions button is one class and one element, which beats a lone
+   class -- so these have to be written as descendants or the save button
+   is white text on a white ground. The same specificity trap made the
+   active part block invisible for an hour on 17 October. */
+.mf-actions .mf-save {
+    background: #4a7c59;
+    border-color: #3c6749;
+    color: #fff;
+    font-weight: 600;
+}
+
+.mf-actions .mf-delete { color: #b05a3c; }
+
+.mf-error {
+    color: #c00;
+    font-size: 11px;
+    margin-top: 4px;
+    min-height: 14px;
+}
