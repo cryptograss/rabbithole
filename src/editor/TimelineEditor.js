@@ -722,29 +722,91 @@ export class TimelineEditor {
      * Seek to a specific time
      */
     seekTo(time) {
-        if (!this.player || !this.player.webamp || !this.player.webamp.store) {
+        if (!this.player || !this.player.webamp) {
             return;
         }
 
-        const state = this.player.webamp.store.getState();
-        const duration = state.media.length || this.data.workingData.duration || 180;
-        const percent = (time / duration) * 100;
+        /*
+         * Seek by time, not by percentage.
+         *
+         * This used to work out a percentage from state.media.length, which
+         * is 0 until the audio has loaded its metadata -- so the fallback
+         * duration was used instead, and when that did not match the real
+         * length the seek landed somewhere else entirely, usually back at
+         * the start. Skyler, 2026-10-25: the play button beside a section
+         * put him at the beginning of the song.
+         *
+         * seekToTime is what the part blocks in the bar have always used,
+         * which is why clicking those works and this did not. Same nudge
+         * past the boundary, for the same reason: landing exactly on a
+         * part's start time lands on the frame before the arrangement
+         * changes, often enough to look like nothing happened.
+         */
+        if (typeof this.player.webamp.seekToTime === 'function') {
+            this.player.webamp.seekToTime(Math.max(0, time + 0.05));
+            return;
+        }
 
-        this.player.webamp.store.dispatch({
-            type: 'SEEK_TO_PERCENT_COMPLETE',
-            percent: Math.min(100, Math.max(0, percent))
-        });
+        if (this.player.webamp.store) {
+            const state = this.player.webamp.store.getState();
+            const duration = state.media.length || this.data.workingData.duration || 180;
+            this.player.webamp.store.dispatch({
+                type: 'SEEK_TO_PERCENT_COMPLETE',
+                percent: Math.min(100, Math.max(0, (time / duration) * 100))
+            });
+        }
     }
 
     /**
      * Seek to a time and start playing
      */
     seekAndPlay(time) {
-        this.seekTo(time);
-
-        if (this.player && this.player.webamp && this.player.webamp.store) {
-            this.player.webamp.store.dispatch({ type: 'PLAY' });
+        if (!this.player || !this.player.webamp) {
+            return;
         }
+
+        const webamp = this.player.webamp;
+
+        /*
+         * Start it, then seek -- and keep asking until it lands.
+         *
+         * Audio that has not loaded cannot be seeked, so pressing a
+         * marker's play button from a standing start used to seek into
+         * nothing and then begin at the top of the song. Skyler,
+         * 2026-10-25. The part blocks in the bar never showed this because
+         * by the time you click one, something is already playing.
+         *
+         * There is no reliable "is it loaded" flag to wait on here --
+         * state.media.length is not populated the way the old percentage
+         * seek assumed, which is the other half of why that seek missed.
+         * So: ask repeatedly for a couple of seconds, and stop as soon as
+         * the playhead is where it was asked to be. seekToTime is
+         * idempotent, so asking twice costs nothing.
+         */
+        if (webamp.store) {
+            webamp.store.dispatch({ type: 'PLAY' });
+        }
+
+        const target = Math.max(0, time + 0.05);
+        const landed = () => Math.abs(this.player.getCurrentTime() - target) < 2;
+
+        const trySeek = () => {
+            if (typeof webamp.seekToTime === 'function') {
+                webamp.seekToTime(target);
+            }
+        };
+
+        trySeek();
+
+        clearInterval(this._seekWhenReady);
+        const until = Date.now() + 2500;
+        this._seekWhenReady = setInterval(() => {
+            if (landed() || Date.now() > until) {
+                clearInterval(this._seekWhenReady);
+                return;
+            }
+            trySeek();
+        }, 200);
     }
 
     /**
@@ -784,6 +846,7 @@ export class TimelineEditor {
      * Clean up
      */
     dispose() {
+        clearInterval(this._seekWhenReady);
         this.data.onChange = null;
         if (this.player) {
             this.player._timeUpdateCallback = null;
