@@ -1989,16 +1989,52 @@ class RabbitholeWebampPlayer {
         this.upcomingMomentTimes = [...this.allMomentTimes];
         this.initializeMusicianWeights();
 
-        // Update Webamp with new track
+        // Update Webamp with new track.
+        //
+        // setTracksToPlay does what it says -- it starts playing. Picking a
+        // different song from the list therefore began playing it, whether
+        // or not anything was playing before, which is startling when you
+        // are reading a page and only meant to change what is loaded.
+        // Skyler, 2026-10-25. So: remember whether we were playing, and if
+        // we were not, pause once the new track has been handed over. A
+        // switch made mid-song still keeps playing, which is what a person
+        // changing tracks while listening means by it.
         if (this.webamp && this.webamp.getMediaStatus) {
-            // Stop current playback
+            const wasPlaying = this.webamp.getMediaStatus() === 'PLAYING';
+
             this.webamp.stop();
 
-            // Load new track
+            // setTracksToPlay replaces the playlist and starts playing.
+            // Appending instead leaves the old track current -- the data
+            // switches and the audio does not, which is worse than the
+            // autoplay -- so keep it, and stop the playback it begins.
             this.webamp.setTracksToPlay([{
                 url: newTrackData.audioFile,
                 defaultName: newTrackData.title
             }]);
+
+            if (!wasPlaying) {
+                /*
+                 * The play happens when the audio has loaded, which is later
+                 * than any single timeout worth writing. So watch for it:
+                 * the first time it reports PLAYING, pause. Bounded at three
+                 * seconds so a track that never loads cannot leave a timer
+                 * running, and cancelled on the next song change.
+                 *
+                 * Skyler, 2026-10-25: choosing a different song should load
+                 * it, not start it.
+                 */
+                clearInterval(this._autoplayGuard);
+                const until = Date.now() + 3000;
+                this._autoplayGuard = setInterval(() => {
+                    if (this.webamp.getMediaStatus() === 'PLAYING') {
+                        this.webamp.pause();
+                        clearInterval(this._autoplayGuard);
+                    } else if (Date.now() > until) {
+                        clearInterval(this._autoplayGuard);
+                    }
+                }, 50);
+            }
         }
 
         // Update ensemble display
