@@ -789,7 +789,7 @@
         });
 
         // Initialize with first song
-        window.songChartifactsData = songs['august'];
+        window.rabbitholeSongData = songs['august'];
         window.allSongs = songs;
 
         // Song selector function
@@ -803,7 +803,7 @@
                 return;
             }
 
-            window.songChartifactsData = newSong;
+            window.rabbitholeSongData = newSong;
 
             // Update mini player title
             const miniTitle = document.getElementById('mini-song-title');
@@ -812,8 +812,8 @@
             }
 
             // Load the new song into the player
-            if (window.chartifactsPlayer && typeof window.chartifactsPlayer.loadNewSong === 'function') {
-                await window.chartifactsPlayer.loadNewSong(newSong);
+            if (window.rabbitholePlayer && typeof window.rabbitholePlayer.loadNewSong === 'function') {
+                await window.rabbitholePlayer.loadNewSong(newSong);
                 console.log('Loaded song:', newSong.title);
 
                 // Re-make musician names clickable after song change
@@ -926,10 +926,10 @@
         // Function to load audio from a local file
         function loadAudioFromFile(file) {
             const url = URL.createObjectURL(file);
-            window.songChartifactsData.audioFile = url;
+            window.rabbitholeSongData.audioFile = url;
 
-            if (window.chartifactsPlayer && typeof window.chartifactsPlayer.loadNewSong === 'function') {
-                window.chartifactsPlayer.loadNewSong(window.songChartifactsData);
+            if (window.rabbitholePlayer && typeof window.rabbitholePlayer.loadNewSong === 'function') {
+                window.rabbitholePlayer.loadNewSong(window.rabbitholeSongData);
             }
         }
 
@@ -987,7 +987,7 @@
         // Import and initialize the RabbitholeWebampPlayer player
         const { default: RabbitholeWebampPlayer } = await import('/src/player/rabbithole-player.js');
 
-        window.chartifactsPlayer = new RabbitholeWebampPlayer('webamp-player', window.songChartifactsData, {
+        window.rabbitholePlayer = new RabbitholeWebampPlayer('webamp-player', window.rabbitholeSongData, {
             embedMode: false,
             fixedPosition: false
         });
@@ -996,15 +996,15 @@
         // is downstream of nothing; point it at the element instead.
         if (webAudioBypassed) {
             const wireVolume = (tries = 0) => {
-                const media = window.chartifactsPlayer
-                    && window.chartifactsPlayer.webamp
-                    && window.chartifactsPlayer.webamp.media;
+                const media = window.rabbitholePlayer
+                    && window.rabbitholePlayer.webamp
+                    && window.rabbitholePlayer.webamp.media;
                 if (!media || !followVolume(media)) {
                     if (tries < 50) setTimeout(() => wireVolume(tries + 1), 200);
                     return;
                 }
                 media.setVolume(
-                    window.chartifactsPlayer.webamp.store.getState().media.volume);
+                    window.rabbitholePlayer.webamp.store.getState().media.volume);
             };
             wireVolume();
         }

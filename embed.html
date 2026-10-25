@@ -458,7 +458,7 @@
 
         // Get initial song
         const initialSongKey = document.getElementById('song-selector').value;
-        window.songChartifactsData = songs[initialSongKey];
+        window.rabbitholeSongData = songs[initialSongKey];
         window.allSongs = songs;
 
         // Load selected song
@@ -469,10 +469,10 @@
 
             if (!newSong) return;
 
-            window.songChartifactsData = newSong;
+            window.rabbitholeSongData = newSong;
 
-            if (window.chartifactsPlayer && typeof window.chartifactsPlayer.loadNewSong === 'function') {
-                await window.chartifactsPlayer.loadNewSong(newSong);
+            if (window.rabbitholePlayer && typeof window.rabbitholePlayer.loadNewSong === 'function') {
+                await window.rabbitholePlayer.loadNewSong(newSong);
 
                 // Re-add click handlers
                 setTimeout(() => {
@@ -490,7 +490,7 @@
         // Initialize player
         const { default: RabbitholeWebampPlayer } = await import('/src/player/rabbithole-player.js');
 
-        window.chartifactsPlayer = new RabbitholeWebampPlayer('webamp-player', window.songChartifactsData, {
+        window.rabbitholePlayer = new RabbitholeWebampPlayer('webamp-player', window.rabbitholeSongData, {
             embedMode: false,
             fixedPosition: false
         });

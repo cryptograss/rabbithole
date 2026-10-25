@@ -2492,7 +2492,7 @@
                 const wikiSong = await loadTrackFromWiki(trackParam);
                 wikiSong.colorScheme = defaultColorScheme;
                 songs[trackParam] = wikiSong;
-                window.songChartifactsData = wikiSong;
+                window.rabbitholeSongData = wikiSong;
                 // Hide the song selector — we're locked to one track in this mode.
                 const selector = document.getElementById('song-selector');
                 if (selector) selector.style.display = 'none';
@@ -2515,13 +2515,13 @@
                 document.getElementById('webamp-player').innerHTML =
                     '<p style="padding:1em;color:#a00">Could not load track ' +
                     trackParam + ': ' + err.message + '</p>';
-                window.songChartifactsData = songs['august'];
+                window.rabbitholeSongData = songs['august'];
             }
         } else {
             const first = songs['august'];
             await resolveAudioFile(first).catch(
                 err => console.error('Could not resolve the default track:', err));
-            window.songChartifactsData = first;
+            window.rabbitholeSongData = first;
             populateSongInfoHeader(first);
             // The cover and the title, but not the album's track list: the
             // demo selector is still the way around these four, because they
@@ -2916,7 +2916,7 @@
 
         /** The song page for whatever is playing, as a page title. */
         function playingSongTitle() {
-            const data = window.songChartifactsData;
+            const data = window.rabbitholeSongData;
             return data && data.title ? 'Song:' + data.title : null;
         }
 
@@ -3062,11 +3062,11 @@
 
             try {
                 const song = await loadTrackFromWiki(cid);
-                window.songChartifactsData = song;
+                window.rabbitholeSongData = song;
 
-                if (window.chartifactsPlayer
-                    && typeof window.chartifactsPlayer.loadNewSong === 'function') {
-                    await window.chartifactsPlayer.loadNewSong(song);
+                if (window.rabbitholePlayer
+                    && typeof window.rabbitholePlayer.loadNewSong === 'function') {
+                    await window.rabbitholePlayer.loadNewSong(song);
                     setTimeout(addMusicianClickHandlers, 500);
                 }
 
@@ -3222,7 +3222,7 @@
                 return;
             }
 
-            window.songChartifactsData = newSong;
+            window.rabbitholeSongData = newSong;
             populateSongInfoHeader(newSong);
             populateAlbumRow(newSong)
                 .then(() => {
@@ -3231,8 +3231,8 @@
                 })
                 .catch(err => console.warn('Could not build the album row:', err));
 
-            if (window.chartifactsPlayer && typeof window.chartifactsPlayer.loadNewSong === 'function') {
-                await window.chartifactsPlayer.loadNewSong(newSong);
+            if (window.rabbitholePlayer && typeof window.rabbitholePlayer.loadNewSong === 'function') {
+                await window.rabbitholePlayer.loadNewSong(newSong);
                 setTimeout(addMusicianClickHandlers, 500);
             }
         };
@@ -3261,7 +3261,7 @@
         // In bottom-bar mode the cards live in #ensemble-display (in the
         // middle zone of the bar). Default mode keeps cards inside webamp.
         const isBottomBar = document.body.classList.contains('bottom-bar');
-        window.chartifactsPlayer = new RabbitholeWebampPlayer('webamp-player', window.songChartifactsData, {
+        window.rabbitholePlayer = new RabbitholeWebampPlayer('webamp-player', window.rabbitholeSongData, {
             embedMode: isBottomBar,
             fixedPosition: false,
             onSoloChange: (musicianName) => {
@@ -3277,14 +3277,14 @@
         // is downstream of nothing; point it at the element instead.
         if (bypassed) {
             const wireVolume = (tries = 0) => {
-                const media = window.chartifactsPlayer
-                    && window.chartifactsPlayer.webamp
-                    && window.chartifactsPlayer.webamp.media;
+                const media = window.rabbitholePlayer
+                    && window.rabbitholePlayer.webamp
+                    && window.rabbitholePlayer.webamp.media;
                 if (!media || !followVolume(media)) {
                     if (tries < 50) setTimeout(() => wireVolume(tries + 1), 200);
                     return;
                 }
-                const state = window.chartifactsPlayer.webamp.store.getState();
+                const state = window.rabbitholePlayer.webamp.store.getState();
                 media.setVolume(state.media.volume);
             };
             wireVolume();
@@ -3317,7 +3317,7 @@
             document.body.appendChild(box);
 
             const waitForAudio = (tries = 0) => {
-                const p = window.chartifactsPlayer;
+                const p = window.rabbitholePlayer;
                 const audio = p && p.webamp && p.webamp.media
                     && p.webamp.media._source && p.webamp.media._source._audio;
                 if (!audio) {
@@ -3524,17 +3524,17 @@
         window.addEventListener('message', (event) => {
             const msg = event.data;
             if (!msg || msg.type !== 'rabbithole:metadata-applied') return;
-            if (!window.chartifactsPlayer) return;
+            if (!window.rabbitholePlayer) return;
             // Update timeline (visualization changes immediately)
-            if (msg.timeline && typeof window.chartifactsPlayer.updateTimeline === 'function') {
-                window.chartifactsPlayer.updateTimeline(msg.timeline);
+            if (msg.timeline && typeof window.rabbitholePlayer.updateTimeline === 'function') {
+                window.rabbitholePlayer.updateTimeline(msg.timeline);
             }
             // Mirror to the active song so future re-renders see it
-            if (window.songChartifactsData) {
-                if (msg.timeline) window.songChartifactsData.timeline = msg.timeline;
-                if (msg.ensemble) window.songChartifactsData.ensemble = msg.ensemble;
+            if (window.rabbitholeSongData) {
+                if (msg.timeline) window.rabbitholeSongData.timeline = msg.timeline;
+                if (msg.ensemble) window.rabbitholeSongData.ensemble = msg.ensemble;
                 if (msg.standardSectionLength !== undefined) {
-                    window.songChartifactsData.standardSectionLength = msg.standardSectionLength;
+                    window.rabbitholeSongData.standardSectionLength = msg.standardSectionLength;
                 }
             }
         });
@@ -3578,7 +3578,7 @@
             const container = document.getElementById('mini-musicians');
             if (!container) return;
 
-            const song = window.songChartifactsData;
+            const song = window.rabbitholeSongData;
             if (!song || !song.ensemble) return;
 
             container.innerHTML = '';
@@ -3630,8 +3630,8 @@
                 // only fire when our class state DOESN'T already match
                 // Webamp's shade state — keeps us in sync if the user
                 // also poked Webamp's own shade button.
-                if (window.chartifactsPlayer && window.chartifactsPlayer.webamp && window.chartifactsPlayer.webamp.store) {
-                    const store = window.chartifactsPlayer.webamp.store;
+                if (window.rabbitholePlayer && window.rabbitholePlayer.webamp && window.rabbitholePlayer.webamp.store) {
+                    const store = window.rabbitholePlayer.webamp.store;
                     const isShaded = store.getState().windows.genWindows.main.shade;
                     if (collapsed !== isShaded) {
                         store.dispatch({ type: 'TOGGLE_WINDOW_SHADE_MODE', windowId: 'main' });
@@ -3647,8 +3647,8 @@
 
         // Mini player controls
         window.toggleMiniPlay = function() {
-            if (window.chartifactsPlayer && window.chartifactsPlayer.webamp && window.chartifactsPlayer.webamp.store) {
-                const store = window.chartifactsPlayer.webamp.store;
+            if (window.rabbitholePlayer && window.rabbitholePlayer.webamp && window.rabbitholePlayer.webamp.store) {
+                const store = window.rabbitholePlayer.webamp.store;
                 const state = store.getState();
                 const status = state.media.status;
 
@@ -3661,15 +3661,15 @@
         };
 
         window.seekMini = function(event) {
-            if (window.chartifactsPlayer && window.chartifactsPlayer.webamp && window.chartifactsPlayer.webamp.store) {
+            if (window.rabbitholePlayer && window.rabbitholePlayer.webamp && window.rabbitholePlayer.webamp.store) {
                 const rect = event.currentTarget.getBoundingClientRect();
                 const clickY = event.clientY - rect.top;
                 const height = rect.height;
                 const percent = 1 - (clickY / height);
-                const duration = window.songChartifactsData.duration || 180;
+                const duration = window.rabbitholeSongData.duration || 180;
                 const seekTime = Math.max(0, Math.min(duration, percent * duration));
 
-                window.chartifactsPlayer.webamp.store.dispatch({
+                window.rabbitholePlayer.webamp.store.dispatch({
                     type: 'SEEK_TO_PERCENT_COMPLETE',
                     percent: percent * 100
                 });
@@ -3678,10 +3678,10 @@
 
         // Update mini player UI
         setInterval(() => {
-            if (window.chartifactsPlayer && window.chartifactsPlayer.webamp && window.chartifactsPlayer.webamp.store) {
-                const state = window.chartifactsPlayer.webamp.store.getState();
+            if (window.rabbitholePlayer && window.rabbitholePlayer.webamp && window.rabbitholePlayer.webamp.store) {
+                const state = window.rabbitholePlayer.webamp.store.getState();
                 const { status, timeElapsed, length } = state.media;
-                const duration = length || window.songChartifactsData.duration || 180;
+                const duration = length || window.rabbitholeSongData.duration || 180;
 
                 // Update play button states (both mini and inline)
                 const miniBtn = document.getElementById('mini-play-btn');
@@ -3767,7 +3767,7 @@
             const { WikiSync } = await import('./src/editor/wiki-sync.js');
 
             // Get current song data
-            const currentSong = window.songChartifactsData;
+            const currentSong = window.rabbitholeSongData;
             const recordingTitle = `${currentSong.title} (${currentSong.album})`;
 
             // Create editable data state
@@ -3784,7 +3784,7 @@
             editorInstance = new TimelineEditor(
                 'timeline-editor-container',
                 editableData,
-                window.chartifactsPlayer
+                window.rabbitholePlayer
             );
 
             // Set up keyboard shortcuts
@@ -3814,7 +3814,7 @@
             statusSpan.className = '';
 
             try {
-                const currentSong = window.songChartifactsData;
+                const currentSong = window.rabbitholeSongData;
 
                 // If this song was loaded via ?track= URL param, write back
                 // to its Release:Qm.../Metadata page using plain YAML and the
@@ -3902,7 +3902,7 @@
 
             // If editor is open, reinitialize with new song
             if (editorInstance) {
-                const currentSong = window.songChartifactsData;
+                const currentSong = window.rabbitholeSongData;
                 const recordingTitle = `${currentSong.title} (${currentSong.album})`;
 
                 // Check for unsaved changes
