@@ -687,7 +687,7 @@ export class TimelineEditor {
             </div>
 
             <div class="mf-more">
-                <label class="mf-more-label">Anything else (instrument changes, flourishes)</label>
+                <label class="mf-more-label">Rarely needed: flourishes and the like, as "key: value" lines</label>
                 <textarea class="mf-yaml" spellcheck="false"
                     placeholder="instrumentChanges:&#10;  Name: tin whistle">${
                     this._escapeHtml(this._extraYaml(data))}</textarea>
@@ -885,12 +885,17 @@ export class TimelineEditor {
             if (extra) {
                 const parsed = jsYaml.load(extra);
                 if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
-                    throw new Error('that part has to be key: value pairs');
+                    throw new Error('the bottom field takes "key: value" lines');
                 }
                 marker = { ...parsed };
             }
         } catch (err) {
-            errorDiv.textContent = err.message;
+            // The fields above cover everything most markers need, so a
+            // fault down here is usually somebody writing prose into the
+            // escape hatch. Say which field and what it wants.
+            errorDiv.textContent = 'The bottom field needs "key: value" lines, '
+                + 'or nothing at all — use the rows above for people. ('
+                + err.message + ')';
             return;
         }
 
@@ -992,8 +997,8 @@ export class TimelineEditor {
                     </div>
 
                     <div class="marker-actions">
-                        <button class="btn-toggle-yaml" data-time="${time}" title="${isExpanded ? 'Collapse' : 'Edit YAML'}">
-                            ${isExpanded ? '▲' : '▼'}
+                        <button class="btn-toggle-yaml" data-time="${time}" title="Edit this marker">
+                            ✎
                         </button>
                         <button class="btn-delete-marker" data-time="${time}" title="Delete this marker">
                             ✕
@@ -1001,18 +1006,6 @@ export class TimelineEditor {
                     </div>
                 </div>
 
-                ${isExpanded ? `
-                <div class="marker-yaml-editor">
-                    <textarea class="yaml-input" data-time="${time}"
-                              placeholder="solo: Musician Name&#10;part: A&#10;musicians:&#10;  band: in"
-                              spellcheck="false">${this._escapeHtml(yamlStr)}</textarea>
-                    <div class="yaml-error" data-time="${time}"></div>
-                    <div class="yaml-actions">
-                        <button class="btn-apply-yaml" data-time="${time}">Apply</button>
-                        <span class="yaml-hint">Edit YAML above, then Apply (or Ctrl+Enter)</span>
-                    </div>
-                </div>
-                ` : ''}
             </div>
         `;
     }
@@ -1103,12 +1096,20 @@ export class TimelineEditor {
         });
 
         // Toggle YAML editor buttons
+        /*
+         * One way to edit a marker, not two.
+         *
+         * This used to open a raw YAML box inside the row, which is where
+         * Skyler met "bad indentation of a mapping entry" after reasonably
+         * typing "musicians: Justin Holmes, Gaven Largent". The form knows
+         * the shape; the row should open the form.
+         */
         this.container.querySelectorAll('.btn-toggle-yaml').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 e.stopPropagation();
                 const time = parseFloat(btn.dataset.time);
-                this.expandedMarkerTime = this.expandedMarkerTime === time ? null : time;
-                this.render();
+                this.data.selectedMarkerTime = time;
+                this.openMarkerForm(time, time);
             });
         });
 
