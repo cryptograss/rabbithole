@@ -669,3 +669,173 @@
         margin-top: 4px;
     }
 }
+
+/* ===========================================================
+   The song as a vertical line.
+
+   Skyler, 2026-10-25: a timeline you can run the mouse down
+   until you reach the right moment, and drop a marker there.
+   The list answers "what is at 1:04"; the line answers "where
+   am I in the song", which is the question you hold while you
+   are listening to it.
+   =========================================================== */
+
+.editor-body {
+    display: flex;
+    gap: 10px;
+    align-items: stretch;
+}
+
+.editor-body .marker-list {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.timeline-ruler {
+    flex: 0 0 158px;
+    padding: 4px 0;
+    overflow: hidden;
+}
+
+.ruler-track {
+    position: relative;
+    height: 400px;
+    width: 100%;
+    background: linear-gradient(to right, transparent 0, transparent 26px,
+                #c3cbbb 26px, #c3cbbb 28px, transparent 28px);
+    cursor: crosshair;
+    user-select: none;
+}
+
+/* Sections, when the recording is authored around a click. On a click
+   the section is the unit you think in, so it is the unit you can see. */
+.ruler-band {
+    position: absolute;
+    left: 20px;
+    right: 0;
+    border-top: 1px solid #e5e7e1;
+}
+
+.ruler-band.odd { background: rgba(74, 124, 89, 0.05); }
+.ruler-band.even { background: rgba(74, 124, 89, 0.11); }
+
+.ruler-band-label {
+    position: absolute;
+    left: 10px;
+    top: 1px;
+    font-size: 9px;
+    color: #7d8a7d;
+}
+
+.ruler-tick {
+    position: absolute;
+    left: 0;
+    width: 26px;
+    border-top: 1px solid #d4d8d2;
+}
+
+.ruler-tick-label {
+    position: absolute;
+    top: -6px;
+    left: 0;
+    font-size: 9px;
+    color: #7d8a7d;
+    font-variant-numeric: tabular-nums;
+}
+
+.ruler-marker {
+    position: absolute;
+    left: 22px;
+    right: 0;
+    height: 0;
+    border-top: 2px solid #4a7c59;
+    cursor: pointer;
+}
+
+.ruler-marker.selected {
+    border-top-color: #b05a3c;
+}
+
+.ruler-marker-label {
+    position: absolute;
+    left: 10px;
+    top: -5px;
+    right: 0;
+    font-size: 9px;
+    line-height: 1;
+    color: #2d5016;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    background: rgba(255, 255, 255, 0.85);
+    padding: 1px 2px;
+    pointer-events: none;
+}
+
+.ruler-marker.selected .ruler-marker-label {
+    color: #b05a3c;
+    font-weight: 600;
+}
+
+/* Where the music actually is. Moved directly rather than by re-render,
+   so nothing you are typing is thrown away as the song plays. */
+.ruler-playhead {
+    position: absolute;
+    left: 14px;
+    right: 0;
+    height: 0;
+    border-top: 2px solid #d94a1a;
+    pointer-events: none;
+}
+
+.ruler-playhead::before {
+    content: '';
+    position: absolute;
+    left: -6px;
+    top: -4px;
+    border: 4px solid transparent;
+    border-left-color: #d94a1a;
+}
+
+.ruler-hover {
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 0;
+    border-top: 1px dashed #4a7c59;
+    pointer-events: none;
+}
+
+.ruler-hover-time {
+    position: absolute;
+    left: 30px;
+    top: -12px;
+    font-size: 9px;
+    color: #fff;
+    background: #4a7c59;
+    padding: 1px 3px;
+    border-radius: 2px;
+    font-variant-numeric: tabular-nums;
+}
+
+/* With the ruler taking the left of the panel, the marker rows have less
+   width than they used to assume. Let the summary line be the thing that
+   gives -- it is a summary, and the full data is one click away -- rather
+   than letting the row overflow its column and clip the time box. */
+.editor-body .marker-list {
+    overflow-x: hidden;
+}
+
+.editor-body .marker-row,
+.editor-body .marker-header {
+    min-width: 0;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.editor-body .marker-info {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}

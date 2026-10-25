@@ -297,8 +297,11 @@ export class TimelineEditor {
                     </div>
                 </div>
 
-                <div class="marker-list">
-                    ${entries.map((entry, index) => this.renderMarkerRow(entry, index, musicians)).join('')}
+                <div class="editor-body">
+                    ${this.renderRuler(entries)}
+                    <div class="marker-list">
+                        ${entries.map((entry, index) => this.renderMarkerRow(entry, index, musicians)).join('')}
+                    </div>
                 </div>
 
                 <div class="editor-footer">
@@ -321,6 +324,7 @@ export class TimelineEditor {
         `;
 
         this._attachEventListeners();
+        this._attachRulerListeners();
         this._highlightCurrentMarker();
     }
 
@@ -358,6 +362,141 @@ export class TimelineEditor {
     /**
      * Render a single marker row
      */
+
+    /**
+     * How long the song is, as best we can tell.
+     *
+     * The ruler has to be a ruler of something. Prefer the recording's own
+     * duration; failing that, leave room past the last marker so a timeline
+     * still has somewhere to grow.
+     */
+    _rulerDuration(entries) {
+        const stated = this.data.workingData.duration;
+        if (stated && stated > 0) return stated;
+        const last = entries.length ? entries[entries.length - 1].time : 0;
+        return Math.max(60, last + 30);
+    }
+
+    /**
+     * The song as a vertical line.
+     *
+     * Skyler, 2026-10-25: a timeline you can run the mouse down until you
+     * reach the right moment, and drop a marker there. The list of markers
+     * answers "what is at 1:04"; the line answers "where am I in the song",
+     * which is the question you are actually holding while you listen.
+     *
+     * Section bands are drawn when the recording is authored around a click
+     * -- standardSectionLength, which Justin built into the data model and
+     * which August and Paint Exchange both use. On a click, a section is
+     * the unit you think in, so it should be the unit you can see.
+     */
+    renderRuler(entries) {
+        const duration = this._rulerDuration(entries);
+        const pct = t => Math.max(0, Math.min(100, (t / duration) * 100));
+
+        // Ticks: every 15s under four minutes, every 30s over.
+        const step = duration > 240 ? 30 : 15;
+        const ticks = [];
+        for (let t = 0; t <= duration; t += step) {
+            ticks.push(`<div class="ruler-tick" style="top:${pct(t)}%">
+                <span class="ruler-tick-label">${this.formatTime(t).replace(/\.\d$/, '')}</span>
+            </div>`);
+        }
+
+        // Section bands, alternating, when there is a click to band by.
+        const len = this.data.workingData.standardSectionLength;
+        const bands = [];
+        if (len && len > 0) {
+            // Sections accumulate from the last explicit time before them,
+            // the same way the player works them out.
+            const explicit = entries.map(e => e.time).filter(t => t < len * 2);
+            let start = explicit.length ? Math.max(...explicit) : 0;
+            let i = 1;
+            while (start + len <= duration && i <= 40) {
+                const from = start + len;
+                bands.push(`<div class="ruler-band ${i % 2 ? 'odd' : 'even'}"
+                     style="top:${pct(from)}%;height:${pct(from + len) - pct(from)}%"
+                     title="Section ${i} -- ${this.formatTime(from)}">
+                     <span class="ruler-band-label">${i}</span>
+                </div>`);
+                start = from;
+                i += 1;
+            }
+        }
+
+        const markers = entries.map(entry => {
+            const { time, data } = entry;
+            const who = data.solo || data.pickup || '';
+            const part = data.part || '';
+            const label = [part, who].filter(Boolean).join(' · ') || 'unnamed';
+            const selected = this.data.selectedMarkerTime === time ? ' selected' : '';
+            return `<div class="ruler-marker${selected}" style="top:${pct(time)}%"
+                         data-time="${time}" title="${this._escapeHtml(this.formatTime(time) + '  ' + label)}">
+                        <span class="ruler-marker-label">${this._escapeHtml(label)}</span>
+                    </div>`;
+        }).join('');
+
+        return `
+            <div class="timeline-ruler">
+                <div class="ruler-track" data-duration="${duration}">
+                    ${bands.join('')}
+                    ${ticks.join('')}
+                    ${markers}
+                    <div class="ruler-playhead" style="top:${pct(this.currentPlayingTime || 0)}%"></div>
+                    <div class="ruler-hover" hidden><span class="ruler-hover-time"></span></div>
+                </div>
+            </div>
+        `;
+    }
+
+    /**
+     * Mouse over the line: show the time under the pointer. Click: go there.
+     * Double-click: drop a marker there and open it to be filled in.
+     */
+    _attachRulerListeners() {
+        const track = this.container.querySelector('.ruler-track');
+        if (!track) return;
+
+        const duration = parseFloat(track.dataset.duration) || 0;
+        const hover = track.querySelector('.ruler-hover');
+        const hoverTime = track.querySelector('.ruler-hover-time');
+
+        const timeAt = (e) => {
+            const rect = track.getBoundingClientRect();
+            const y = Math.max(0, Math.min(rect.height, e.clientY - rect.top));
+            return Math.round((y / rect.height) * duration * 10) / 10;
+        };
+
+        track.addEventListener('mousemove', (e) => {
+            const t = timeAt(e);
+            const rect = track.getBoundingClientRect();
+            hover.hidden = false;
+            hover.style.top = `${((e.clientY - rect.top) / rect.height) * 100}%`;
+            hoverTime.textContent = this.formatTime(t);
+        });
+
+        track.addEventListener('mouseleave', () => {
+            hover.hidden = true;
+        });
+
+        track.addEventListener('click', (e) => {
+            const marker = e.target.closest('.ruler-marker');
+            if (marker) {
+                const t = parseFloat(marker.dataset.time);
+                this.data.selectedMarkerTime = t;
+                this.seekTo(t);
+                this.render();
+                return;
+            }
+            this.seekTo(timeAt(e));
+        });
+
+        track.addEventListener('dblclick', (e) => {
+            if (e.target.closest('.ruler-marker')) return;
+            this.addMarkerAt(timeAt(e));
+        });
+    }
+
     renderMarkerRow(entry, index, musicians) {
         const { time, data } = entry;
         const isSelected = this.data.selectedMarkerTime === time;
@@ -681,32 +820,44 @@ export class TimelineEditor {
      * Add a new marker at the current playback time
      */
     addMarkerAtCurrentTime() {
-        let time = Math.round((this.currentPlayingTime || 0) * 10) / 10;
+        this.addMarkerAt(this.currentPlayingTime || 0);
+    }
 
-        /*
-         * Two markers cannot share a time -- the second would replace the
-         * first. That is easy to do by accident from a stopped player,
-         * where every press lands on 0:00. Step forward by a tenth until
-         * the slot is free, which is below the resolution of anything you
-         * could hear anyway.
-         */
+    /**
+     * Put a marker at a given time and open it for filling in.
+     *
+     * Two markers cannot share a time -- the second would replace the
+     * first, which from a stopped player is every press after the first.
+     * Step forward by a tenth until the slot is free, which is below the
+     * resolution of anything you could hear.
+     */
+    addMarkerAt(seconds) {
+        let time = Math.round((seconds || 0) * 10) / 10;
+
         while (this.data.timeline && this.data.timeline[String(time)] !== undefined) {
             time = Math.round((time + 0.1) * 10) / 10;
         }
 
-        // Default marker with empty data
         this.data.addMarker(time, {});
         this._notifyTimelineChange();
 
-        // Expand the YAML editor for the new marker
+        // Open it straight away: a marker with no solo and no part is not
+        // yet anything, and the next thing you want is to say what it is.
         this.expandedMarkerTime = time;
+        this.data.selectedMarkerTime = time;
         this.render();
 
-        // Focus the textarea
         setTimeout(() => {
             const textarea = this.container.querySelector(`.yaml-input[data-time="${time}"]`);
-            if (textarea) textarea.focus();
+            if (textarea) {
+                textarea.focus();
+                // Caret after "solo: ", which is the first thing to fill in.
+                const at = textarea.value.indexOf('\n');
+                textarea.setSelectionRange(at === -1 ? 0 : at, at === -1 ? 0 : at);
+            }
         }, 50);
+
+        return time;
     }
 
     /**
@@ -877,6 +1028,17 @@ export class TimelineEditor {
             const addLabel = this.container.querySelector('.add-marker-time');
             if (addLabel) {
                 addLabel.textContent = this.formatTime(currentTime);
+            }
+
+            // Move the playhead down the ruler without rebuilding anything:
+            // a re-render here would throw away whatever is being typed.
+            const track = this.container.querySelector('.ruler-track');
+            const head = this.container.querySelector('.ruler-playhead');
+            if (track && head) {
+                const duration = parseFloat(track.dataset.duration) || 0;
+                if (duration > 0) {
+                    head.style.top = `${Math.max(0, Math.min(100, (currentTime / duration) * 100))}%`;
+                }
             }
         }
     }
