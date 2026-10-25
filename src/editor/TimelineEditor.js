@@ -636,12 +636,12 @@ export class TimelineEditor {
             </label>
 
             <label class="mf-row">
-                <span>Solo</span>
+                <span title="Who is taking the solo from this moment">Soloist</span>
                 ${field('mf-solo', data.solo, 'nobody')}
             </label>
 
             <label class="mf-row">
-                <span>Pickup</span>
+                <span title="Somebody leading into the next part, ahead of the soloist">Pickup</span>
                 ${field('mf-pickup', data.pickup, 'none')}
             </label>
 
