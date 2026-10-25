@@ -609,6 +609,22 @@ export class TimelineEditor {
          * anything else can be written.
          */
         const listId = `mf-names-${Math.random().toString(36).slice(2, 8)}`;
+        const instListId = `mf-insts-${Math.random().toString(36).slice(2, 8)}`;
+
+        /*
+         * Instruments this record already knows about: what people are
+         * down as playing, plus anything a marker has switched them to.
+         */
+        const instruments = (() => {
+            const seen = new Set();
+            Object.values(this.data.ensemble || {}).forEach(v => {
+                (Array.isArray(v) ? v : [v]).forEach(i => i && seen.add(i));
+            });
+            Object.values(this.data.workingData.timeline || {}).forEach(m => {
+                Object.values((m && m.instrumentChanges) || {}).forEach(i => i && seen.add(i));
+            });
+            return [...seen].sort();
+        })();
         const field = (cls, value, label) => `<input type="text" class="${cls}"
                 list="${listId}" autocomplete="off"
                 value="${this._escapeHtml(value || '')}"
@@ -621,6 +637,9 @@ export class TimelineEditor {
         box.className = 'marker-form';
         box.innerHTML = `
             ${nameList}
+            <datalist id="${instListId}">${
+                instruments.map(i => `<option value="${this._escapeHtml(i)}"></option>`).join('')
+            }</datalist>
             <div class="marker-form-head">
                 <strong>${existingTime !== null ? 'Marker at' : 'New marker at'}</strong>
                 <input type="text" class="mf-time" value="${this.formatTime(t)}">
@@ -638,6 +657,13 @@ export class TimelineEditor {
             <label class="mf-row">
                 <span title="Who is taking the solo from this moment">Soloist</span>
                 ${field('mf-solo', data.solo, 'nobody')}
+            </label>
+
+            <label class="mf-row">
+                <span title="What the soloist picks up here. Leave blank if they stay on the same thing.">Instrument</span>
+                <input type="text" class="mf-instrument" list="${instListId}" autocomplete="off"
+                       value="${this._escapeHtml(this._soloInstrument(data))}"
+                       placeholder="only if they switch here">
             </label>
 
             <label class="mf-row">
@@ -739,6 +765,21 @@ export class TimelineEditor {
      * in or dropping out. Most markers change nobody, so the third state
      * is the usual one and has to be the default.
      */
+
+    /**
+     * What this marker already switches its soloist onto, if anything.
+     *
+     * instrumentChanges is a map of person to instrument, and the common
+     * case by far is one entry, for whoever is taking the solo -- Justin
+     * putting down the guitar and picking up the whistle. The field shows
+     * that one; anyone else's change stays in the field below, untouched.
+     */
+    _soloInstrument(data) {
+        const changes = data.instrumentChanges || {};
+        if (data.solo && changes[data.solo]) return changes[data.solo];
+        return '';
+    }
+
     _musicianRow(name, data) {
         const state = (data.musicians || {})[name];
         const btn = (value, label) => `<button class="mf-inout${
@@ -765,6 +806,15 @@ export class TimelineEditor {
         Object.keys(data).forEach(k => {
             if (!['solo', 'pickup', 'part', 'musicians'].includes(k)) rest[k] = data[k];
         });
+
+        // The soloist's own instrument change has its own field; showing it
+        // here as well would mean editing it in two places.
+        if (rest.instrumentChanges && data.solo && rest.instrumentChanges[data.solo]) {
+            const others = { ...rest.instrumentChanges };
+            delete others[data.solo];
+            if (Object.keys(others).length) rest.instrumentChanges = others;
+            else delete rest.instrumentChanges;
+        }
         return Object.keys(rest).length
             ? jsYaml.dump(rest, { indent: 2, lineWidth: -1 }).trim()
             : '';
@@ -805,10 +855,19 @@ export class TimelineEditor {
             delete marker.musicians;
         }
 
+        const soloName = box.querySelector('.mf-solo').value.trim();
+        const instrument = box.querySelector('.mf-instrument').value.trim();
+        if (instrument && soloName) {
+            marker.instrumentChanges = { ...(marker.instrumentChanges || {}), [soloName]: instrument };
+        } else if (marker.instrumentChanges && soloName) {
+            // Cleared on purpose: take this person's change out, leave the rest.
+            delete marker.instrumentChanges[soloName];
+            if (!Object.keys(marker.instrumentChanges).length) delete marker.instrumentChanges;
+        }
+
         const part = box.querySelector('.mf-part.on');
         if (part) marker.part = part.dataset.part;
-        const solo = box.querySelector('.mf-solo').value;
-        if (solo) marker.solo = solo;
+        if (soloName) marker.solo = soloName;
         const pickup = box.querySelector('.mf-pickup').value;
         if (pickup) marker.pickup = pickup;
 
