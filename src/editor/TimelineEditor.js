@@ -29,7 +29,17 @@ export class TimelineEditor {
         this.currentPlayingTime = 0;
         this.editingMarkerTime = null; // Time of marker being edited
         this.expandedMarkerTime = null; // Time of marker with YAML editor open
-        this.rawMode = true; // Start in raw YAML mode
+        /*
+         * Open on the list, not the YAML.
+         *
+         * The list shows every marker as mm:ss.t and takes the same back;
+         * the raw view shows the stored keys, which are seconds, because
+         * that is what the player reads. Skyler, 2026-10-25: counting in
+         * seconds is slow going when you think in minutes -- and he was
+         * looking at the raw view, which is what opens first. The YAML is
+         * still a click away for anyone who wants it.
+         */
+        this.rawMode = false;
 
         // Bind methods
         this._onTimeUpdate = this._onTimeUpdate.bind(this);
