@@ -1050,3 +1050,29 @@
     margin-top: 4px;
     min-height: 14px;
 }
+
+/* Typing somebody into the band. On a track with no ensemble recorded
+   there is nobody to toggle, so there has to be a way to put them there. */
+.mf-who-add {
+    display: flex;
+    gap: 4px;
+    margin-top: 6px;
+}
+
+.mf-add-name {
+    flex: 1 1 auto;
+    min-width: 0;
+    padding: 2px 4px;
+    border: 1px solid #c3cbbb;
+    border-radius: 3px;
+    font-size: 11px;
+}
+
+.mf-who .mf-add {
+    border: 1px solid #c3cbbb;
+    background: #fff;
+    border-radius: 3px;
+    padding: 2px 10px;
+    font-size: 11px;
+    cursor: pointer;
+}

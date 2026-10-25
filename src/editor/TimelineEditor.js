@@ -676,9 +676,14 @@ export class TimelineEditor {
                     <span>Who is playing</span>
                     <button class="mf-band" data-band="in">whole band in</button>
                 </div>
-                ${musicians.length
-                    ? musicians.map(n => this._musicianRow(n, data)).join('')
-                    : '<p class="mf-note">Nobody is recorded on this track yet. Name a soloist above and they will appear here on the next marker.</p>'}
+                <div class="mf-who-rows">
+                    ${musicians.map(n => this._musicianRow(n, data)).join('')}
+                </div>
+                <div class="mf-who-add">
+                    <input type="text" class="mf-add-name" list="${listId}"
+                           autocomplete="off" placeholder="add somebody">
+                    <button class="mf-add">add</button>
+                </div>
             </div>
 
             <div class="mf-more">
@@ -721,14 +726,41 @@ export class TimelineEditor {
             });
         });
 
-        box.querySelectorAll('.mf-inout').forEach(btn => {
-            btn.addEventListener('click', (e) => {
+        this._wireInOut(box);
+
+        /*
+         * Adding somebody by hand.
+         *
+         * Nine of the eleven 4masks tracks have no ensemble recorded, so
+         * this block had nobody in it and no way to put anybody in it --
+         * only a note saying they would turn up eventually. Skyler,
+         * 2026-10-25: he wanted to type them all in. So: type a name,
+         * press add, and they get a row like everyone else.
+         */
+        const addRow = () => {
+            const input = box.querySelector('.mf-add-name');
+            const name = input.value.trim();
+            if (!name) return;
+            const rows = box.querySelector('.mf-who-rows');
+            const already = rows.querySelector(`.mf-inout[data-musician="${CSS.escape(name)}"]`);
+            if (!already) {
+                rows.insertAdjacentHTML('beforeend', this._musicianRow(name, {}));
+                this._wireInOut(rows);
+            }
+            input.value = '';
+            input.focus();
+        };
+
+        box.querySelector('.mf-add').addEventListener('click', (e) => {
+            e.preventDefault();
+            addRow();
+        });
+        box.querySelector('.mf-add-name').addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
                 e.preventDefault();
-                const name = btn.dataset.musician;
-                box.querySelectorAll(`.mf-inout[data-musician="${CSS.escape(name)}"]`)
-                   .forEach(b => b.classList.remove('on'));
-                btn.classList.add('on');
-            });
+                e.stopPropagation();
+                addRow();
+            }
         });
 
         const band = box.querySelector('.mf-band');
@@ -774,6 +806,25 @@ export class TimelineEditor {
      * putting down the guitar and picking up the whistle. The field shows
      * that one; anyone else's change stays in the field below, untouched.
      */
+
+    /**
+     * in / out / leave-alone, for however many rows are there now.
+     */
+    _wireInOut(scope) {
+        scope.querySelectorAll('.mf-inout').forEach(btn => {
+            if (btn._wired) return;
+            btn._wired = true;
+            btn.addEventListener('click', (e) => {
+                e.preventDefault();
+                const name = btn.dataset.musician;
+                const box = this.container.querySelector('.marker-form');
+                box.querySelectorAll(`.mf-inout[data-musician="${CSS.escape(name)}"]`)
+                   .forEach(b => b.classList.remove('on'));
+                btn.classList.add('on');
+            });
+        });
+    }
+
     _soloInstrument(data) {
         const changes = data.instrumentChanges || {};
         if (data.solo && changes[data.solo]) return changes[data.solo];
