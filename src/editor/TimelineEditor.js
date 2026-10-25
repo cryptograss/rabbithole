@@ -598,17 +598,29 @@ export class TimelineEditor {
          * names by hand instead -- and what gets typed is what the player
          * will match on, so it is also how an ensemble starts existing.
          */
-        const field = (cls, value, label) => musicians.length
-            ? `<select class="${cls}">
-                   <option value="">— ${label} —</option>
-                   ${musicians.map(n => who(n, value)).join('')}
-               </select>`
-            : `<input type="text" class="${cls}" value="${this._escapeHtml(value || '')}"
-                      placeholder="type a name">`;
+        /*
+         * Type it or pick it.
+         *
+         * A plain <select> can only offer what is already recorded, and on
+         * a track nobody has charted that is nobody -- but even on a full
+         * ensemble, a guest or a wrong spelling needs typing. Skyler,
+         * 2026-10-25: "it won't let me type in the name of the player". So
+         * a text box with a datalist: the known names drop down, and
+         * anything else can be written.
+         */
+        const listId = `mf-names-${Math.random().toString(36).slice(2, 8)}`;
+        const field = (cls, value, label) => `<input type="text" class="${cls}"
+                list="${listId}" autocomplete="off"
+                value="${this._escapeHtml(value || '')}"
+                placeholder="${musicians.length ? 'pick or type a name' : 'type a name'}">`;
+        const nameList = `<datalist id="${listId}">${
+            musicians.map(n => `<option value="${this._escapeHtml(n)}"></option>`).join('')
+        }</datalist>`;
 
         const box = document.createElement('div');
         box.className = 'marker-form';
         box.innerHTML = `
+            ${nameList}
             <div class="marker-form-head">
                 <strong>${existingTime !== null ? 'Marker at' : 'New marker at'}</strong>
                 <input type="text" class="mf-time" value="${this.formatTime(t)}">
@@ -662,6 +674,17 @@ export class TimelineEditor {
 
         this.container.querySelector('.timeline-editor').appendChild(box);
         this._formFor = existingTime;
+
+        // Keys typed in here belong to the box. The player, Webamp and the
+        // editor's own shortcuts all listen further up.
+        box.addEventListener('keydown', (e) => {
+            e.stopPropagation();
+            if (e.key === 'Escape') this.closeMarkerForm();
+            if (e.key === 'Enter' && e.target.tagName === 'INPUT') {
+                e.preventDefault();
+                this._saveMarkerForm(t);
+            }
+        });
 
         box.querySelectorAll('.mf-part').forEach(btn => {
             btn.addEventListener('click', (e) => {
