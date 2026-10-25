@@ -563,8 +563,28 @@ export class TimelineEditor {
 
         const t = Math.round(time * 10) / 10;
         const data = existingTime !== null ? (this.data.getMarker(existingTime) || {}) : {};
-        const musicians = this.data.getMusicianNames();
         const parts = ['intro', 'A', 'B', 'outro'];
+
+        /*
+         * Who this box can offer.
+         *
+         * The ensemble when there is one -- and when there is not, which is
+         * nine of the eleven 4masks tracks, whoever the timeline already
+         * names. Charting a track from nothing, the second marker can then
+         * pick from the people the first one introduced.
+         */
+        const musicians = (() => {
+            const named = this.data.getMusicianNames();
+            if (named.length) return named;
+            const seen = new Set();
+            Object.values(this.data.workingData.timeline || {}).forEach(m => {
+                if (!m || typeof m !== 'object') return;
+                if (m.solo) seen.add(m.solo);
+                if (m.pickup) seen.add(m.pickup);
+                Object.keys(m.musicians || {}).forEach(n => { if (n !== 'band') seen.add(n); });
+            });
+            return [...seen].sort();
+        })();
 
         const who = (name, selected) => `<option value="${this._escapeHtml(name)}"${
             selected === name ? ' selected' : ''}>${this._escapeHtml(name)}</option>`;
@@ -613,13 +633,22 @@ export class TimelineEditor {
                 ${field('mf-pickup', data.pickup, 'none')}
             </label>
 
-            <details class="mf-more"${Object.keys(data).some(k =>
-                !['solo', 'pickup', 'part'].includes(k)) ? ' open' : ''}>
-                <summary>Everything else</summary>
+            <div class="mf-who">
+                <div class="mf-who-head">
+                    <span>Who is playing</span>
+                    <button class="mf-band" data-band="in">whole band in</button>
+                </div>
+                ${musicians.length
+                    ? musicians.map(n => this._musicianRow(n, data)).join('')
+                    : '<p class="mf-note">Nobody is recorded on this track yet. Name a soloist above and they will appear here on the next marker.</p>'}
+            </div>
+
+            <div class="mf-more">
+                <label class="mf-more-label">Anything else (instrument changes, flourishes)</label>
                 <textarea class="mf-yaml" spellcheck="false"
-                    placeholder="musicians:&#10;  band: in&#10;instrumentChanges:&#10;  Name: tin whistle">${
+                    placeholder="instrumentChanges:&#10;  Name: tin whistle">${
                     this._escapeHtml(this._extraYaml(data))}</textarea>
-            </details>
+            </div>
 
             <div class="mf-actions">
                 ${existingTime !== null
@@ -643,6 +672,25 @@ export class TimelineEditor {
             });
         });
 
+        box.querySelectorAll('.mf-inout').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.preventDefault();
+                const name = btn.dataset.musician;
+                box.querySelectorAll(`.mf-inout[data-musician="${CSS.escape(name)}"]`)
+                   .forEach(b => b.classList.remove('on'));
+                btn.classList.add('on');
+            });
+        });
+
+        const band = box.querySelector('.mf-band');
+        if (band) {
+            band.addEventListener('click', (e) => {
+                e.preventDefault();
+                band.classList.toggle('on');
+            });
+            if ((data.musicians || {}).band === 'in') band.classList.add('on');
+        }
+
         box.querySelector('.mf-close').addEventListener('click', () => this.closeMarkerForm());
         box.querySelector('.mf-cancel').addEventListener('click', () => this.closeMarkerForm());
         box.querySelector('.mf-save').addEventListener('click', () => this._saveMarkerForm(t));
@@ -660,6 +708,25 @@ export class TimelineEditor {
         if (solo) solo.focus();
     }
 
+
+    /**
+     * One musician, with in / out / leave-alone.
+     *
+     * A marker only says what *changes* at that moment -- somebody coming
+     * in or dropping out. Most markers change nobody, so the third state
+     * is the usual one and has to be the default.
+     */
+    _musicianRow(name, data) {
+        const state = (data.musicians || {})[name];
+        const btn = (value, label) => `<button class="mf-inout${
+            state === value ? ' on' : ''}${!state && value === '' ? ' on' : ''}"
+            data-musician="${this._escapeHtml(name)}" data-value="${value}">${label}</button>`;
+        return `<div class="mf-who-row">
+            <span class="mf-who-name">${this._escapeHtml(name)}</span>
+            ${btn('in', 'in')}${btn('out', 'out')}${btn('', '—')}
+        </div>`;
+    }
+
     closeMarkerForm() {
         const old = this.container.querySelector('.marker-form');
         if (old) old.remove();
@@ -673,7 +740,7 @@ export class TimelineEditor {
     _extraYaml(data) {
         const rest = {};
         Object.keys(data).forEach(k => {
-            if (!['solo', 'pickup', 'part'].includes(k)) rest[k] = data[k];
+            if (!['solo', 'pickup', 'part', 'musicians'].includes(k)) rest[k] = data[k];
         });
         return Object.keys(rest).length
             ? jsYaml.dump(rest, { indent: 2, lineWidth: -1 }).trim()
@@ -701,6 +768,18 @@ export class TimelineEditor {
         } catch (err) {
             errorDiv.textContent = err.message;
             return;
+        }
+
+        const who = {};
+        box.querySelectorAll('.mf-inout.on').forEach(btn => {
+            if (btn.dataset.value) who[btn.dataset.musician] = btn.dataset.value;
+        });
+        const bandBtn = box.querySelector('.mf-band');
+        if (bandBtn && bandBtn.classList.contains('on')) who.band = 'in';
+        if (Object.keys(who).length) {
+            marker.musicians = who;
+        } else {
+            delete marker.musicians;
         }
 
         const part = box.querySelector('.mf-part.on');

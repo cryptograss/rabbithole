@@ -921,12 +921,85 @@
     color: #fff;
 }
 
+/* Everything a marker can say, on the face of the box. Skyler,
+   2026-10-25: all the info in visible sight. A folded-away section is a
+   section nobody fills in. */
+.mf-who {
+    margin: 8px 0;
+    padding: 6px;
+    border: 1px solid #e5e7e1;
+    border-radius: 4px;
+    background: #fff;
+}
+
+.mf-who-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 11px;
+    color: #4a5a4a;
+    margin-bottom: 4px;
+}
+
+.mf-band {
+    border: 1px solid #c3cbbb;
+    background: #fff;
+    border-radius: 3px;
+    padding: 2px 6px;
+    font-size: 10px;
+    cursor: pointer;
+}
+
+.mf-band.on {
+    background: #4a7c59;
+    border-color: #3c6749;
+    color: #fff;
+}
+
+.mf-who-row {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    margin-bottom: 2px;
+}
+
+.mf-who-name {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 11px;
+}
+
+.mf-inout {
+    border: 1px solid #c3cbbb;
+    background: #fff;
+    border-radius: 3px;
+    padding: 1px 7px;
+    font-size: 10px;
+    cursor: pointer;
+    min-width: 30px;
+}
+
+.mf-who-row .mf-inout.on {
+    background: #4a7c59;
+    border-color: #3c6749;
+    color: #fff;
+}
+
+.mf-note {
+    margin: 2px 0;
+    font-size: 11px;
+    color: #7d8a7d;
+}
+
 .mf-more { margin: 8px 0; }
 
-.mf-more summary {
-    cursor: pointer;
-    color: #4a5a4a;
+.mf-more-label {
+    display: block;
     font-size: 11px;
+    color: #4a5a4a;
 }
 
 .mf-yaml {
