@@ -14,6 +14,21 @@
 import jsYaml from 'js-yaml';
 
 export class TimelineEditor {
+    /*
+     * What an empty marker starts as. The two keys that every marker
+     * wants -- who is soloing and which part it is -- with the rest
+     * named in a comment so nobody has to remember them.
+     */
+    static NEW_MARKER_TEMPLATE = [
+        'solo: ',
+        'part: ',
+        '# part: intro | A | B | outro',
+        '# pickup: Name          -- somebody leading in',
+        '# musicians:            -- who comes in or drops out',
+        '#   Name: in',
+        '#   band: in'
+    ].join('\n');
+
     constructor(containerId, editableTrackData, player, options = {}) {
         this.container = document.getElementById(containerId);
         if (!this.container) {
@@ -360,10 +375,19 @@ export class TimelineEditor {
 
         const infoStr = info.join(' | ') || '(empty)';
 
-        // Convert data to YAML for editing
+        /*
+         * Convert the marker to YAML for editing -- and when it is empty,
+         * hand over the scaffold rather than a grey hint.
+         *
+         * Placeholder text disappears the moment you type, so a new marker
+         * meant retyping "solo:" and "part:" every time, from memory, with
+         * the one example you had just lost. Skyler, 2026-10-25: the keys
+         * should stay and not be greyed out. Real text, so the shape is
+         * there to fill in and the keys cannot be misremembered.
+         */
         const yamlStr = Object.keys(data).length > 0
             ? jsYaml.dump(data, { indent: 2, lineWidth: -1 }).trim()
-            : '';
+            : TimelineEditor.NEW_MARKER_TEMPLATE;
 
         return `
             <div class="marker-row ${isSelected ? 'selected' : ''} ${isPlaying ? 'playing' : ''} ${isExpanded ? 'expanded' : ''}"
@@ -702,6 +726,18 @@ export class TimelineEditor {
             // Replace marker data entirely with parsed YAML
             // First, save undo state
             this.data._saveUndoState();
+
+            /*
+             * Drop keys the scaffold left blank. A new marker arrives as
+             * "solo: " and "part: " for somebody to fill in; applying it
+             * with one of them still empty should leave that key out
+             * rather than write an empty string the player would have to
+             * interpret.
+             */
+            Object.keys(parsed).forEach(k => {
+                const v = parsed[k];
+                if (v === null || v === undefined || v === '') delete parsed[k];
+            });
 
             // Replace the marker data
             const key = String(Math.round(time * 10) / 10);
