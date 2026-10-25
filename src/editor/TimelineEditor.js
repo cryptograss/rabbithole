@@ -445,9 +445,21 @@ export class TimelineEditor {
         // Click on marker row to select/seek
         this.container.querySelectorAll('.marker-row').forEach(row => {
             row.addEventListener('click', (e) => {
-                if (e.target.classList.contains('btn-delete-marker') ||
-                    e.target.classList.contains('btn-edit-marker') ||
-                    e.target.classList.contains('btn-play-from') ||
+                /*
+                 * A click anywhere in the row selects the marker and seeks
+                 * there, and then re-renders -- which throws away the DOM,
+                 * and with it whatever you were typing into and where your
+                 * caret was. The open YAML editor is inside the row, so
+                 * clicking into it to correct a name counted as a click on
+                 * the row: you were bounced back out before you could type
+                 * a character. Skyler, 2026-10-25.
+                 *
+                 * closest(), not classList, because the click lands on
+                 * whatever is under the pointer -- the text inside a button
+                 * as readily as the button.
+                 */
+                if (e.target.closest('.marker-yaml-editor') ||
+                    e.target.closest('button') ||
                     e.target.classList.contains('marker-time-input')) {
                     return;
                 }
