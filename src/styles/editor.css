@@ -691,9 +691,14 @@
     min-width: 0;
 }
 
+/* Room above the line for the first label.
+   A tick's text sits 6px above its own line, and a marker's 5px, so at
+   0:00 both hang above the top of the track -- and with the column
+   clipped they were simply cut off. Clipping happens at the padding
+   edge, so padding is the room. Skyler, 2026-10-25. */
 .timeline-ruler {
     flex: 0 0 158px;
-    padding: 4px 0;
+    padding: 14px 0 10px;
     overflow: hidden;
 }
 
