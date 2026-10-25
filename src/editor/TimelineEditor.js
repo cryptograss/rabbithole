@@ -373,10 +373,22 @@ export class TimelineEditor {
      * still has somewhere to grow.
      */
     _rulerDuration(entries) {
+        /*
+         * Ask the audio first.
+         *
+         * The ruler used to take the duration from the metadata, and a
+         * Release page without one falls back to 180 -- so every longer
+         * song stopped at 3:00 and there was no way to chart past it.
+         * Skyler, 2026-10-25. The loaded audio knows how long it really
+         * is; the metadata is only the guess for before it has loaded.
+         */
+        const real = this.player && this.player.getDuration ? this.player.getDuration() : 0;
+        if (real > 0) return real;
+
         const stated = this.data.workingData.duration;
-        if (stated && stated > 0) return stated;
         const last = entries.length ? entries[entries.length - 1].time : 0;
-        return Math.max(60, last + 30);
+        // Never shorter than the markers already on it, plus room to grow.
+        return Math.max(60, stated || 0, last + 30);
     }
 
     /**
@@ -1252,7 +1264,16 @@ export class TimelineEditor {
             const track = this.container.querySelector('.ruler-track');
             const head = this.container.querySelector('.ruler-playhead');
             if (track && head) {
-                const duration = parseFloat(track.dataset.duration) || 0;
+                let duration = parseFloat(track.dataset.duration) || 0;
+
+                // The real length arrives when the audio loads, which is
+                // after the editor opens. Redraw once, when it does.
+                const real = this.player && this.player.getDuration ? this.player.getDuration() : 0;
+                if (real > 0 && Math.abs(real - duration) > 1) {
+                    this.render();
+                    return;
+                }
+
                 if (duration > 0) {
                     head.style.top = `${Math.max(0, Math.min(100, (currentTime / duration) * 100))}%`;
                 }

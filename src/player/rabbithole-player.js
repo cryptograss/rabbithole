@@ -1834,6 +1834,37 @@ class RabbitholeWebampPlayer {
         return status;
     }
 
+    /**
+     * How long the loaded track is, in seconds, or 0 if not known yet.
+     *
+     * Webamp's own state carries the length once the audio has loaded its
+     * metadata; the media element is the fallback, since the two are not
+     * always populated at the same moment.
+     */
+    getDuration() {
+        if (!this.webamp || !this.webamp.store) return 0;
+        const state = this.webamp.store.getState();
+
+        /*
+         * The length lives on the track, not on `media`.
+         *
+         * state.media carries timeMode, timeElapsed, volume, balance,
+         * shuffle, repeat and status -- and no length at all, which is why
+         * the editor's old percentage seek missed and why the ruler had
+         * nothing better than the metadata's guess. Webamp fills in
+         * state.tracks[id].duration once the audio reports it.
+         */
+        const tracks = state.tracks || {};
+        const order = (state.playlist && state.playlist.trackOrder) || [];
+        const current = state.playlist && state.playlist.currentTrack;
+        const id = current !== undefined && current !== null ? current : order[0];
+        const track = tracks[id] || tracks[order[0]];
+        if (track && isFinite(track.duration) && track.duration > 0) {
+            return track.duration;
+        }
+        return 0;
+    }
+
     getCurrentTime() {
         if (this.webamp && this.webamp.store) {
             const state = this.webamp.store.getState();
