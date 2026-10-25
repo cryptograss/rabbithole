@@ -276,8 +276,8 @@ export class TimelineEditor {
                         <button class="btn-toggle-mode" title="Switch to raw YAML view">
                             Raw YAML
                         </button>
-                        <button class="btn-add-marker" title="Add marker at current time (Space)">
-                            + Add Marker
+                        <button class="btn-add-marker" title="Add a marker where the playhead is (Space)">
+                            + Add Marker at <span class="add-marker-time">${this.formatTime(this.currentPlayingTime || 0)}</span>
                         </button>
                     </div>
                 </div>
@@ -657,7 +657,18 @@ export class TimelineEditor {
      * Add a new marker at the current playback time
      */
     addMarkerAtCurrentTime() {
-        const time = this.currentPlayingTime;
+        let time = Math.round((this.currentPlayingTime || 0) * 10) / 10;
+
+        /*
+         * Two markers cannot share a time -- the second would replace the
+         * first. That is easy to do by accident from a stopped player,
+         * where every press lands on 0:00. Step forward by a tenth until
+         * the slot is free, which is below the resolution of anything you
+         * could hear anyway.
+         */
+        while (this.data.timeline && this.data.timeline[String(time)] !== undefined) {
+            time = Math.round((time + 0.1) * 10) / 10;
+        }
 
         // Default marker with empty data
         this.data.addMarker(time, {});
@@ -823,6 +834,14 @@ export class TimelineEditor {
             }
         } else {
             this._highlightCurrentMarker();
+
+            // The Add Marker button names the moment it will use, so that
+            // where a new marker lands is visible before you press it
+            // rather than a surprise afterwards. Skyler, 2026-10-25.
+            const addLabel = this.container.querySelector('.add-marker-time');
+            if (addLabel) {
+                addLabel.textContent = this.formatTime(currentTime);
+            }
         }
     }
 
