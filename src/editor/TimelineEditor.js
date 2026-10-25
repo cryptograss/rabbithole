@@ -557,6 +557,23 @@ export class TimelineEditor {
         const who = (name, selected) => `<option value="${this._escapeHtml(name)}"${
             selected === name ? ' selected' : ''}>${this._escapeHtml(name)}</option>`;
 
+        /*
+         * A dropdown of nobody is no use.
+         *
+         * Nine of the eleven 4masks tracks have an empty ensemble, so on
+         * those the Solo list would offer only "nobody" and charting would
+         * be impossible. Where there is no ensemble recorded, take the
+         * names by hand instead -- and what gets typed is what the player
+         * will match on, so it is also how an ensemble starts existing.
+         */
+        const field = (cls, value, label) => musicians.length
+            ? `<select class="${cls}">
+                   <option value="">— ${label} —</option>
+                   ${musicians.map(n => who(n, value)).join('')}
+               </select>`
+            : `<input type="text" class="${cls}" value="${this._escapeHtml(value || '')}"
+                      placeholder="type a name">`;
+
         const box = document.createElement('div');
         box.className = 'marker-form';
         box.innerHTML = `
@@ -576,18 +593,12 @@ export class TimelineEditor {
 
             <label class="mf-row">
                 <span>Solo</span>
-                <select class="mf-solo">
-                    <option value="">— nobody —</option>
-                    ${musicians.map(n => who(n, data.solo)).join('')}
-                </select>
+                ${field('mf-solo', data.solo, 'nobody')}
             </label>
 
             <label class="mf-row">
                 <span>Pickup</span>
-                <select class="mf-pickup">
-                    <option value="">— none —</option>
-                    ${musicians.map(n => who(n, data.pickup)).join('')}
-                </select>
+                ${field('mf-pickup', data.pickup, 'none')}
             </label>
 
             <details class="mf-more"${Object.keys(data).some(k =>
