@@ -747,6 +747,7 @@ export class TimelineEditor {
                 rows.insertAdjacentHTML('beforeend', this._musicianRow(name, {}));
                 this._wireInOut(rows);
             }
+            this._rememberMusician(name);
             input.value = '';
             input.focus();
         };
@@ -810,6 +811,35 @@ export class TimelineEditor {
     /**
      * in / out / leave-alone, for however many rows are there now.
      */
+
+    /**
+     * Keep a name once somebody has typed it.
+     *
+     * Skyler, 2026-10-26: he was retyping the same five players at every
+     * marker. They were only remembered if a saved marker happened to
+     * mention them -- so anyone left on "leave alone" was forgotten the
+     * moment the box closed, which is most of the band most of the time.
+     *
+     * Names now go into the track's ensemble, which is the right home for
+     * them: it is what the cards are built from, it travels with the
+     * timeline when the YAML is copied out, and it is what an ensemble
+     * means -- the people on this recording, as against who is playing at
+     * this instant, which is what a marker says.
+     */
+    _rememberMusician(name, instrument) {
+        if (!name) return;
+        const clean = name.trim();
+        if (!clean) return;
+
+        if (!this.data.workingData.ensemble) this.data.workingData.ensemble = {};
+        const band = this.data.workingData.ensemble;
+
+        if (!band[clean]) band[clean] = [];
+        if (instrument && !band[clean].includes(instrument)) {
+            band[clean].push(instrument);
+        }
+    }
+
     _wireInOut(scope) {
         scope.querySelectorAll('.mf-inout').forEach(btn => {
             if (btn._wired) return;
@@ -915,6 +945,7 @@ export class TimelineEditor {
         const instrument = box.querySelector('.mf-instrument').value.trim();
         if (instrument && soloName) {
             marker.instrumentChanges = { ...(marker.instrumentChanges || {}), [soloName]: instrument };
+            this._rememberMusician(soloName, instrument);
         } else if (marker.instrumentChanges && soloName) {
             // Cleared on purpose: take this person's change out, leave the rest.
             delete marker.instrumentChanges[soloName];
@@ -923,9 +954,15 @@ export class TimelineEditor {
 
         const part = box.querySelector('.mf-part.on');
         if (part) marker.part = part.dataset.part;
-        if (soloName) marker.solo = soloName;
-        const pickup = box.querySelector('.mf-pickup').value;
-        if (pickup) marker.pickup = pickup;
+        if (soloName) {
+            marker.solo = soloName;
+            this._rememberMusician(soloName);
+        }
+        const pickup = box.querySelector('.mf-pickup').value.trim();
+        if (pickup) {
+            marker.pickup = pickup;
+            this._rememberMusician(pickup);
+        }
 
         this.data._saveUndoState();
 
