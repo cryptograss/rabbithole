@@ -1076,3 +1076,29 @@
     font-size: 11px;
     cursor: pointer;
 }
+
+/* What a person already is, going into this marker. */
+.mf-who-row.is-in .mf-who-name { color: #2d5016; }
+.mf-who-row.is-out .mf-who-name { color: #8a948a; }
+
+/* "stays in" / "stays out" is longer than "—", and it is the usual choice. */
+.mf-who-row .mf-inout[data-value=""] {
+    min-width: 62px;
+    font-style: italic;
+}
+
+.btn-tidy {
+    border: 1px solid #c3cbbb;
+    background: #fff;
+    border-radius: 4px;
+    padding: 4px 10px;
+    cursor: pointer;
+    font-size: 12px;
+}
+
+.tidy-note {
+    flex-basis: 100%;
+    font-size: 11px;
+    color: #4a7c59;
+    margin-top: 4px;
+}

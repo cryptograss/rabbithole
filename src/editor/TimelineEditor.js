@@ -13,6 +13,7 @@
 
 import jsYaml from 'js-yaml';
 
+import { musicianEntries, statusAt, compactMusicians } from '../musician-status.js';
 export class TimelineEditor {
     /*
      * What an empty marker starts as. The two keys that every marker
@@ -290,6 +291,9 @@ export class TimelineEditor {
                     <div class="editor-actions">
                         <button class="btn-toggle-mode" title="Switch to raw YAML view">
                             Raw YAML
+                        </button>
+                        <button class="btn-tidy" title="Say only what changes: collapse repeated 'in' lists, and write 'band: in' when everyone joins at once">
+                            Tidy
                         </button>
                         <button class="btn-add-marker" title="Add a marker where the playhead is (Space)">
                             + Add Marker at <span class="add-marker-time">${this.formatTime(this.currentPlayingTime || 0)}</span>
@@ -677,7 +681,10 @@ export class TimelineEditor {
                     <button class="mf-band" data-band="in">whole band in</button>
                 </div>
                 <div class="mf-who-rows">
-                    ${musicians.map(n => this._musicianRow(n, data)).join('')}
+                    ${(() => {
+                        const inherited = this._inheritedStates(musicians, t);
+                        return musicians.map(n => this._musicianRow(n, data, inherited[n])).join('');
+                    })()}
                 </div>
                 <div class="mf-who-add">
                     <input type="text" class="mf-add-name" list="${listId}"
@@ -744,7 +751,8 @@ export class TimelineEditor {
             const rows = box.querySelector('.mf-who-rows');
             const already = rows.querySelector(`.mf-inout[data-musician="${CSS.escape(name)}"]`);
             if (!already) {
-                rows.insertAdjacentHTML('beforeend', this._musicianRow(name, {}));
+                rows.insertAdjacentHTML('beforeend', this._musicianRow(
+                    name, {}, this._inheritedStates([name], t)[name]));
                 this._wireInOut(rows);
             }
             this._rememberMusician(name);
@@ -855,21 +863,89 @@ export class TimelineEditor {
         });
     }
 
+
+    /**
+     * Collapse the timeline to what changes. Undoable, and it says what it did.
+     *
+     * Justin, 2026-10-26: the YAML should be interesting enough that
+     * somebody reads it and says "that second B part doesn't have fiddle" --
+     * and quick to find the line to fix. A block repeated seventeen times
+     * is neither. This is a button rather than something that happens on
+     * its own, because it rewrites markers that somebody may have written
+     * by hand, and that should be a decision.
+     */
+    tidyMusicians() {
+        const names = this.data.getMusicianNames();
+        const result = compactMusicians(this.data.workingData.timeline, names);
+
+        const note = this.container.querySelector('.tidy-note')
+            || (() => {
+                const el = document.createElement('div');
+                el.className = 'tidy-note';
+                this.container.querySelector('.editor-header').appendChild(el);
+                return el;
+            })();
+
+        if (result.skipped) {
+            note.textContent = 'Left alone: this timeline uses section keys, which are worked out by the player.';
+            return;
+        }
+        if (!result.removed && !result.rewritten) {
+            note.textContent = 'Already says only what changes.';
+            return;
+        }
+
+        this.data._saveUndoState();
+        this.data.workingData.timeline = result.timeline;
+        this.data._notifyChange();
+        this._notifyTimelineChange();
+        this.render();
+
+        const after = this.container.querySelector('.editor-header');
+        const msg = document.createElement('div');
+        msg.className = 'tidy-note';
+        msg.textContent = `Tidied: ${result.removed} repeated block${result.removed === 1 ? '' : 's'} removed, `
+            + `${result.rewritten} shortened. Undo puts it back.`;
+        if (after) after.appendChild(msg);
+    }
+
     _soloInstrument(data) {
         const changes = data.instrumentChanges || {};
         if (data.solo && changes[data.solo]) return changes[data.solo];
         return '';
     }
 
-    _musicianRow(name, data) {
+    _musicianRow(name, data, inherited) {
         const state = (data.musicians || {})[name];
-        const btn = (value, label) => `<button class="mf-inout${
+        const btn = (value, label, title) => `<button class="mf-inout${
             state === value ? ' on' : ''}${!state && value === '' ? ' on' : ''}"
-            data-musician="${this._escapeHtml(name)}" data-value="${value}">${label}</button>`;
-        return `<div class="mf-who-row">
+            data-musician="${this._escapeHtml(name)}" data-value="${value}"
+            ${title ? `title="${title}"` : ''}>${label}</button>`;
+
+        /*
+         * Say what this person already is.
+         *
+         * Skyler's Victory came out as seventeen copies of the same six
+         * names because the box gave no sign who was already in -- so
+         * everyone was clicked "in" again at every marker, to be safe.
+         * "—" now reads "stays in" or "stays out", which is what it means,
+         * and it is the right choice for almost everyone almost every time.
+         */
+        const stays = inherited ? `stays ${inherited}` : '—';
+        const cls = inherited ? ` is-${inherited}` : '';
+        return `<div class="mf-who-row${cls}">
             <span class="mf-who-name">${this._escapeHtml(name)}</span>
-            ${btn('in', 'in')}${btn('out', 'out')}${btn('', '—')}
+            ${btn('in', 'in', 'Joins here')}${btn('out', 'out', 'Drops out here')}${
+                btn('', stays, 'No change at this moment')}
         </div>`;
+    }
+
+    /** What each person already is, going into a marker at `time`. */
+    _inheritedStates(names, time) {
+        const entries = musicianEntries(this.data.workingData.timeline);
+        const states = {};
+        names.forEach(n => { states[n] = statusAt(entries, n, time, { exclusive: true }); });
+        return states;
     }
 
     closeMarkerForm() {
@@ -929,12 +1005,38 @@ export class TimelineEditor {
             return;
         }
 
+        /*
+         * Store the difference, not the picture.
+         *
+         * Choosing "in" for somebody who is already in says nothing the
+         * timeline did not know, and writing it down is what turned one
+         * band into seventeen identical blocks. A choice is kept only if
+         * it changes the person from what they inherit.
+         */
+        const inheritedNow = this._inheritedStates(
+            [...box.querySelectorAll('.mf-inout')].map(b => b.dataset.musician), time);
         const who = {};
         box.querySelectorAll('.mf-inout.on').forEach(btn => {
-            if (btn.dataset.value) who[btn.dataset.musician] = btn.dataset.value;
+            const name = btn.dataset.musician;
+            const value = btn.dataset.value;
+            if (value && value !== inheritedNow[name]) who[name] = value;
         });
         const bandBtn = box.querySelector('.mf-band');
-        if (bandBtn && bandBtn.classList.contains('on')) who.band = 'in';
+        if (bandBtn && bandBtn.classList.contains('on')) {
+            const alreadyAllIn = Object.values(inheritedNow).length
+                && Object.values(inheritedNow).every(v => v === 'in');
+            if (!alreadyAllIn) {
+                // band first, then anyone who is not coming in with it
+                const withBand = { band: 'in' };
+                Object.keys(inheritedNow).forEach(n => {
+                    const picked = box.querySelector(
+                        `.mf-inout.on[data-musician="${CSS.escape(n)}"]`);
+                    if (picked && picked.dataset.value === 'out') withBand[n] = 'out';
+                });
+                Object.keys(who).forEach(k => delete who[k]);
+                Object.assign(who, withBand);
+            }
+        }
         if (Object.keys(who).length) {
             marker.musicians = who;
         } else {
@@ -1065,6 +1167,11 @@ export class TimelineEditor {
         const addBtn = this.container.querySelector('.btn-add-marker');
         if (addBtn) {
             addBtn.addEventListener('click', () => this.addMarkerAtCurrentTime());
+
+        const tidyBtn = this.container.querySelector('.btn-tidy');
+        if (tidyBtn) {
+            tidyBtn.addEventListener('click', () => this.tidyMusicians());
+        }
         }
 
         // Play from marker buttons

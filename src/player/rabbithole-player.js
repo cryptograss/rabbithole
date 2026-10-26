@@ -6,6 +6,7 @@
 import Webamp from 'webamp';
 import Packery from 'packery';
 
+import { musicianEntries, statusAt } from '../musician-status.js';
 // How long any one highlight may hold, in seconds. The timelines ask for more
 // in places (Paint Exchange: 8.5s of spotlight, 7s of flourish) and at that
 // length an effect stops reading as emphasis and starts reading as a bug.
@@ -1806,32 +1807,10 @@ class RabbitholeWebampPlayer {
     // Remove showPickupEffect since pickup is now an era, not a moment
 
     getMusicianStatus(musicianName, currentTime) {
-        // Walk through timeline chronologically to find musician's current status
+        // The rule lives in src/musician-status.js so the editor can show
+        // what a marker inherits using exactly the same logic.
         const processedTimeline = this.processTimelineKeys();
-        const timelineEntries = Object.entries(processedTimeline)
-            .map(([timeStr, arrangement]) => ({ time: Number(timeStr), arrangement }))
-            .filter(({ arrangement }) => arrangement.musicians)
-            .sort((a, b) => a.time - b.time);
-
-        let status = 'out'; // Default to out
-
-        for (const { time, arrangement } of timelineEntries) {
-            if (time > currentTime) break;
-
-            const musicians = arrangement.musicians;
-
-            // Check band shortcut
-            if (musicians.band === 'in') {
-                status = 'in';
-            } else if (musicians.band === 'out') {
-                status = 'out';
-            } else if (musicians[musicianName]) {
-                // Individual musician status
-                status = musicians[musicianName];
-            }
-        }
-
-        return status;
+        return statusAt(musicianEntries(processedTimeline), musicianName, currentTime);
     }
 
     /**
