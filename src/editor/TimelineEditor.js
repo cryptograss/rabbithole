@@ -13,7 +13,7 @@
 
 import jsYaml from 'js-yaml';
 
-import { musicianEntries, statusAt, compactMusicians } from '../musician-status.js';
+import { musicianEntries, statusAt, compactMusicians, unmatchedNames } from '../musician-status.js';
 export class TimelineEditor {
     /*
      * What an empty marker starts as. The two keys that every marker
@@ -886,12 +886,21 @@ export class TimelineEditor {
                 return el;
             })();
 
+        const stray = unmatchedNames(this.data.workingData.timeline, names);
+        const strayText = stray.length
+            ? ' Check these names -- they match nobody on the ensemble, so the cards '
+              + 'will not light for them: '
+              + stray.map(s => `"${s.name}"`
+                  + (s.suggestion ? ` (did you mean "${s.suggestion}"?)` : '')).join(', ') + '.'
+            : '';
+
         if (result.skipped) {
-            note.textContent = 'Left alone: this timeline uses section keys, which are worked out by the player.';
+            note.textContent = 'Left alone: this timeline uses section keys, which are worked out by the player.' + strayText;
             return;
         }
         if (!result.removed && !result.rewritten) {
-            note.textContent = 'Already says only what changes.';
+            note.textContent = 'Already says only what changes.' + strayText;
+            if (strayText) note.style.color = '#b05a3c';
             return;
         }
 
@@ -905,7 +914,8 @@ export class TimelineEditor {
         const msg = document.createElement('div');
         msg.className = 'tidy-note';
         msg.textContent = `Tidied: ${result.removed} repeated block${result.removed === 1 ? '' : 's'} removed, `
-            + `${result.rewritten} shortened. Undo puts it back.`;
+            + `${result.rewritten} shortened. Undo puts it back.` + strayText;
+        if (strayText) msg.style.color = '#b05a3c';
         if (after) after.appendChild(msg);
     }
 

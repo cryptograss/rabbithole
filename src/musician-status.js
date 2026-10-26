@@ -131,3 +131,44 @@ export function compactMusicians(timeline, names = []) {
 
     return { timeline: clone, removed, rewritten, skipped: false };
 }
+
+/**
+ * Names the timeline uses that match nobody on the ensemble.
+ *
+ * The player matches on the exact spelling, so "harry clark" against a
+ * "Harry Clark" card binds to nothing: the card plays the whole tune while
+ * the file says he is out until 2:48. Nothing fails; it is just wrong.
+ * Where the only difference is capitals or stray spaces we say which
+ * spelling was probably meant.
+ *
+ * re, 2026-10-26: Tidy preserved that pair verbatim -- the same typo that
+ * hid Harry for three hours, kept as a dead pair.
+ *
+ * @returns {Array<{name: string, suggestion: string|null, where: string[]}>}
+ */
+export function unmatchedNames(timeline, names = []) {
+    const known = new Set(names);
+    const fold = n => String(n).trim().toLowerCase().replace(/\s+/g, ' ');
+    const byFolded = {};
+    names.forEach(n => { byFolded[fold(n)] = n; });
+
+    const seen = {};
+    const note = (name, where) => {
+        if (!name || name === 'band' || known.has(name)) return;
+        (seen[name] = seen[name] || new Set()).add(where);
+    };
+
+    Object.entries(timeline || {}).forEach(([key, marker]) => {
+        if (!marker || typeof marker !== 'object') return;
+        note(marker.solo, key + ' solo');
+        note(marker.pickup, key + ' pickup');
+        Object.keys(marker.musicians || {}).forEach(n => note(n, key + ' musicians'));
+        Object.keys(marker.instrumentChanges || {}).forEach(n => note(n, key + ' instrument'));
+    });
+
+    return Object.entries(seen).map(([name, where]) => ({
+        name,
+        suggestion: byFolded[fold(name)] || null,
+        where: [...where],
+    }));
+}

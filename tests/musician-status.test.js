@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { musicianEntries, statusAt, compactMusicians } from '../src/musician-status.js';
+import { musicianEntries, statusAt, compactMusicians, unmatchedNames } from '../src/musician-status.js';
 
 const names = ['Kyle', 'Justin', 'Harry'];
 
@@ -80,5 +80,29 @@ describe('compactMusicians', () => {
         const tl = { 0: { musicians: { Kyle: 'in' } }, 10: { musicians: { Kyle: 'in' } } };
         const { timeline } = compactMusicians(tl, ['Kyle']);
         expect(timeline[10]).toBeUndefined();
+    });
+});
+
+describe('unmatchedNames', () => {
+    it('flags a name that binds to no card, and says which spelling was meant', () => {
+        const tl = {
+            0: { musicians: { band: 'in', 'harry clark': 'out' }, part: 'intro' },
+            143: { solo: 'harry clark' },
+        };
+        const found = unmatchedNames(tl, ['Harry Clark', 'Kyle']);
+        expect(found).toHaveLength(1);
+        expect(found[0].name).toBe('harry clark');
+        expect(found[0].suggestion).toBe('Harry Clark');
+        expect(found[0].where).toContain('143 solo');
+    });
+
+    it('is quiet when every name is on the ensemble', () => {
+        const tl = { 0: { musicians: { band: 'in' }, solo: 'Kyle' } };
+        expect(unmatchedNames(tl, ['Kyle'])).toEqual([]);
+    });
+
+    it('offers no suggestion for a stranger', () => {
+        const found = unmatchedNames({ 0: { solo: 'Luna' } }, ['Kyle']);
+        expect(found[0].suggestion).toBeNull();
     });
 });
