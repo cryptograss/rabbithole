@@ -13,7 +13,7 @@
 
 import jsYaml from 'js-yaml';
 
-import { musicianEntries, statusAt, compactMusicians, unmatchedNames } from '../musician-status.js';
+import { musicianEntries, statusAt, compactMusicians, unmatchedNames, renameMusician } from '../musician-status.js';
 export class TimelineEditor {
     /*
      * What an empty marker starts as. The two keys that every marker
@@ -734,6 +734,7 @@ export class TimelineEditor {
         });
 
         this._wireInOut(box);
+        this._wireRename(box);
 
         /*
          * Adding somebody by hand.
@@ -754,6 +755,7 @@ export class TimelineEditor {
                 rows.insertAdjacentHTML('beforeend', this._musicianRow(
                     name, {}, this._inheritedStates([name], t)[name]));
                 this._wireInOut(rows);
+                this._wireRename(rows);
             }
             this._rememberMusician(name);
             input.value = '';
@@ -845,6 +847,89 @@ export class TimelineEditor {
         if (!band[clean]) band[clean] = [];
         if (instrument && !band[clean].includes(instrument)) {
             band[clean].push(instrument);
+        }
+    }
+
+
+    /**
+     * Click a name in "Who is playing" to correct it.
+     *
+     * Skyler, 2026-10-26: there was no way to edit a name once typed -- which
+     * is why "harry clark" went uncorrected. A name was only ever added, never
+     * changed. Renaming rewrites every place the person appears: the ensemble,
+     * every musicians block, solos, pickups and instrument changes. The open
+     * box keeps whatever you had picked.
+     */
+    _wireRename(scope) {
+        scope.querySelectorAll('.mf-who-name').forEach(span => {
+            if (span._renamer) return;
+            span._renamer = true;
+            span.addEventListener('click', () => {
+                const row = span.closest('.mf-who-row');
+                if (!row || row.querySelector('.mf-rename')) return;
+                const oldName = span.textContent;
+
+                const input = document.createElement('input');
+                input.type = 'text';
+                input.className = 'mf-rename';
+                input.value = oldName;
+                span.style.display = 'none';
+                span.after(input);
+                input.focus();
+                input.select();
+
+                let done = false;
+                const finish = (commit) => {
+                    if (done) return;
+                    done = true;
+                    const next = input.value.trim();
+                    input.remove();
+                    span.style.display = '';
+                    if (commit && next && next !== oldName) this._applyRename(oldName, next, row);
+                };
+
+                input.addEventListener('keydown', (e) => {
+                    e.stopPropagation();
+                    if (e.key === 'Enter') { e.preventDefault(); finish(true); }
+                    if (e.key === 'Escape') { e.preventDefault(); finish(false); }
+                });
+                input.addEventListener('blur', () => finish(true));
+            });
+        });
+    }
+
+    _applyRename(oldName, newName, row) {
+        const box = this.container.querySelector('.marker-form');
+
+        this.data._saveUndoState();
+        const result = renameMusician(
+            this.data.workingData.timeline, this.data.workingData.ensemble, oldName, newName);
+        this.data.workingData.timeline = result.timeline;
+        this.data.workingData.ensemble = result.ensemble;
+        this.data._notifyChange();
+        this._notifyTimelineChange();
+
+        // The box is not rebuilt, so what has been picked in it survives.
+        const existing = box && [...box.querySelectorAll('.mf-who-row')].find(
+            r => r !== row && r.querySelector('.mf-who-name').textContent === newName);
+        if (existing) {
+            // Renamed onto somebody already in the box: they are one person now.
+            row.remove();
+        } else if (row) {
+            row.querySelector('.mf-who-name').textContent = newName;
+            row.querySelectorAll('.mf-inout').forEach(b => { b.dataset.musician = newName; });
+        }
+        if (box) {
+            ['.mf-solo', '.mf-pickup'].forEach(sel => {
+                const f = box.querySelector(sel);
+                if (f && f.value === oldName) f.value = newName;
+            });
+        }
+
+        const note = box && box.querySelector('.mf-error');
+        if (note) {
+            note.style.color = '#4a7c59';
+            note.textContent = `Renamed "${oldName}" to "${newName}" in ${result.changed} place${result.changed === 1 ? '' : 's'}.`;
         }
     }
 
@@ -944,7 +1029,7 @@ export class TimelineEditor {
         const stays = inherited ? `stays ${inherited}` : '—';
         const cls = inherited ? ` is-${inherited}` : '';
         return `<div class="mf-who-row${cls}">
-            <span class="mf-who-name">${this._escapeHtml(name)}</span>
+            <span class="mf-who-name" title="Click to correct the spelling">${this._escapeHtml(name)}</span>
             ${btn('in', 'in', 'Joins here')}${btn('out', 'out', 'Drops out here')}${
                 btn('', stays, 'No change at this moment')}
         </div>`;

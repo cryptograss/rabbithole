@@ -1102,3 +1102,16 @@
     color: #4a7c59;
     margin-top: 4px;
 }
+
+/* A name you can correct. */
+.mf-who-name { cursor: text; }
+.mf-who-name:hover { text-decoration: underline dotted; }
+
+.mf-rename {
+    flex: 1 1 auto;
+    min-width: 0;
+    padding: 1px 3px;
+    font-size: 11px;
+    border: 1px solid #4a7c59;
+    border-radius: 3px;
+}

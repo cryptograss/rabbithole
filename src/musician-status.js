@@ -172,3 +172,53 @@ export function unmatchedNames(timeline, names = []) {
         where: [...where],
     }));
 }
+
+/**
+ * Rename a person everywhere a timeline mentions them.
+ *
+ * One spelling mistake lives in several places -- the ensemble, every
+ * musicians block, solos, pickups, instrument changes -- and fixing it in
+ * one while the rest keep the old spelling is how a person ends up
+ * counted twice. If the new name already exists, the two are merged: the
+ * ensemble keeps both instrument lists, and where a block names both
+ * spellings the new one wins.
+ *
+ * @returns {{timeline: Object, ensemble: Object, changed: number}}
+ */
+export function renameMusician(timeline, ensemble, from, to) {
+    const tl = JSON.parse(JSON.stringify(timeline || {}));
+    const ens = JSON.parse(JSON.stringify(ensemble || {}));
+    const oldName = String(from || '').trim();
+    const newName = String(to || '').trim();
+    let changed = 0;
+
+    if (!oldName || !newName || oldName === newName) {
+        return { timeline: tl, ensemble: ens, changed };
+    }
+
+    const moveKey = (obj) => {
+        if (!obj || !Object.prototype.hasOwnProperty.call(obj, oldName)) return false;
+        const value = obj[oldName];
+        delete obj[oldName];
+        if (!Object.prototype.hasOwnProperty.call(obj, newName)) obj[newName] = value;
+        return true;
+    };
+
+    Object.values(tl).forEach(marker => {
+        if (!marker || typeof marker !== 'object') return;
+        if (marker.solo === oldName) { marker.solo = newName; changed += 1; }
+        if (marker.pickup === oldName) { marker.pickup = newName; changed += 1; }
+        if (moveKey(marker.musicians)) changed += 1;
+        if (moveKey(marker.instrumentChanges)) changed += 1;
+    });
+
+    if (Object.prototype.hasOwnProperty.call(ens, oldName)) {
+        const mine = ens[oldName] || [];
+        delete ens[oldName];
+        const theirs = ens[newName] || [];
+        ens[newName] = [...theirs, ...mine.filter(i => !theirs.includes(i))];
+        changed += 1;
+    }
+
+    return { timeline: tl, ensemble: ens, changed };
+}

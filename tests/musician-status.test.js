@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { musicianEntries, statusAt, compactMusicians, unmatchedNames } from '../src/musician-status.js';
+import { musicianEntries, statusAt, compactMusicians, unmatchedNames, renameMusician } from '../src/musician-status.js';
 
 const names = ['Kyle', 'Justin', 'Harry'];
 
@@ -104,5 +104,39 @@ describe('unmatchedNames', () => {
     it('offers no suggestion for a stranger', () => {
         const found = unmatchedNames({ 0: { solo: 'Luna' } }, ['Kyle']);
         expect(found[0].suggestion).toBeNull();
+    });
+});
+
+describe('renameMusician', () => {
+    it('fixes one spelling everywhere it appears', () => {
+        const tl = {
+            0: { musicians: { band: 'in', 'harry clark': 'out' } },
+            143: { solo: 'harry clark', instrumentChanges: { 'harry clark': 'fiddle' } },
+            167: { musicians: { 'harry clark': 'in' }, pickup: 'harry clark' },
+        };
+        const r = renameMusician(tl, { 'harry clark': ['mandolin'] }, 'harry clark', 'Harry Clark');
+        expect(r.timeline[0].musicians).toEqual({ band: 'in', 'Harry Clark': 'out' });
+        expect(r.timeline[143].solo).toBe('Harry Clark');
+        expect(r.timeline[143].instrumentChanges).toEqual({ 'Harry Clark': 'fiddle' });
+        expect(r.timeline[167].pickup).toBe('Harry Clark');
+        expect(r.ensemble).toEqual({ 'Harry Clark': ['mandolin'] });
+        expect(JSON.stringify(r.timeline)).not.toContain('harry clark');
+    });
+
+    it('merges into somebody who already exists rather than doubling them', () => {
+        const r = renameMusician(
+            { 0: { musicians: { Harry: 'in', 'Harry Clark': 'out' } } },
+            { Harry: ['mandolin'], 'Harry Clark': ['guitar'] }, 'Harry', 'Harry Clark');
+        expect(r.timeline[0].musicians).toEqual({ 'Harry Clark': 'out' });
+        expect(r.ensemble['Harry Clark']).toEqual(['guitar', 'mandolin']);
+        expect(r.ensemble.Harry).toBeUndefined();
+    });
+
+    it('does nothing to a name that is not there, and does not mutate its input', () => {
+        const tl = { 0: { solo: 'Kyle' } };
+        const r = renameMusician(tl, {}, 'Nobody', 'Somebody');
+        expect(r.changed).toBe(0);
+        renameMusician(tl, {}, 'Kyle', 'Kyle T');
+        expect(tl[0].solo).toBe('Kyle');
     });
 });
