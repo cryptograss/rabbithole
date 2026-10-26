@@ -1115,3 +1115,70 @@
     border: 1px solid #4a7c59;
     border-radius: 3px;
 }
+
+/* Justin, 2026-10-26: feedback after trying it.
+   - the red bar was not obviously "where the song is"
+   - the column was about three times wider than the bar
+   - a marker was hard to hit once it existed */
+
+.timeline-ruler { flex: 0 0 112px; }
+
+/* The line itself, thicker, so the track reads as a track. */
+.ruler-track {
+    background: linear-gradient(to right, transparent 0, transparent 24px,
+                #9fae9c 24px, #9fae9c 28px, transparent 28px);
+}
+
+/* The playhead: a full-width bar with a label that says what it is. */
+.ruler-playhead {
+    left: 10px;
+    border-top: 3px solid #d94a1a;
+    box-shadow: 0 0 0 1px rgba(217, 74, 26, 0.25);
+}
+
+.ruler-playhead-tag {
+    position: absolute;
+    right: 0;
+    top: -17px;
+    background: #d94a1a;
+    color: #fff;
+    font-size: 9px;
+    line-height: 1;
+    padding: 2px 4px;
+    border-radius: 2px;
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+}
+
+/* An invisible, taller target around each marker: the line you SEE is 2px
+   but the thing you hit is 16. */
+.ruler-marker::before {
+    content: '';
+    position: absolute;
+    left: -4px;
+    right: 0;
+    top: -8px;
+    height: 16px;
+}
+
+.ruler-marker { border-top-width: 3px; }
+.ruler-marker:hover { border-top-color: #b05a3c; }
+.ruler-marker:hover .ruler-marker-label {
+    background: #fff4ed;
+    box-shadow: 0 0 0 1px #b05a3c;
+}
+
+.editor-flash {
+    flex-basis: 100%;
+    font-size: 11px;
+    color: #4a5a4a;
+    margin-top: 4px;
+}
+
+.editor-flash button {
+    border: 1px solid #c3cbbb;
+    background: #fff;
+    border-radius: 3px;
+    padding: 1px 8px;
+    cursor: pointer;
+}

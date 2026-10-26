@@ -460,7 +460,7 @@ export class TimelineEditor {
                     ${bands.join('')}
                     ${ticks.join('')}
                     ${markers}
-                    <div class="ruler-playhead" style="top:${pct(this.currentPlayingTime || 0)}%"></div>
+                    <div class="ruler-playhead" style="top:${pct(this.currentPlayingTime || 0)}%"><span class="ruler-playhead-tag">now <b>${this.formatTime(this.currentPlayingTime || 0).replace(/\.\d$/, '')}</b></span></div>
                     <div class="ruler-hover" hidden><span class="ruler-hover-time"></span></div>
                 </div>
             </div>
@@ -1004,6 +1004,25 @@ export class TimelineEditor {
         if (after) after.appendChild(msg);
     }
 
+
+    /** A short message with one action, in the editor header. */
+    _flash(text, actionLabel, action) {
+        const header = this.container.querySelector('.editor-header');
+        if (!header) return;
+        header.querySelectorAll('.editor-flash').forEach(e => e.remove());
+        const el = document.createElement('div');
+        el.className = 'editor-flash';
+        el.textContent = text + ' ';
+        if (actionLabel) {
+            const b = document.createElement('button');
+            b.textContent = actionLabel;
+            b.addEventListener('click', () => { el.remove(); action(); });
+            el.appendChild(b);
+        }
+        header.appendChild(el);
+        setTimeout(() => el.remove(), 8000);
+    }
+
     _soloInstrument(data) {
         const changes = data.instrumentChanges || {};
         if (data.solo && changes[data.solo]) return changes[data.solo];
@@ -1327,10 +1346,20 @@ export class TimelineEditor {
             btn.addEventListener('click', (e) => {
                 e.stopPropagation();
                 const time = parseFloat(btn.dataset.time);
-                if (confirm(`Delete marker at ${this.formatTime(time)}?`)) {
-                    this.data.deleteMarker(time);
+                /*
+                 * No confirmation box.
+                 *
+                 * A native confirm() freezes the page while it is open, which
+                 * is the pause Justin heard in the song, and it asks a
+                 * question nobody needs: the delete is undoable. Delete at
+                 * once, say so, and offer the way back.
+                 */
+                this.data.deleteMarker(time);
+                this._notifyTimelineChange();
+                this._flash(`Deleted the marker at ${this.formatTime(time)}.`, 'Undo', () => {
+                    this.data.undo();
                     this._notifyTimelineChange();
-                }
+                });
             });
         });
 
@@ -1716,6 +1745,8 @@ export class TimelineEditor {
             const track = this.container.querySelector('.ruler-track');
             const head = this.container.querySelector('.ruler-playhead');
             if (track && head) {
+                const tag = head.querySelector('.ruler-playhead-tag b');
+                if (tag) tag.textContent = this.formatTime(currentTime).replace(/\.\d$/, '');
                 let duration = parseFloat(track.dataset.duration) || 0;
 
                 // The real length arrives when the audio loads, which is
