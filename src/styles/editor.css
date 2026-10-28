@@ -1256,3 +1256,18 @@
     text-align: center;
     color: #4a5a4a;
 }
+
+/* When delivery-kid has no waveform for this song, offer to draw it from
+   the audio -- a whole-song download, so only on request. */
+.ruler-wave-offer {
+    position: absolute;
+    left: 32px;
+    top: 30%;
+    font-size: 9px;
+    padding: 2px 5px;
+    border: 1px dashed #9fae9c;
+    background: #fff;
+    color: #4a7c59;
+    cursor: pointer;
+    z-index: 2;
+}

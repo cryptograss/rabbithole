@@ -15,7 +15,7 @@ import jsYaml from 'js-yaml';
 
 import { musicianEntries, statusAt, compactMusicians, unmatchedNames, renameMusician } from '../musician-status.js';
 
-import { loadPeaks, drawWaveform } from './waveform.js';
+import { loadPeaks, loadServerPeaks, drawWaveform } from './waveform.js';
 
 // The rabbit that runs down the ruler as the song plays.
 const RABBIT_URL = new URL('../images/rabbit.png', import.meta.url).href;
@@ -380,26 +380,55 @@ export class TimelineEditor {
         }
     }
 
-    /** Paint the waveform behind the ruler once the audio has been decoded. */
+    /**
+     * Paint the waveform behind the ruler. Peaks come from delivery-kid;
+     * if it has none, offer to draw them from the song itself, which
+     * downloads the whole file -- so only when asked.
+     */
     _drawWave() {
-        const canvas = this.container.querySelector('.ruler-wave');
-        const track = this.container.querySelector('.ruler-track');
         const url = this.player && this.player.trackData && this.player.trackData.audioFile;
-        if (!canvas || !track || !url) return;
-        const duration = parseFloat(track.dataset.duration) || 0;
-        const ruler = this.container.querySelector('.timeline-ruler');
-        if (ruler) ruler.classList.add('wave-loading');
-        loadPeaks(url).then(({ peaks }) => {
+        if (!url || !this.container.querySelector('.ruler-wave')) return;
+        const paint = ({ peaks, perSecond }) => {
             // The editor may have redrawn while this was loading; draw on
             // whichever canvas is there now.
             const c = this.container.querySelector('.ruler-wave');
+            const track = this.container.querySelector('.ruler-track');
+            if (c && track) drawWaveform(c, peaks, parseFloat(track.dataset.duration) || 0, perSecond);
+        };
+        const setState = (state) => {
             const r = this.container.querySelector('.timeline-ruler');
-            if (r) r.classList.remove('wave-loading');
-            if (c) drawWaveform(c, peaks, duration);
-        }).catch(err => {
-            if (ruler) ruler.classList.remove('wave-loading');
-            console.warn('Waveform unavailable:', err.message);
-        });
+            if (!r) return;
+            r.classList.toggle('wave-loading', state === 'loading');
+            const old = r.querySelector('.ruler-wave-offer');
+            if (old) old.remove();
+            if (state === 'offer') {
+                const b = document.createElement('button');
+                b.className = 'ruler-wave-offer';
+                b.textContent = 'show waveform';
+                b.title = 'Draws it from the song itself, which downloads the whole file';
+                b.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    setState('loading');
+                    loadPeaks(url).then(p => { setState('done'); paint(p); }).catch(err => {
+                        setState('offer');
+                        console.warn('Waveform unavailable:', err.message);
+                    });
+                });
+                b.addEventListener('mousedown', e => e.stopPropagation());
+                r.querySelector('.ruler-track').appendChild(b);
+            }
+        };
+        if (this._wavePeaks && this._wavePeaksUrl === url) {
+            paint(this._wavePeaks);
+            return;
+        }
+        setState('loading');
+        loadServerPeaks(url).then(p => {
+            this._wavePeaks = p;
+            this._wavePeaksUrl = url;
+            setState('done');
+            paint(p);
+        }).catch(() => setState('offer'));
     }
 
     /**

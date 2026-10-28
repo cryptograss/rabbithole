@@ -29,3 +29,19 @@ describe('peakBetween', () => {
         expect(+peakBetween(peaks, 0.02, 0.02, 100).toFixed(2)).toBe(0.9);
     });
 });
+
+import { cidFromUrl, decodeServerPeaks } from '../src/editor/waveform.js';
+
+describe('server peaks', () => {
+    it('finds the CID in a gateway URL', () => {
+        expect(cidFromUrl('https://ipfs.delivery-kid.cryptograss.live/ipfs/Qmd4DKNVwQ7qtQ2aWqjW1DEtW34Vm8f3cSXXPaChPGWf7C'))
+            .toBe('Qmd4DKNVwQ7qtQ2aWqjW1DEtW34Vm8f3cSXXPaChPGWf7C');
+        expect(cidFromUrl('/audio/August.flac')).toBe(null);
+    });
+    it('turns delivery-kid bytes into 0..1', () => {
+        const body = { per_second: 50, duration: 0.06, peaks: btoa(String.fromCharCode(0, 255, 51)) };
+        const { peaks, perSecond } = decodeServerPeaks(body);
+        expect(perSecond).toBe(50);
+        expect(Array.from(peaks).map(v => +v.toFixed(1))).toEqual([0, 1, 0.2]);
+    });
+});
