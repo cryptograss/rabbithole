@@ -14,6 +14,9 @@
 import jsYaml from 'js-yaml';
 
 import { musicianEntries, statusAt, compactMusicians, unmatchedNames, renameMusician } from '../musician-status.js';
+
+// The rabbit that runs down the ruler as the song plays.
+const RABBIT_URL = new URL('../images/rabbit.png', import.meta.url).href;
 export class TimelineEditor {
     /*
      * What an empty marker starts as. The two keys that every marker
@@ -460,7 +463,7 @@ export class TimelineEditor {
                     ${bands.join('')}
                     ${ticks.join('')}
                     ${markers}
-                    <div class="ruler-playhead" style="top:${pct(this.currentPlayingTime || 0)}%"><span class="ruler-playhead-tag">now <b>${this.formatTime(this.currentPlayingTime || 0).replace(/\.\d$/, '')}</b></span></div>
+                    <div class="ruler-playhead" style="top:${pct(this.currentPlayingTime || 0)}%"><img class="ruler-rabbit" src="${RABBIT_URL}" alt="" draggable="false"><span class="ruler-playhead-tag">now <b>${this.formatTime(this.currentPlayingTime || 0).replace(/\.\d$/, '')}</b></span></div>
                     <div class="ruler-hover" hidden><span class="ruler-hover-time"></span></div>
                 </div>
             </div>
@@ -1760,6 +1763,21 @@ export class TimelineEditor {
                 if (duration > 0) {
                     head.style.top = `${Math.max(0, Math.min(100, (currentTime / duration) * 100))}%`;
                 }
+
+                // The rabbit hops while the song moves and sits still when
+                // it doesn't; a jump (a seek) doesn't count as running.
+                // Ticks come faster than the clock moves, and stop when it
+                // pauses, so it stops running once time has held still.
+                const step = currentTime - (this._lastHeadTime ?? currentTime);
+                if (step > 0 && step < 1) {
+                    head.classList.add('running');
+                    clearTimeout(this._rabbitRest);
+                    this._rabbitRest = setTimeout(() => {
+                        const h = this.container.querySelector('.ruler-playhead');
+                        if (h) h.classList.remove('running');
+                    }, 700);
+                }
+                this._lastHeadTime = currentTime;
             }
         }
     }
