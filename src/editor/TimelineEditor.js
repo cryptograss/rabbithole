@@ -15,6 +15,8 @@ import jsYaml from 'js-yaml';
 
 import { musicianEntries, statusAt, compactMusicians, unmatchedNames, renameMusician } from '../musician-status.js';
 
+import { loadPeaks, drawWaveform } from './waveform.js';
+
 // The rabbit that runs down the ruler as the song plays.
 const RABBIT_URL = new URL('../images/rabbit.png', import.meta.url).href;
 export class TimelineEditor {
@@ -286,6 +288,8 @@ export class TimelineEditor {
     _renderListMode() {
         const entries = this.data.getTimelineEntries();
         const musicians = this.data.getMusicianNames();
+        const oldRuler = this.container.querySelector('.timeline-ruler');
+        if (oldRuler) this._rulerScroll = oldRuler.scrollTop;
 
         this.container.innerHTML = `
             <div class="timeline-editor">
@@ -298,6 +302,11 @@ export class TimelineEditor {
                         <button class="btn-tidy" title="Say only what changes: collapse repeated 'in' lists, and write 'band: in' when everyone joins at once">
                             Tidy
                         </button>
+                        <span class="ruler-zoom" title="Zoom the timeline (or Ctrl + scroll on it)">
+                            <button class="btn-zoom-out" ${this._zoom() <= 1 ? 'disabled' : ''}>−</button>
+                            <span class="ruler-zoom-level">${this._zoom()}×</span>
+                            <button class="btn-zoom-in" ${this._zoom() >= 32 ? 'disabled' : ''}>+</button>
+                        </span>
                         <button class="btn-add-marker" title="Add a marker where the playhead is (Space)">
                             + Add Marker at <span class="add-marker-time">${this.formatTime(this.currentPlayingTime || 0)}</span>
                         </button>
@@ -334,7 +343,63 @@ export class TimelineEditor {
         if (this._rulerMove) window.removeEventListener('mousemove', this._rulerMove);
         if (this._rulerUp) window.removeEventListener('mouseup', this._rulerUp);
         this._attachRulerListeners();
+        const ruler = this.container.querySelector('.timeline-ruler');
+        if (ruler && this._rulerScroll) ruler.scrollTop = this._rulerScroll;
+        this._drawWave();
         this._highlightCurrentMarker();
+    }
+
+    /** How far the ruler is zoomed: 1 is the whole song in one column. */
+    _zoom() {
+        return this.rulerZoom || 1;
+    }
+
+    /**
+     * Zoom the ruler, keeping one moment (the playhead, or what is under
+     * the pointer) where it was on screen, so zooming never loses your place.
+     */
+    setZoom(zoom, anchorTime = null, anchorY = null) {
+        const next = Math.max(1, Math.min(32, zoom));
+        if (next === this._zoom()) return;
+        const ruler = this.container.querySelector('.timeline-ruler');
+        const track = this.container.querySelector('.ruler-track');
+        const duration = track ? parseFloat(track.dataset.duration) || 0 : 0;
+        const t = anchorTime ?? (this.currentPlayingTime || 0);
+        // Where on screen the anchor sits now, relative to the ruler's box.
+        let screenY = anchorY;
+        if (screenY == null && ruler && track && duration) {
+            screenY = track.offsetTop + (t / duration) * track.offsetHeight - ruler.scrollTop;
+        }
+        this.rulerZoom = next;
+        this.render();
+        const r = this.container.querySelector('.timeline-ruler');
+        const tr = this.container.querySelector('.ruler-track');
+        if (r && tr && duration) {
+            r.scrollTop = Math.max(0, tr.offsetTop + (t / duration) * tr.offsetHeight - (screenY ?? r.clientHeight / 3));
+            this._rulerScroll = r.scrollTop;
+        }
+    }
+
+    /** Paint the waveform behind the ruler once the audio has been decoded. */
+    _drawWave() {
+        const canvas = this.container.querySelector('.ruler-wave');
+        const track = this.container.querySelector('.ruler-track');
+        const url = this.player && this.player.trackData && this.player.trackData.audioFile;
+        if (!canvas || !track || !url) return;
+        const duration = parseFloat(track.dataset.duration) || 0;
+        const ruler = this.container.querySelector('.timeline-ruler');
+        if (ruler) ruler.classList.add('wave-loading');
+        loadPeaks(url).then(({ peaks }) => {
+            // The editor may have redrawn while this was loading; draw on
+            // whichever canvas is there now.
+            const c = this.container.querySelector('.ruler-wave');
+            const r = this.container.querySelector('.timeline-ruler');
+            if (r) r.classList.remove('wave-loading');
+            if (c) drawWaveform(c, peaks, duration);
+        }).catch(err => {
+            if (ruler) ruler.classList.remove('wave-loading');
+            console.warn('Waveform unavailable:', err.message);
+        });
     }
 
     /**
@@ -415,8 +480,11 @@ export class TimelineEditor {
         const duration = this._rulerDuration(entries);
         const pct = t => Math.max(0, Math.min(100, (t / duration) * 100));
 
-        // Ticks: every 15s under four minutes, every 30s over.
-        const step = duration > 240 ? 30 : 15;
+        // Ticks: as fine as fits, at least ~28px apart, so zooming in
+        // brings in seconds and zooming out leaves the minutes.
+        const trackPx = 400 * this._zoom();
+        const pxPerSec = trackPx / duration;
+        const step = [1, 2, 5, 10, 15, 30, 60].find(s => s * pxPerSec >= 28) || 60;
         const ticks = [];
         for (let t = 0; t <= duration; t += step) {
             ticks.push(`<div class="ruler-tick" style="top:${pct(t)}%">
@@ -459,7 +527,8 @@ export class TimelineEditor {
 
         return `
             <div class="timeline-ruler">
-                <div class="ruler-track" data-duration="${duration}">
+                <div class="ruler-track" data-duration="${duration}" style="height:${trackPx}px">
+                    <canvas class="ruler-wave"></canvas>
                     ${bands.join('')}
                     ${ticks.join('')}
                     ${markers}
@@ -542,6 +611,26 @@ export class TimelineEditor {
         track.addEventListener('mouseleave', () => {
             if (!dragging) hover.hidden = true;
         });
+
+        // Zoom: the buttons, or Ctrl/⌘ + scroll over the ruler, which zooms
+        // around the moment under the pointer.
+        const zin = this.container.querySelector('.btn-zoom-in');
+        const zout = this.container.querySelector('.btn-zoom-out');
+        if (zin) zin.addEventListener('click', () => this.setZoom(this._zoom() * 2));
+        if (zout) zout.addEventListener('click', () => this.setZoom(this._zoom() / 2));
+        const ruler = this.container.querySelector('.timeline-ruler');
+        if (ruler) {
+            ruler.addEventListener('wheel', (e) => {
+                if (!(e.ctrlKey || e.metaKey)) {
+                    this._userScrolledAt = performance.now();
+                    return;
+                }
+                e.preventDefault();
+                const box = ruler.getBoundingClientRect();
+                this.setZoom(this._zoom() * (e.deltaY < 0 ? 2 : 0.5), timeAt(e.clientY), e.clientY - box.top);
+            }, { passive: false });
+            ruler.addEventListener('touchstart', () => { this._userScrolledAt = performance.now(); }, { passive: true });
+        }
 
         // A marker on the line opens itself, filled in.
         track.querySelectorAll('.ruler-marker').forEach(m => {
@@ -1762,6 +1851,19 @@ export class TimelineEditor {
 
                 if (duration > 0) {
                     head.style.top = `${Math.max(0, Math.min(100, (currentTime / duration) * 100))}%`;
+                }
+
+                // Zoomed in, the ruler scrolls to keep the rabbit in view --
+                // unless you scrolled it yourself in the last few seconds.
+                const ruler = this.container.querySelector('.timeline-ruler');
+                if (ruler && this._zoom() > 1 && duration > 0 &&
+                    performance.now() - (this._userScrolledAt || 0) > 3000) {
+                    const y = track.offsetTop + (currentTime / duration) * track.offsetHeight;
+                    const view = ruler.clientHeight;
+                    if (y < ruler.scrollTop + 40 || y > ruler.scrollTop + view - 40) {
+                        ruler.scrollTop = Math.max(0, y - view / 3);
+                        this._rulerScroll = ruler.scrollTop;
+                    }
                 }
 
                 // The rabbit hops while the song moves and sits still when
