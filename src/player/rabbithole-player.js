@@ -1852,6 +1852,14 @@ class RabbitholeWebampPlayer {
         return 0;
     }
 
+    isPlaying() {
+        if (this.webamp && this.webamp.store) {
+            const state = this.webamp.store.getState();
+            return !!(state.media && state.media.status === 'PLAYING');
+        }
+        return false;
+    }
+
     stopTimeTracking() {
         if (this.timeUpdateInterval) {
             clearInterval(this.timeUpdateInterval);

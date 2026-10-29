@@ -1960,8 +1960,12 @@ export class TimelineEditor {
 
                 // Zoomed in, the ruler scrolls to keep the rabbit in view --
                 // unless you scrolled it yourself in the last few seconds.
+                // Only while the song is actually playing: a stopped rabbit
+                // must not drag the ruler along, or adding a marker while the
+                // song sits still wrenches the ruler back to where it stands.
                 const ruler = this.container.querySelector('.timeline-ruler');
-                if (ruler && this._zoom() > 1 && duration > 0 &&
+                const songPlaying = !this.player || !this.player.isPlaying || this.player.isPlaying();
+                if (ruler && this._zoom() > 1 && duration > 0 && songPlaying &&
                     performance.now() - (this._userScrolledAt || 0) > 3000) {
                     const y = track.offsetTop + (currentTime / duration) * track.offsetHeight;
                     const view = ruler.clientHeight;
