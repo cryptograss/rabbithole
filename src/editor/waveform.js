@@ -52,7 +52,9 @@ export function loadServerPeaks(url) {
         if (!r.ok) throw new Error(`Peaks service: ${r.status}`);
         return r.json();
     }).then(decodeServerPeaks);
-    job.catch(() => serverCache.delete(cid));
+    // A miss is remembered for the page: the editor redraws often, and
+    // asking again each time only repeats the same answer.
+    job.catch(() => {});
     serverCache.set(cid, job);
     return job;
 }

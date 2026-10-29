@@ -320,6 +320,8 @@ export class TimelineEditor {
                     </div>
                 </div>
 
+                ${this.renderEnsemblePanel()}
+
                 <div class="editor-footer">
                     <div class="dirty-indicator ${this.data.isDirty ? 'dirty' : ''}">
                         ${this.data.isDirty ? 'Unsaved changes' : 'Saved'}
@@ -347,6 +349,71 @@ export class TimelineEditor {
         if (ruler && this._rulerScroll) ruler.scrollTop = this._rulerScroll;
         this._drawWave();
         this._highlightCurrentMarker();
+    }
+
+    /**
+     * Who is on this recording, and on what.
+     *
+     * Skyler, 2026-10-29: the editor had nowhere to say what anyone plays,
+     * so every ensemble it wrote out read "Name: []". One row per person;
+     * instruments comma-separated, and the first is what their card shows.
+     */
+    renderEnsemblePanel() {
+        const band = this.data.workingData.ensemble || {};
+        const names = Object.keys(band);
+        if (!names.length) return '';
+        const common = ['guitar', 'banjo', 'mandolin', 'fiddle', 'bass', 'dobro',
+            'cello', 'vocals', 'harmony vocals', 'piano', 'drums', 'percussion',
+            'harmonica', 'melodica', 'throat singing', 'pedal steel', 'accordion'];
+        const rows = names.map(name => {
+            const list = Array.isArray(band[name]) ? band[name] : (band[name] ? [band[name]] : []);
+            const empty = list.length ? '' : ' empty';
+            return `<label class="ens-row${empty}">
+                <span class="ens-name">${this._escapeHtml(name)}</span>
+                <input class="ens-instruments" data-musician="${this._escapeHtml(name)}"
+                       value="${this._escapeHtml(list.join(', '))}" list="rh-instruments"
+                       placeholder="what do they play?" autocomplete="off">
+            </label>`;
+        }).join('');
+        const missing = names.filter(n => !(band[n] && band[n].length)).length;
+        return `
+            <div class="ensemble-panel">
+                <div class="ens-head">
+                    <h4>On this recording</h4>
+                    ${missing ? `<span class="ens-missing">${missing} without an instrument</span>` : ''}
+                </div>
+                ${rows}
+                <datalist id="rh-instruments">${common.map(i => `<option value="${i}">`).join('')}</datalist>
+            </div>`;
+    }
+
+    _saveInstruments(input) {
+        const name = input.dataset.musician;
+        const list = input.value.split(',').map(x => x.trim()).filter(Boolean);
+        const band = this.data.workingData.ensemble || (this.data.workingData.ensemble = {});
+        if (JSON.stringify(band[name] || []) === JSON.stringify(list)) return;
+
+        this.data._saveUndoState();
+        band[name] = list;
+
+        // The cards read the player's copy of the ensemble.
+        if (this.player && this.player.trackData) {
+            this.player.trackData.ensemble = { ...(this.player.trackData.ensemble || {}), [name]: list };
+            if (this.player.updateEnsembleDisplay) {
+                this.player.updateEnsembleDisplay(this.currentPlayingTime || 0);
+            }
+        }
+
+        // Re-rendering drops focus; put it back where the person tabbed to.
+        const active = document.activeElement;
+        const next = active && active.classList && active.classList.contains('ens-instruments')
+            ? active.dataset.musician : null;
+        this.data._notifyChange();
+        if (next) {
+            const el = [...this.container.querySelectorAll('.ens-instruments')]
+                .find(i => i.dataset.musician === next);
+            if (el) { el.focus(); el.select(); }
+        }
     }
 
     /** How far the ruler is zoomed: 1 is the whole song in one column. */
@@ -639,6 +706,15 @@ export class TimelineEditor {
 
         track.addEventListener('mouseleave', () => {
             if (!dragging) hover.hidden = true;
+        });
+
+        // Instruments: saved when you leave the field or press Enter.
+        this.container.querySelectorAll('.ens-instruments').forEach(input => {
+            input.addEventListener('change', () => this._saveInstruments(input));
+            input.addEventListener('keydown', (e) => {
+                e.stopPropagation(); // Space types a space, not "add marker"
+                if (e.key === 'Enter') { e.preventDefault(); input.blur(); }
+            });
         });
 
         // Zoom: the buttons, or Ctrl/⌘ + scroll over the ruler, which zooms
@@ -1917,6 +1993,12 @@ export class TimelineEditor {
      * Called when data changes
      */
     _onDataChange(timeline) {
+        // Undo can change who plays what; the cards read the player's copy.
+        if (this.player && this.player.trackData && this.data.workingData.ensemble &&
+            JSON.stringify(this.player.trackData.ensemble) !== JSON.stringify(this.data.workingData.ensemble)) {
+            this.player.trackData.ensemble = JSON.parse(JSON.stringify(this.data.workingData.ensemble));
+            if (this.player.updateEnsembleDisplay) this.player.updateEnsembleDisplay(this.currentPlayingTime || 0);
+        }
         this.render();
     }
 

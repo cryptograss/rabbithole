@@ -312,7 +312,7 @@ class RabbitholeWebampPlayer {
             const primaryInstrument = Array.isArray(instruments) ? instruments[0] : instruments;
 
             musicianDiv.innerHTML = `
-                <div class="musician-name">${musicianName} (${primaryInstrument})</div>
+                <div class="musician-name">${musicianName}${primaryInstrument ? ` (${primaryInstrument})` : ''}</div>
                 <div class="chartifact-line">Chartifact "0x1234ff" owned by cryptograss.eth</div>
             `;
 
@@ -493,7 +493,7 @@ class RabbitholeWebampPlayer {
             trace(`DEBUG: Creating musician card for ${musicianName}, instruments:`, instruments, 'primary:', primaryInstrument);
 
             musicianDiv.innerHTML = `
-                <div class="musician-name">${musicianName} (${primaryInstrument})</div>
+                <div class="musician-name">${musicianName}${primaryInstrument ? ` (${primaryInstrument})` : ''}</div>
                 <div class="chartifact-line">Chartifact "0x1234ff" owned by cryptograss.eth</div>
             `;
             ensembleDiv.appendChild(musicianDiv);
@@ -918,7 +918,7 @@ class RabbitholeWebampPlayer {
         // Check if name/star needs updating
         const nameDiv = musicianDiv.querySelector('.musician-name');
         const starPrefix = showStar ? '\u2B50 ' : ''; // Unicode for star emoji
-        const expectedName = `${starPrefix}${musicianName} (${instrument})`;
+        const expectedName = `${starPrefix}${musicianName}${instrument ? ` (${instrument})` : ''}`;
         const currentName = nameDiv ? nameDiv.textContent : '';
 
         // Skip update if nothing changed
@@ -959,7 +959,7 @@ class RabbitholeWebampPlayer {
 
         // Update content (starPrefix already calculated above for change detection)
         musicianDiv.innerHTML = `
-            <div class="musician-name">${starPrefix}${musicianName} (${instrument})</div>
+            <div class="musician-name">${starPrefix}${musicianName}${instrument ? ` (${instrument})` : ''}</div>
             <div class="chartifact-line">Chartifact "0x1234ff" owned by cryptograss.eth</div>
         `;
 

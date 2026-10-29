@@ -1271,3 +1271,61 @@
     cursor: pointer;
     z-index: 2;
 }
+
+/* Who is on the recording, and on what. */
+.ensemble-panel {
+    margin: 12px 0 4px;
+    padding: 10px 12px;
+    border: 1px solid #dfe4dc;
+    border-radius: 6px;
+    background: #f7f9f5;
+    display: grid;
+    gap: 6px;
+}
+
+.ens-head {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+}
+
+.ens-head h4 {
+    margin: 0;
+    font-size: 12px;
+    font-weight: 600;
+    color: #2f4a36;
+}
+
+.ens-missing {
+    font-size: 11px;
+    color: #b05a3c;
+}
+
+.ens-row {
+    display: grid;
+    grid-template-columns: 9.5em 1fr;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+}
+
+.ens-name {
+    color: #2f3a2f;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.ens-instruments {
+    font: inherit;
+    padding: 4px 6px;
+    border: 1px solid #c9d1c5;
+    border-radius: 4px;
+    background: #fff;
+    min-width: 0;
+}
+
+.ens-row.empty .ens-instruments {
+    border-color: #e0b7a6;
+    background: #fffaf7;
+}
