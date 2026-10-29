@@ -1183,7 +1183,8 @@
     cursor: pointer;
 }
 
-/* The rabbit rides the playhead: sits on the line, hops while it plays. */
+/* The rabbit rides the playhead: sits on the line, hops while it plays.
+   It is also a handle -- grab it and drag to where the song should be. */
 .ruler-rabbit {
     position: absolute;
     left: -6px;
@@ -1191,8 +1192,17 @@
     width: 26px;
     height: 26px;
     image-rendering: pixelated;
-    pointer-events: none;
+    pointer-events: auto;
+    cursor: grab;
     filter: drop-shadow(0 1px 0 rgba(0, 0, 0, 0.35));
+}
+
+.ruler-rabbit:hover {
+    transform: scale(1.15);
+}
+
+.ruler-rabbit:active {
+    cursor: grabbing;
 }
 
 .ruler-playhead.running .ruler-rabbit {

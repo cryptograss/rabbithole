@@ -670,11 +670,26 @@ export class TimelineEditor {
          * the form for that moment.
          */
         let dragging = false;
+        let draggingRabbit = false;
         let startY = 0;
         let moved = false;
 
+        const placePlayhead = (time) => {
+            this.currentPlayingTime = time;
+            const head = this.container.querySelector('.ruler-playhead');
+            const trackEl = this.container.querySelector('.ruler-track');
+            const addLabel = this.container.querySelector('.add-marker-time');
+            const tag = head && head.querySelector('.ruler-playhead-tag b');
+            const duration = trackEl ? parseFloat(trackEl.dataset.duration) || 0 : 0;
+            if (head && duration > 0) {
+                head.style.top = `${Math.max(0, Math.min(100, (time / duration) * 100))}%`;
+            }
+            if (tag) tag.textContent = this.formatTime(time).replace(/\.\d$/, '');
+            if (addLabel) addLabel.textContent = this.formatTime(time);
+        };
+
         track.addEventListener('mousedown', (e) => {
-            if (e.target.closest('.ruler-marker')) return;
+            if (e.target.closest('.ruler-marker, .ruler-rabbit')) return;
             dragging = true;
             moved = false;
             startY = e.clientY;
@@ -682,18 +697,47 @@ export class TimelineEditor {
             e.preventDefault();
         });
 
+        /*
+         * Grab the rabbit and move it: drag seeks, every pixel, and the
+         * rabbit rides the cursor as you go.
+         *
+         * Skyler, 2026-10-29: the rabbit is where the song is, so it is the
+         * natural thing to grab. It sets moved from the start -- this is a
+         * seek, never a click, so the form does not open at the end.
+         */
+        const rabbit = track.querySelector('.ruler-rabbit');
+        if (rabbit) {
+            rabbit.addEventListener('mousedown', (e) => {
+                dragging = true;
+                draggingRabbit = true;
+                moved = true;
+                startY = e.clientY;
+                showHover(e.clientY);
+                placePlayhead(timeAt(e.clientY));
+                this.seekTo(timeAt(e.clientY));
+                e.preventDefault();
+            });
+        }
+
         window.addEventListener('mousemove', this._rulerMove = (e) => {
             if (!dragging) return;
             if (Math.abs(e.clientY - startY) > 3) moved = true;
             showHover(e.clientY);
-            if (moved) this.seekTo(timeAt(e.clientY));
+            if (moved) {
+                const t = timeAt(e.clientY);
+                if (draggingRabbit) placePlayhead(t);
+                this.seekTo(t);
+            }
         });
 
         window.addEventListener('mouseup', this._rulerUp = (e) => {
             if (!dragging) return;
             dragging = false;
+            const wasRabbit = draggingRabbit;
+            draggingRabbit = false;
             const t = timeAt(e.clientY);
             if (moved) {
+                if (wasRabbit) placePlayhead(t);
                 this.seekTo(t);
             } else {
                 this.openMarkerForm(t, null);
