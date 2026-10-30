@@ -2,10 +2,11 @@
  * Keyboard Shortcuts for Rabbithole Timeline Editor
  *
  * Quick-add mode for fast authoring:
- * - Spacebar: Add marker at current time
+ * - Spacebar / P: Toggle play/pause
+ * - M: Add marker at current time
  * - Arrow keys: Fine-tune time (±0.1s, ±1s with shift)
  * - 1-9: Quick-select musician by ensemble order
- * - A/B/I/O: Set part (A, B, Intro, Outro)
+ * - A/B/C/D/I/O: Set part (A, B, C, D, Intro, Outro)
  * - Tab/Shift+Tab: Navigate markers
  * - Delete/Backspace: Delete selected marker
  * - Ctrl+Z: Undo
@@ -104,8 +105,15 @@ export class KeyboardShortcuts {
             return;
         }
 
-        // Spacebar: Add marker at current time
+        // Spacebar: Toggle play/pause
         if (e.key === ' ' || e.code === 'Space') {
+            e.preventDefault();
+            this._togglePlayPause();
+            return;
+        }
+
+        // M: Add marker at current time
+        if (e.key.toLowerCase() === 'm' && !e.ctrlKey && !e.metaKey) {
             e.preventDefault();
             this._handleAddMarker();
             return;
@@ -171,11 +179,12 @@ export class KeyboardShortcuts {
             return;
         }
 
-        // Part keys: A, B, I (intro), O (outro), C
+        // Part keys: A, B, C, D, I (intro), O (outro)
         const partKeys = {
             'a': 'A',
             'b': 'B',
             'c': 'C',
+            'd': 'D',
             'i': 'intro',
             'o': 'outro'
         };
@@ -331,13 +340,13 @@ export class KeyboardShortcuts {
             <div class="keyboard-help">
                 <h5>Keyboard Shortcuts</h5>
                 <ul>
-                    <li><kbd>Space</kbd> Add marker at current time</li>
+                    <li><kbd>Space</kbd> / <kbd>P</kbd> Toggle play/pause</li>
+                    <li><kbd>M</kbd> Add marker at current time</li>
                     <li><kbd>Up/Down</kbd> Adjust time (±0.1s, ±1s with Shift)</li>
                     <li><kbd>Tab</kbd> Navigate markers</li>
                     <li><kbd>1-9</kbd> Set solo to musician</li>
-                    <li><kbd>A/B/I/O</kbd> Set part</li>
+                    <li><kbd>A/B/C/D/I/O</kbd> Set part</li>
                     <li><kbd>Enter</kbd> Play from marker</li>
-                    <li><kbd>P</kbd> Toggle play/pause</li>
                     <li><kbd>Del</kbd> Delete marker</li>
                     <li><kbd>Ctrl+Z</kbd> Undo</li>
                     <li><kbd>Ctrl+S</kbd> Save to wiki</li>

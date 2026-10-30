@@ -28,7 +28,7 @@ export class TimelineEditor {
     static NEW_MARKER_TEMPLATE = [
         'solo: ',
         'part: ',
-        '# part: intro | A | B | outro',
+        '# part: intro | A | B | C | D | outro',
         '# pickup: Name          -- somebody leading in',
         '# musicians:            -- who comes in or drops out',
         '#   Name: in',
@@ -290,6 +290,8 @@ export class TimelineEditor {
         const musicians = this.data.getMusicianNames();
         const oldRuler = this.container.querySelector('.timeline-ruler');
         if (oldRuler) this._rulerScroll = oldRuler.scrollTop;
+        const oldList = this.container.querySelector('.marker-list');
+        if (oldList) this._listScroll = oldList.scrollTop;
 
         this.container.innerHTML = `
             <div class="timeline-editor">
@@ -307,7 +309,7 @@ export class TimelineEditor {
                             <span class="ruler-zoom-level">${this._zoom()}×</span>
                             <button class="btn-zoom-in" ${this._zoom() >= 32 ? 'disabled' : ''}>+</button>
                         </span>
-                        <button class="btn-add-marker" title="Add a marker where the playhead is (Space)">
+                        <button class="btn-add-marker" title="Add a marker where the playhead is (M)">
                             + Add Marker at <span class="add-marker-time">${this.formatTime(this.currentPlayingTime || 0)}</span>
                         </button>
                     </div>
@@ -347,6 +349,8 @@ export class TimelineEditor {
         this._attachRulerListeners();
         const ruler = this.container.querySelector('.timeline-ruler');
         if (ruler && this._rulerScroll) ruler.scrollTop = this._rulerScroll;
+        const list = this.container.querySelector('.marker-list');
+        if (list && this._listScroll !== undefined) list.scrollTop = this._listScroll;
         this._drawWave();
         this._highlightCurrentMarker();
     }
@@ -809,7 +813,7 @@ export class TimelineEditor {
 
         const t = Math.round(time * 10) / 10;
         const data = existingTime !== null ? (this.data.getMarker(existingTime) || {}) : {};
-        const parts = ['intro', 'A', 'B', 'outro'];
+        const parts = ['intro', 'A', 'B', 'C', 'D', 'outro'];
 
         /*
          * Who this box can offer.
