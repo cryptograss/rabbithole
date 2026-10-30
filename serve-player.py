@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 """Server for rabbithole shell: static files + PickiPedia proxy (strips X-Frame-Options)."""
 
+import sys
 import http.server
 import urllib.request
 import urllib.error
 import json
 
-PORT = 4000
+PORT = int(sys.argv[1]) if len(sys.argv) > 1 else 4000
 WIKI = 'https://pickipedia.xyz'
 
 # Headers to strip from proxied responses (allow iframe embedding)
