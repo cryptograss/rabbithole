@@ -8,19 +8,29 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=VT323&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/js-yaml@4.1.0/dist/js-yaml.min.js"></script>
-    <!-- Resolve bare specifiers used by src/player/webamp-chartifacts.js
+
+    <!-- Webamp, vendored and loaded as a classic script so its UMD wrapper
+         sets window.Webamp. Must stay above the importmap: module scripts are
+         deferred, classic ones are not, so the global exists before anything
+         imports vendor/webamp.mjs. See that file for why this is not a CDN
+         import any more. -->
+    <script src="./vendor/webamp.bundle.js"></script>
+
+    <!-- Resolve bare specifiers used by src/player/rabbithole-player.js
          and src/editor/* (which were Vite-resolved at dev time). jsDelivr's
-         +esm shim auto-converts npm packages to ES modules. -->
+         +esm shim auto-converts npm packages to ES modules — where it works.
+         It does not work for webamp, which is why that one is vendored. -->
     <script type="importmap">
     {
         "imports": {
-            "webamp": "https://cdn.jsdelivr.net/npm/webamp@1.5.0/+esm",
+            "webamp": "./vendor/webamp.mjs",
             "packery": "https://cdn.jsdelivr.net/npm/packery@3.0.0/+esm",
             "js-yaml": "https://cdn.jsdelivr.net/npm/js-yaml@4.1.0/+esm"
         }
     }
     </script>
     <link rel="stylesheet" href="./src/styles/editor.css">
+    <link rel="stylesheet" href="./src/styles/scenes.css">
     <style>
         * {
             box-sizing: border-box;
@@ -46,14 +56,14 @@
         }
 
         .layout.with-editor {
-            grid-template-columns: 320px 1fr 360px;
+            grid-template-columns: 320px 1fr 470px;
         }
 
         .layout.minimized.with-editor {
-            grid-template-columns: 56px 1fr 360px;
+            grid-template-columns: 56px 1fr 470px;
         }
 
-        .rabbithole-sidebar {
+        #rabbithole-sidebar {
             background: white;
             border-right: 2px solid #4a7c59;
             overflow-y: auto;
@@ -63,7 +73,7 @@
             transition: all 0.3s ease;
         }
 
-        .layout.minimized .rabbithole-sidebar {
+        .layout.minimized #rabbithole-sidebar {
             overflow: hidden;
         }
 
@@ -320,6 +330,71 @@
             position: relative;
         }
 
+        /* The A/B switch. Deliberately plain and labelled with which layout
+           you are looking at, so a screenshot says which one it is. */
+        .layout-ab-wrap {
+            position: fixed;
+            top: 4px;
+            right: 4px;
+            z-index: 2000;
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+            max-width: calc(100vw - 8px);
+            gap: 4px;
+            align-items: center;
+        }
+
+        .layout-ab {
+            font: 600 11px/1 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            padding: 5px 9px;
+            border: 1px solid #c3cbbb;
+            border-radius: 11px;
+            background: #fffdf5;
+            color: #2d5016;
+            text-decoration: none;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+        }
+
+        .layout-ab:hover {
+            background: #4a7c59;
+            color: #fff;
+            border-color: #3c6749;
+        }
+
+        /* Only shown once a person has overruled the window, so there is
+           always a way back to "decide for me". */
+        .layout-ab-auto {
+            font-weight: 500;
+        }
+
+        /* A stored choice is overriding the window. Amber so it reads as a
+           state somebody set, rather than as the normal furniture. */
+        .layout-ab-pinned,
+        .layout-ab-pinned + .layout-ab-auto {
+            background: #fff6d8;
+            border-color: #e3d08a;
+        }
+
+        /* The YAML export, shown when the clipboard is refused or just so a
+           person can see what they are pasting before they paste it. */
+        .yaml-export-box {
+            margin: 8px 0;
+            padding: 8px;
+            border: 1px solid #c3cbbb;
+            border-radius: 4px;
+            background: #fffdf5;
+            font-size: 12px;
+        }
+
+        .yaml-export-box textarea {
+            width: 100%;
+            min-height: 160px;
+            font-family: ui-monospace, Menlo, Consolas, monospace;
+            font-size: 11px;
+            white-space: pre;
+        }
+
         /* Track title + recording info, shown when loaded via ?track=. */
         .song-info-header {
             text-align: center;
@@ -336,6 +411,42 @@
             color: #2d5016;
             font-weight: 700;
             letter-spacing: -0.015em;
+        }
+
+        /* Cover and the rest of the record, under the title. */
+        .album-row {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin: 4px 0 3px;
+        }
+
+        .album-art {
+            width: 34px;
+            height: 34px;
+            flex-shrink: 0;
+            object-fit: cover;
+            border-radius: 2px;
+            border: 1px solid #d4d8d2;
+        }
+
+        /* A cover that did not arrive still occupies its square, dashed and
+           marked, so "no cover" and "no room for a cover" look different. */
+        .album-art.album-art-missing {
+            border: 1px dashed #b05a3c;
+            background: repeating-linear-gradient(
+                45deg, #f6ece8, #f6ece8 5px, #efe0da 5px, #efe0da 10px );
+        }
+
+        .album-track-select {
+            flex: 1 1 auto;
+            min-width: 0;
+            padding: 3px 6px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 12px;
+            background: white;
+            cursor: pointer;
         }
 
         .recording-metadata {
@@ -444,10 +555,26 @@
             transform: rotate(25deg);
         }
 
+        /* The slider and its knob are absolutely positioned against this box,
+           so the box has to keep its size. As a flex item it would otherwise
+           shrink when the bar runs out of room — and the knob, which slides
+           20px right when the switch is ON, would travel straight out of the
+           shrunken box and sit on top of the caption. Hence flex-shrink: 0. */
         .toggle-switch {
             position: relative;
+            flex-shrink: 0;
             width: 44px;
             height: 24px;
+        }
+
+        /* Switch and caption as one label: the words become a click target,
+           and the pair can stack in the bar without the carrot button
+           stacking along with them. */
+        .auto-switch {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
         }
 
         .toggle-switch input {
@@ -585,10 +712,27 @@
             border-color: #4a7c59;
         }
 
+        /* Was an iframe. It is a div now: same box, same name, so every
+           height rule in the bottom-bar section still applies, but the wiki
+           arrives as HTML we own rather than as a nested document we cannot
+           reach into or push a URL for. */
         .pickipedia-frame {
             width: 100%;
             height: 100%;
             border: none;
+            overflow-y: auto;
+            background: white;
+            padding: 1.2em 1.6em 2em;
+        }
+
+        /* The pane is wiki content without the wiki's document, so it does
+           not inherit MediaWiki's stylesheet the way the iframe did. Pull in
+           the content styles only — not the skin chrome — and cap images,
+           which otherwise arrive at their natural size and run off the page
+           (podcast artwork is 1400px square). */
+        .pickipedia-frame .pane-loading {
+            color: #6b7566;
+            font-size: 13px;
         }
 
         .connection-hint {
@@ -675,11 +819,1061 @@
         #keyboard-help {
             padding: 10px 15px;
         }
+
+        /* === BOTTOM-BAR LAYOUT (Option 1 spike, gated by body.bottom-bar) ===
+
+           Three zones, left → right:
+             1.  webamp-wrapper        (LEFT)
+             50. ensemble-display      (MIDDLE, flex-grows)
+             99. rabbithole-header     (RIGHT)
+           Misc demo controls (song-selector, toggles, parts chart, edit btn)
+           tuck in between the middle and the right with mid-range orders.
+        */
+
+        /* Hide ensemble-display in default (non-bottom-bar) mode. In default
+           mode embedMode is false, so this div stays empty anyway, but we
+           hide it explicitly so it never reserves layout space. */
+        body:not(.bottom-bar) #ensemble-display {
+            display: none;
+        }
+
+        /* Sidebar leaves the grid flow (position:fixed below), so collapse
+           the layout grid to a single main column. Otherwise the iframe
+           auto-flows into the now-empty 320px sidebar column. */
+        body.bottom-bar .layout,
+        body.bottom-bar .layout.minimized {
+            grid-template-columns: 1fr;
+        }
+        body.bottom-bar .layout.with-editor,
+        body.bottom-bar .layout.minimized.with-editor {
+            grid-template-columns: 1fr 470px;
+        }
+
+        /* The dock's height, in one place: the bar is this tall and the
+           article beside it is the rest. Two numbers would drift the moment
+           the small-screen layout made the dock taller, and the article
+           would either be cut off or leave a gap under the bar. */
+        body.bottom-bar {
+            --rh-dock-height: 152px;
+        }
+
+        body.bottom-bar #rabbithole-sidebar {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            max-width: 100vw;
+            /* 152, not 140. The webamp skin is a fixed 116px and the bar has
+               a 2px top border, so with a 34px strip the player's bottom edge
+               lands exactly on the strip's top edge: 2 + 116 + 34 = 152. At
+               140 it overlapped the strip by twelve pixels and the strip's
+               background painted over the bottom of the player. */
+            height: var(--rh-dock-height);
+            /* Room for the song-parts strip, which is absolutely positioned
+               against this box. box-sizing is border-box globally, so the bar
+               stays 152px tall and the main row gets 116px of it — exactly
+               the height of the webamp skin. */
+            padding-bottom: 34px;
+            border-right: none;
+            border-top: 2px solid #4a7c59;
+            box-shadow: 0 -2px 10px rgba(0,0,0,0.15);
+            display: flex;
+            flex-direction: row;
+            align-items: stretch;
+            overflow-x: hidden;
+            overflow-y: hidden;
+            z-index: 50;
+            background: white;
+            gap: 8px;
+        }
+
+        body.bottom-bar .layout.with-editor #rabbithole-sidebar {
+            right: 470px;
+        }
+
+        body.bottom-bar .pickipedia-frame {
+            height: calc(100vh - var(--rh-dock-height));
+        }
+
+        body.bottom-bar .editor-panel {
+            height: calc(100vh - var(--rh-dock-height));
+        }
+
+        /* Pull .player-container's children up to be direct flex items of
+           the bar, so we can place each one with its own `order:`. */
+        body.bottom-bar .player-container {
+            display: contents;
+        }
+
+        /* === Zone 1: Webamp (LEFT) — fixed size, never shrinks === */
+        body.bottom-bar .webamp-wrapper {
+            order: 1;
+            flex-shrink: 0;
+            width: 290px;
+            min-height: 116px;
+            margin-bottom: 0;
+        }
+
+        /* === Zone 50: Ensemble (MIDDLE) === */
+        body.bottom-bar #ensemble-display {
+            order: 50;
+            flex: 1 1 auto;
+            display: flex;
+            flex-direction: row;
+            flex-wrap: wrap;
+            align-content: flex-start;
+            gap: 4px;
+            padding: 4px;
+            margin-bottom: 0;
+            min-width: 0;
+            overflow-y: auto;
+        }
+
+        body.bottom-bar #ensemble-display .musician-card {
+            flex: 0 0 auto;
+            width: 160px;
+            padding: 4px 8px;
+        }
+
+        /* === Zone 99: Rabbithole header (RIGHT) — fixed size, never shrinks === */
+        body.bottom-bar .rabbithole-header {
+            order: 99;
+            flex-shrink: 0;
+            flex-direction: column;
+            height: 100%;
+            width: 80px;
+            padding: 8px 6px;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+            position: static;
+        }
+
+        body.bottom-bar .rabbithole-header h1 {
+            font-size: 13px;
+        }
+
+        body.bottom-bar .minimize-btn {
+            margin-left: 0;
+        }
+
+        /* === Collapsed bottom-bar (body.bar-collapsed) === */
+        body.bottom-bar.bar-collapsed #rabbithole-sidebar {
+            height: 40px;
+            padding-bottom: 0;
+        }
+
+        body.bottom-bar.bar-collapsed .pickipedia-frame {
+            height: calc(100vh - 40px);
+        }
+
+        body.bottom-bar.bar-collapsed .editor-panel {
+            height: calc(100vh - 40px);
+        }
+
+        /* Hide everything except webamp (shaded) and the rabbithole-header
+           (which holds the expand button). */
+        body.bottom-bar.bar-collapsed #ensemble-display,
+        body.bottom-bar.bar-collapsed .data-section,
+        body.bottom-bar.bar-collapsed .song-info-header,
+        body.bottom-bar.bar-collapsed .song-select,
+        body.bottom-bar.bar-collapsed .toggle-row {
+            display: none;
+        }
+
+        /* Webamp's shade mode is ~14px tall — shrink the wrapper to match. */
+        body.bottom-bar.bar-collapsed .webamp-wrapper {
+            min-height: 14px;
+            height: 14px;
+            flex: 1 1 auto;
+        }
+
+        /* Compact rabbithole-header in collapsed mode: hide the heading
+           and ALPHA badge, keep the rabbit icon and the expand button. */
+        body.bottom-bar.bar-collapsed .rabbithole-header {
+            width: auto;
+            min-width: 64px;
+            flex-direction: row;
+            gap: 6px;
+            padding: 4px 8px;
+        }
+
+        body.bottom-bar.bar-collapsed .rabbithole-header h1,
+        body.bottom-bar.bar-collapsed .rabbithole-header .alpha {
+            display: none;
+        }
+
+        body.bottom-bar.bar-collapsed .rabbithole-header img {
+            width: 22px;
+            height: 22px;
+        }
+
+        /* === Misc demo controls — between ensemble and rabbithole-header === */
+        /* Skyler: the title up at the top of the bar rather than floating in
+           the middle of it. Everything else in the bar is vertically centred,
+           so this is the one thing that sits against the top edge — which is
+           what makes it read as a heading for the bar rather than one more
+           control in the row. */
+        body.bottom-bar .song-info-header {
+            order: 70;
+            width: 220px;
+            padding: 6px 4px 0;
+            margin-bottom: 0;
+            align-self: flex-start;
+        }
+
+        /* The cover beside the title rather than under it, which is what the
+           phone layout already does. A column of its own, spanning both
+           lines, so the title and the track list begin to its right and
+           neither has to dodge it.
+
+           Fenced to the wide screen on purpose. These are descendant
+           selectors, so they outrank the narrow-screen rules further down
+           the file on specificity and would win the tie whatever the
+           viewport -- which would undo the 52px cover on the phone. */
+        @media (min-width: 1101px) {
+            body.bottom-bar .song-info-header {
+                width: 250px;
+                display: grid;
+                grid-template-columns: 34px minmax(0, 1fr);
+                grid-template-areas:
+                    "art title"
+                    "art album"
+                    "meta meta";
+                column-gap: 6px;
+                row-gap: 2px;
+                text-align: left;
+            }
+
+            /* The row stops being a box so its two children can take their
+               own cells -- the same trick .player-container uses. */
+            body.bottom-bar .song-info-header .album-row {
+                display: contents;
+            }
+
+            body.bottom-bar .song-info-header .song-title-display {
+                grid-area: title;
+                align-self: end;
+                margin: 0;
+                font-size: 16px;
+            }
+
+            body.bottom-bar .song-info-header .album-art {
+                grid-area: art;
+                align-self: center;
+            }
+
+            body.bottom-bar .song-info-header .album-track-select {
+                grid-area: album;
+                align-self: start;
+            }
+
+            body.bottom-bar .song-info-header .recording-metadata {
+                grid-area: meta;
+            }
+        }
+
+        body.bottom-bar .song-select {
+            order: 80;
+            width: 200px;
+            align-self: center;
+            height: 28px;
+        }
+
+        body.bottom-bar .toggle-row {
+            order: 81;
+            flex-direction: row;
+            align-items: center;
+            gap: 6px;
+            align-self: center;
+        }
+
+        /* Horizontal room is the axis the bar runs out of, so in the bar the
+           switch sits over its caption rather than beside it. Costs about
+           40px of the bar's height and gives back around 130px of width. */
+        body.bottom-bar .auto-switch {
+            flex-direction: column;
+            gap: 3px;
+            text-align: center;
+        }
+
+        body.bottom-bar .auto-switch-caption {
+            font-size: 11px;
+            line-height: 1.15;
+            max-width: 90px;
+        }
+
+        /* Skyler wanted the carrot bigger and up by the rabbit. It cannot get
+           there while it is nested in the toggle row, because `order` only
+           places flex items of the bar itself — so in the bar that one row
+           stops being a box and its two children become bar items in their
+           own right. The row keeps its box in sidebar mode, where it is a
+           sensible row and the carrot belongs beside the switch. */
+        body.bottom-bar .auto-switch-row {
+            display: contents;
+        }
+
+        body.bottom-bar .auto-switch {
+            order: 81;
+            align-self: center;
+        }
+
+        /* Order 90: past Song Parts (82), short of the rabbithole header (99),
+           which puts it against the rabbit. */
+        body.bottom-bar .inline-carrot-btn {
+            order: 90;
+            flex-shrink: 0;
+            align-self: center;
+            margin-left: 0;
+            margin-top: 0;
+        }
+
+        /* The bigger carrot is not a new drawing — it is the geometry already
+           written for .mini-player-btn, which only ever shows in the minimized
+           sidebar. Same vegetable, finally visible in the bar. */
+        body.bottom-bar .inline-carrot-btn {
+            width: 34px;
+            height: 60px;
+            font-size: 14px;
+            border-radius: 5px 5px 50% 50%;
+            background:
+                repeating-linear-gradient(
+                    0deg,
+                    transparent,
+                    transparent 7px,
+                    rgba(180, 70, 20, 0.25) 7px,
+                    rgba(180, 70, 20, 0.25) 9px
+                ),
+                linear-gradient(to right, #ff9a56 0%, #ff6b35 25%, #ff8142 50%, #ff6b35 75%, #ff9a56 100%);
+            box-shadow:
+                0 3px 10px rgba(255, 107, 53, 0.35),
+                inset 3px 0 6px rgba(255, 200, 150, 0.25),
+                inset -3px 0 6px rgba(180, 60, 20, 0.2);
+            text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+        }
+
+        body.bottom-bar .inline-carrot-btn.playing {
+            background:
+                repeating-linear-gradient(
+                    0deg,
+                    transparent,
+                    transparent 7px,
+                    rgba(160, 50, 10, 0.3) 7px,
+                    rgba(160, 50, 10, 0.3) 9px
+                ),
+                linear-gradient(to right, #ff8142 0%, #e55a2b 25%, #ff6b35 50%, #e55a2b 75%, #ff8142 100%);
+        }
+
+        /* Leaves scale with the root they sit on. */
+        body.bottom-bar .inline-carrot-leaves {
+            top: -15px;
+            gap: 2px;
+        }
+
+        body.bottom-bar .inline-carrot-leaves span {
+            width: 10px;
+            border-radius: 50% 50% 2px 2px;
+            box-shadow: 0 2px 3px rgba(0,0,0,0.2);
+        }
+
+        body.bottom-bar .inline-carrot-leaves span:nth-child(1),
+        body.bottom-bar .inline-carrot-leaves span:nth-child(3) {
+            height: 16px;
+        }
+
+        body.bottom-bar .inline-carrot-leaves span:nth-child(2) {
+            height: 22px;
+            width: 12px;
+        }
+
+        /* The carrot is hidden when the bar is collapsed along with everything
+           else in .toggle-row — but it is no longer inside one, so say so. */
+        body.bottom-bar.bar-collapsed .inline-carrot-btn,
+        body.bottom-bar.bar-collapsed .auto-switch {
+            display: none;
+        }
+
+        /* === Song parts: a strip along the bottom of the bar ===
+           Skyler's idea and it is the right shape for the thing — the song
+           laid out left to right the way Strum Machine does it, instead of
+           twelve chips wrapping inside a 200px column three rows deep. It is
+           absolutely positioned against the bar (which is position:fixed), so
+           nothing in the main row has to know it exists; the bar's
+           padding-bottom is what keeps them apart. */
+        body.bottom-bar .data-section {
+            position: absolute;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            width: auto;
+            height: 34px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin: 0;
+            padding: 0 8px;
+            border-top: 1px solid #d9ded6;
+            background: #eef2eb;
+        }
+
+        body.bottom-bar .section-label {
+            flex-shrink: 0;
+            margin-bottom: 0;
+            font-size: 9px;
+        }
+
+        /* Equal widths across the whole bar, so the strip reads as the whole
+           song and your position in it means something. Proportional widths
+           would be truer, but extractSongParts() hands back part names with
+           no durations attached — that is a change in the player module, not
+           in this stylesheet. */
+        body.bottom-bar .parts-chart {
+            flex: 1 1 auto;
+            flex-wrap: nowrap;
+            gap: 3px;
+            padding: 0;
+            height: 24px;
+            min-width: 0;
+        }
+
+        /* Taller and blockier, per Skyler. Square-ish corners and a solid
+           ground so each section reads as a block of song rather than a tag:
+           at a glance the strip should look like a bar of music, not a row
+           of labels. */
+        body.bottom-bar .parts-chart .part-box {
+            flex: 1 1 0;
+            min-width: 0;
+            height: 24px;
+            padding: 0;
+            line-height: 23px;
+            text-align: center;
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: 0.02em;
+            color: #4a5a46;
+            background: #fff;
+            border: 1px solid #c3cbbd;
+            border-radius: 2px;
+            overflow: hidden;
+            white-space: nowrap;
+        }
+
+        /* The block you are in, while the song plays.
+           This rule has to exist. .part-box.active sets the green, but the
+           rule above is a class deeper, so its `background: #fff` was beating
+           it and the active block came out white — the chart was tracking the
+           song correctly and saying so invisibly. Added the ground here, at
+           matching specificity, the moment Skyler noticed the cards were not
+           changing. */
+        body.bottom-bar .parts-chart .part-box.active {
+            background: #4a7c59;
+            border-color: #3c6749;
+            color: #fff;
+        }
+        /* === The bar on a narrow screen ===
+
+           Last in the file on purpose. The bottom-bar rules above set `order`
+           and widths on the same selectors at the same specificity, so a
+           media query placed earlier loses every tie -- which is how the
+           first attempt at this ended up with the controls pushed off the
+           bottom of the dock while .song-info-header kept order: 70.
+
+           Skyler's layout, holding the phone upright, second pass:
+
+               ┌───────────────────────────────┐
+               │ ▣ Paint Exchange          🐰 ▼ │
+               │ [Paint Exchange ▾][Edit] ⬤ txt │
+               ├───────────────┬───────────────┤
+               │    webamp     │ cards         │
+               ├───────────────┴───────────────┤
+               │ A A B A A B A A B A           │
+               └───────────────────────────────┘
+
+           Two control rows rather than one. The first pass crammed the title,
+           the album, the selector, the switch and the collapse arrow into a
+           single row, and paid for it by hiding the logo, hiding the switch's
+           caption and squeezing the selector until "August - Vowel Sounds"
+           read as "August - Vowel Sound". A phone is short of width and long
+           on height; spending 20px of height to stop cutting words off is the
+           right way round.
+
+           .song-info-header becomes display:contents so the title and the
+           album row can be placed in different cells -- the same trick
+           .player-container already uses to put its children in the bar.
+
+           Grid, not flex: every child is placed by name, so nothing depends
+           on `order` arithmetic against the desktop rules, and a child nobody
+           thought about cannot wrap itself onto a row of its own. */
+        /* Up to 1100px, not 720.
+        
+           The desktop bar is a row of fixed widths: the header 80, the skin
+           290, the title block 220, the selector 200, the switch 44, the
+           carrot 34, the editor 77. That is 945px before a single musician
+           card, and the cards are the only flexible item -- so anywhere
+           under about 1100px they are what gives. Measured at 844x390: the
+           ensemble collapses to 8px wide and the header hangs 15px off the
+           right edge, with nothing to say anything is missing.
+
+           That is two reports at once. It is a phone held sideways, and it
+           is also what Justin hit in Firefox: zooming in shrinks the
+           viewport in CSS pixels, so most of the ensemble vanished and
+           there was no indication of it. The grid layout below handles a
+           short row properly, so it should be in charge wherever the flex
+           row cannot fit, not only on a phone held upright. */
+        @media ( max-width: 1100px ) {
+            body.bottom-bar {
+                --rh-dock-height: 226px;
+            }
+
+            body.bottom-bar #rabbithole-sidebar {
+                display: grid;
+                /* 236px is the painted width of the skin at 0.85 -- see
+                   .webamp-wrapper below. The cards begin where the skin
+                   actually ends rather than where its wrapper does. */
+                /* The player used to own column 1 at 236px, so every control
+                   above it had to fit in what was left -- which is what kept
+                   squeezing the track selector however it was arranged. The
+                   player and the cards share one full-width cell instead: the
+                   skin sits at its start, the cards are pushed past it by a
+                   margin. Column 1 is then free to be the cover, and the
+                   selector can have everything to the right of it. */
+                /* Column one is sized by the track list, not by a number:
+                   the cover sits at its left edge on the first line and the
+                   list fills it on the second, so the editor button starts
+                   exactly where the list ends and the words fit. */
+                /* The cover holds the left edge of both control rows and
+                   everything else begins to the right of it. Column two is
+                   sized by the track list, so the editor button starts where
+                   the list ends whatever the phone does to the text. */
+                grid-template-columns: 60px auto minmax( 0, 1fr ) auto;
+                /* 116px because that is how tall the skin is. It was 100
+                   while the skin was scaled to 0.85; at full size the skin
+                   overflowed its row and painted over the song parts. */
+                grid-template-rows: auto auto 116px;
+                grid-template-areas:
+                    "art title title  header"
+                    "art sel   edit   switch"
+                    "row row   row    row";
+                /* Whatever the phone thinks about text size, the dock is
+                   laid out in the sizes written here. iOS inflates text in
+                   some layouts, which would push a control past the width
+                   measured for it. */
+                -webkit-text-size-adjust: 100%;
+                text-size-adjust: 100%;
+                align-items: start;
+                overflow-x: hidden;
+                padding-bottom: 32px;
+                gap: 0;
+            }
+
+            /* --- Row 1: what is playing, and the way out --- */
+            /* The header carries the logo and the collapse arrow together,
+               as it does everywhere else; it just moves to the top right. */
+            body.bottom-bar .song-info-header {
+                display: contents;
+            }
+
+            body.bottom-bar .song-title-display {
+                grid-area: title;
+                font-size: 15px;
+                margin: 3px 0 0 2px;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+            }
+
+            body.bottom-bar .rabbithole-header {
+                grid-area: header;
+                justify-self: end;
+                flex-direction: row;
+                align-items: center;
+                gap: 4px;
+                width: auto;
+                height: auto;
+                padding: 2px 4px 0 0;
+                position: static;
+            }
+
+            body.bottom-bar .rabbithole-header img {
+                display: block;
+                width: 20px;
+                height: 20px;
+            }
+
+            body.bottom-bar .rabbithole-header h1,
+            body.bottom-bar .rabbithole-header .alpha {
+                display: none;
+            }
+
+            /* The cover goes up into the corner beside the logo, per
+               Skyler, which leaves the whole of the next row for the track
+               list. A select is as wide as its widest option needs to be,
+               not its selected one -- "8. Swords to Ploughshares" is half
+               again as long as "2. Paint Exchange" -- so measuring the
+               selected text and calling it a fit was the wrong check, and
+               giving it the row is the only answer that holds for every
+               record. */
+            body.bottom-bar .album-row {
+                display: contents;
+            }
+
+            /* The cover tucked into the top left corner, with the track
+               list on its own line underneath. */
+            /* The cover and the title share the first line's cell, the
+               cover at its left edge and the title padded past it. Giving
+               the cover a column of its own would tie it to whatever sizes
+               that column -- which is the track list below -- and the title
+               would start 150px in, adrift of the cover it belongs to. */
+            /* The cover holds the left of the whole control block, and the
+               track list and the editor button begin to the right of it. */
+            body.bottom-bar .album-art {
+                grid-area: art;
+                justify-self: start;
+                align-self: start;
+                width: 52px;
+                height: 52px;
+                margin: 4px 2px 0 4px;
+            }
+
+            /* --- Row 2: the track list, the whole width of the screen --- */
+            /* As wide as its longest track name, and not a pixel wider.
+               Stretching it across the row stopped most of the cutting but
+               left a selector the width of the screen holding four words,
+               and it still clipped a little -- because a fixed width is a
+               guess about how wide the text will render, and the phone gets
+               the last word on that. `max-content` asks the browser to size
+               the box to the widest option it actually has, in whatever font
+               it is actually using, so there is nothing left to guess and
+               nothing left over. max-width keeps it inside the row when a
+               record turns up with a very long title. */
+            body.bottom-bar .album-track-select,
+            body.bottom-bar .song-select {
+                grid-area: sel;
+                justify-self: start;
+                width: max-content;
+                max-width: calc( 100% - 10px );
+                height: 26px;
+                font-size: 11px;
+                margin: 2px 4px 3px 2px;
+                /* Room for the arrow, said out loud. A native select draws
+                   its own arrow and decides for itself how much space to
+                   keep clear for it; on iOS that reserve is narrower than
+                   the arrow, so the last letter or two sat underneath it.
+                   max-content measures the text plus this padding, so
+                   asking for the gap also widens the box to hold it. */
+                padding-right: 30px;
+                padding-left: 8px;
+            }
+
+            /* Studio, date and engineer are a desktop line; at 390px they
+               cost a row and say nothing the article does not. */
+            body.bottom-bar .recording-metadata {
+                display: none;
+            }
+
+            /* The switch keeps its words -- it is the one control in the
+               dock whose name is not obvious from its shape -- and it sits
+               over the cards it acts on: turning it on is what makes the
+               pane follow whoever is soloing, and the cards are where you
+               watch that happen. */
+            body.bottom-bar .auto-switch {
+                grid-area: switch;
+                justify-self: end;
+                align-self: center;
+                flex-direction: row;
+                align-items: center;
+                gap: 4px;
+                margin: 0 2px 2px 4px;
+            }
+
+            /* "Follow artist", not "Auto-switch artist profiles".
+            
+               The cover's column grew to 60px to hold a cover worth looking
+               at, and that comes out of a 390px row -- the editor button was
+               what paid, landing under the switch. The caption is where the
+               slack is: three words of jargon wrapped over three lines, for
+               a control whose full name is in its tooltip and on every
+               screen wider than this. Say if the short wording reads wrong;
+               it is one string. */
+            body.bottom-bar .auto-switch-caption {
+                display: block;
+                font-size: 9px;
+                line-height: 1.2;
+                max-width: 58px;
+                text-align: left;
+            }
+
+            /* --- Row 3: the player, and who is playing --- */
+            /* Full size, because the buttons are the point.
+               
+               This was 0.85 for a while: 290px of skin leaves only 100px
+               beside it, and 100px is not a card, so shrinking the skin
+               bought the names some room. Skyler put a thumb on it and said
+               it wants to be bigger, which settles it -- a play button you
+               have to aim at is worse than a name that ends in an ellipsis.
+               At full size the skin's own window ends at 275px and the cards
+               get the 113px left over. */
+            body.bottom-bar .webamp-wrapper {
+                grid-area: row;
+                justify-self: start;
+                width: 290px;
+                height: 116px;
+            }
+
+            /* Same cell as the player, pushed past the skin's painted edge.
+               The wrapper is 290px but the window Webamp draws inside it is
+               275, so the cards start there rather than at the wrapper's
+               edge -- otherwise there is a 15px strip of nothing between
+               the player and the names. */
+            body.bottom-bar #ensemble-display {
+                grid-area: row;
+                margin-left: 277px;
+                flex-direction: column;
+                flex-wrap: nowrap;
+                gap: 1px;
+                padding: 1px 2px;
+                min-width: 0;
+                max-height: 116px;
+                overflow-y: auto;
+            }
+
+            /* One column, one line each: six of them fit the 100px row. */
+            body.bottom-bar #ensemble-display .musician-card {
+                flex: 0 0 auto;
+                width: auto;
+                max-width: 100%;
+                min-width: 0;
+                padding: 0 4px;
+                font-size: 9.5px;
+                line-height: 1.6;
+                overflow: hidden;
+            }
+
+            /* The name is in a child, so clipping the card is not enough --
+               the text has to be told to end in an ellipsis where it sits.
+               Without this the cards ran past the right edge of the screen. */
+            body.bottom-bar #ensemble-display .musician-card .musician-name {
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                max-width: 100%;
+            }
+
+            /* The editor is a desktop job -- a timeline is edited with a
+               keyboard -- and the button costs a row here. */
+            /* Editing a timeline wants a keyboard, but the way in should
+               still be there. It shares the track list's row and sits at the
+               far end of it, which puts it between the list and the switch.
+               "Edit Timeline" does not fit in that gap; a pencil and "Edit"
+               do, and the full words stay in its tooltip. */
+            body.bottom-bar .editor-toggle-btn {
+                grid-area: edit;
+                justify-self: start;
+                align-self: center;
+                width: auto;
+                min-width: 0;
+                height: 24px;
+                padding: 0 8px;
+                margin: 0 4px 2px 6px;
+                font-size: 11px;
+                line-height: 22px;
+                white-space: nowrap;
+            }
+
+            body.bottom-bar .inline-carrot-btn {
+                display: none;
+            }
+
+            /* Neither toggle row is a box here: one holds the switch, the
+               other holds the editor button, and both of those are placed by
+               name in the grid. Hiding a row to get rid of it has now taken
+               the switch with it once and the editor button twice -- the
+               wrapper was never the thing that wanted hiding. */
+            body.bottom-bar .toggle-row {
+                display: contents;
+            }
+
+            /* --- Row 4: the whole song, readable --- */
+            /* The label was eating 64px of a 390px strip and the part names
+               were cut to two letters. The strip says what it is by being a
+               row of song sections; it does not need to be told. */
+            body.bottom-bar .data-section .section-label {
+                display: none;
+            }
+
+            body.bottom-bar .data-section {
+                height: 32px;
+                padding: 0 4px;
+                gap: 0;
+            }
+
+            body.bottom-bar .parts-chart {
+                height: 28px;
+                gap: 2px;
+            }
+
+            body.bottom-bar .parts-chart .part-box {
+                height: 28px;
+                line-height: 27px;
+                font-size: 9px;
+                letter-spacing: 0;
+            }
+        }
+
+        /* === A screen with no height ===
+
+           A phone held sideways is 844 wide and 390 tall. The grid above
+           gives it a 226px dock, which is 58% of the screen, and the wiki
+           gets the rest -- about four lines of an article under a player.
+
+           Height is the scarce thing here, so the two control rows become
+           one. The cover and the title go: at 844px wide the track list
+           already names the song, and Webamp's own title bar is scrolling
+           it. What is left is the player, who is playing, and the song
+           parts -- the three things the dock is for.
+
+           Last in the file, after the width query, so it wins where both
+           apply. */
+        @media ( max-height: 520px ) and ( max-width: 1100px ) {
+            body.bottom-bar {
+                --rh-dock-height: 182px;
+            }
+
+            body.bottom-bar #rabbithole-sidebar {
+                grid-template-columns: auto auto auto minmax( 0, 1fr ) auto;
+                grid-template-rows: auto 116px;
+                grid-template-areas:
+                    "art  sel  edit  switch header"
+                    "row  row  row   row    row";
+            }
+
+            /* The cover stays, smaller, at the head of the one control row.
+            
+               It used to be hidden here along with the title, on the
+               reasoning that height is scarce in landscape -- and that is
+               true of the title, which needs a line of its own. The cover
+               does not: it fits beside the track list at 28px. Hiding it
+               cost four rounds of this, because Skyler was testing sideways
+               and I was measuring upright, and neither of us said so. */
+            body.bottom-bar .album-art {
+                grid-area: art;
+                width: 28px;
+                height: 28px;
+                align-self: center;
+                margin: 0 2px 2px 4px;
+            }
+
+            body.bottom-bar .song-title-display {
+                display: none;
+            }
+
+            body.bottom-bar .rabbithole-header {
+                align-self: center;
+            }
+
+            body.bottom-bar .auto-switch {
+                align-self: center;
+            }
+
+            /* The cards get the width the landscape screen has, so they can
+               stand in columns again rather than one tall list. */
+            body.bottom-bar #ensemble-display {
+                flex-direction: row;
+                flex-wrap: wrap;
+                align-content: flex-start;
+                max-height: 116px;
+            }
+
+            /* 567px of width for six names: let them breathe rather than
+               keep a width inherited from the portrait layout. */
+            body.bottom-bar #ensemble-display .musician-card {
+                flex: 0 0 auto;
+                width: 180px;
+                max-width: 100%;
+                padding: 2px 8px;
+                font-size: 11px;
+                line-height: 1.7;
+            }
+
+            body.bottom-bar #ensemble-display {
+                gap: 3px 8px;
+                padding: 4px 6px;
+            }
+        }
+
+        /* === The sidebar on a narrow screen ===
+
+           Until now every narrow-screen rule in this file was scoped to
+           body.bottom-bar, so a phone in sidebar mode got the desktop
+           stylesheet and nothing else: a fixed 320px column out of 390,
+           leaving the wiki 70px and rendering an article one letter per
+           line. Skyler, 2026-10-24: scoot the column back and put the cards
+           next to each other.
+
+           Scoped to :not(.bottom-bar) so none of it can reach the bar. */
+        @media (max-width: 1100px) {
+            /* 292, not narrower, and this is the hard floor: the Winamp skin
+               is 275px of fixed bitmap and does not scale. A column narrower
+               than that pushes the player out through the side of the
+               sidebar and the cards pile up under it. So "scoot it back" can
+               only buy the 28px between here and the old 320. */
+            body:not(.bottom-bar) .layout {
+                grid-template-columns: 292px 1fr;
+            }
+
+            body:not(.bottom-bar) .layout.minimized {
+                grid-template-columns: 44px 1fr;
+            }
+
+            /* Two across rather than a stack of six. The column count is
+               set in Packery (see initEnsembleGrid) because it positions
+               every card absolutely; all this does is give a card the width
+               of the column it is being put in. A little under half, not
+               exactly half: Packery measures a card's outer width, so a
+               border that takes it one pixel over the column drops it onto
+               a row of its own -- which is what 134 did. */
+            body:not(.bottom-bar) .ensemble-display-in-webamp .musician-item {
+                width: 118px;
+                box-sizing: border-box;
+            }
+
+            body:not(.bottom-bar) .musician-card {
+                padding: 3px 6px;
+                min-width: 0;
+            }
+
+            body:not(.bottom-bar) .musician-card .musician-name {
+                font-size: 12px;
+                overflow-wrap: anywhere;
+            }
+
+            /* 0.4 reads as a rendering fault on a small screen rather than
+               as "not soloing" -- which is exactly how it was reported. The
+               dim still says what it said, just less drastically. */
+            body:not(.bottom-bar) .musician-card.out {
+                opacity: 0.7;
+            }
+
+            body:not(.bottom-bar) .rabbithole-header h1 {
+                font-size: 15px;
+            }
+        }
+
     </style>
 </head>
-<body>
+<body class="bottom-bar">
+    <!--
+      Which dock to wear.
+
+      The shape of the dock follows the shape of the window by default: a
+      side column costs width, a bottom bar costs height, and a screen always
+      has more of one than the other. Wide gets the sidebar, narrow gets the
+      bar, at the same 1100px the stylesheet switches at.
+
+      A person can overrule that, and the choice sticks -- Skyler, 2026-10-24:
+      "I also like the ability to switch them back and forth for user
+      preferences". Order of precedence, highest first: ?layout= in the URL
+      (so a link can show somebody a particular one without changing their
+      setting), then their stored choice, then the window.
+
+      This has to run before the player initialises: the two layouts put the
+      musician cards in different places at startup, so the class cannot be
+      swapped live without rebuilding the player. Hence a reload.
+    -->
+    <script>
+        (function () {
+            var AUTO_AT = 1100;
+            var KEY = 'rabbitholeLayout';
+
+            function stored() {
+                try { return window.localStorage.getItem(KEY); } catch (e) { return null; }
+            }
+
+            var fromUrl = new URLSearchParams(window.location.search).get('layout');
+            var saved = (fromUrl === 'auto') ? null : stored();
+            var auto = window.innerWidth >= AUTO_AT ? 'sidebar' : 'bar';
+
+            if (fromUrl === 'auto') {
+                try { window.localStorage.removeItem(KEY); } catch (e) {}
+            }
+
+            var layout = (fromUrl === 'bar' || fromUrl === 'sidebar') ? fromUrl
+                       : (saved === 'bar' || saved === 'sidebar') ? saved
+                       : auto;
+
+            if (layout === 'sidebar') document.body.classList.remove('bottom-bar');
+
+            // The page's own address, captured before anything else runs:
+            // the pane rewrites the URL to the article being read, so by the
+            // time somebody clicks the switch, window.location is a /wiki/
+            // path and reloading it would leave the shell entirely. Same
+            // class of bug as the query string the pane threw away on
+            // 21 Oct.
+            window.__rhPageUrl = window.location.href;
+            window.__rhLayout = layout;
+            window.__rhLayoutAuto = auto;
+            window.__rhLayoutPinned = !!saved || fromUrl === 'bar' || fromUrl === 'sidebar';
+            // Whether a *stored* choice is in force, as against one that
+            // came in on the URL for this load only. A stored one overrides
+            // the window on every visit, so it has to be visible: Skyler met
+            // the sidebar on a phone on 2026-10-24 with nothing on screen to
+            // say why.
+            window.__rhLayoutSaved = saved || null;
+            window.__rhLayoutKey = KEY;
+        })();
+    </script>
+
+    <div class="layout-ab-wrap">
+        <a id="layout-ab" class="layout-ab" href="#"></a>
+        <a id="layout-ab-auto" class="layout-ab layout-ab-auto" href="#" hidden
+           title="Go back to choosing by window size">auto</a>
+    </div>
+    <script>
+        (function () {
+            var other = window.__rhLayout === 'sidebar' ? 'bar' : 'sidebar';
+
+            function go(choice) {
+                try {
+                    if (choice === null) window.localStorage.removeItem(window.__rhLayoutKey);
+                    else window.localStorage.setItem(window.__rhLayoutKey, choice);
+                } catch (e) {}
+                var url = new URL(window.__rhPageUrl);
+                // The choice is stored, so it does not need to ride in the
+                // URL -- and leaving it out keeps a copied address neutral.
+                url.searchParams.delete('layout');
+                // A cache-buster: a URL the browser has seen before can come
+                // back out of a restored tab, which cost us an evening on
+                // 21 Oct.
+                url.searchParams.set('v', Date.now().toString(36));
+                window.location.href = url.toString();
+            }
+
+            var name = window.__rhLayout === 'sidebar' ? 'Sidebar' : 'Bottom bar';
+            var otherName = other === 'sidebar' ? 'sidebar' : 'bottom bar';
+            var saved = !!window.__rhLayoutSaved;
+
+            var a = document.getElementById('layout-ab');
+            a.textContent = saved
+                ? name + ' (saved) \u2014 switch to ' + otherName
+                : name + ' \u2014 switch to ' + otherName;
+            a.onclick = function (e) { e.preventDefault(); go(other); };
+            if (saved) a.classList.add('layout-ab-pinned');
+
+            // Shown whenever a stored choice exists, not only when it
+            // disagrees with the window: a setting you cannot see is a
+            // setting you cannot undo, and on a phone there is no hover to
+            // hide the explanation in.
+            var reset = document.getElementById('layout-ab-auto');
+            if (saved) {
+                reset.hidden = false;
+                reset.textContent = 'use auto';
+                reset.onclick = function (e) { e.preventDefault(); go(null); };
+            }
+        })();
+    </script>
+
     <div class="layout">
-        <div class="rabbithole-sidebar">
+        <div id="rabbithole-sidebar">
             <div class="rabbithole-header" id="rabbithole-header">
                 <img src="./src/images/rabbit.png" alt="Rabbithole" onclick="if(document.querySelector('.layout').classList.contains('minimized')) toggleSidebar()" style="cursor: pointer;">
                 <h1>rabbithole</h1>
@@ -711,6 +1905,10 @@
                 <!-- Track title + recording metadata, populated from wiki on load -->
                 <div class="song-info-header" id="song-info-header" style="display:none">
                     <h2 id="song-title-display" class="song-title-display"></h2>
+                    <div class="album-row" id="album-row" style="display:none">
+                        <img id="album-art" class="album-art" alt="" style="display:none">
+                        <select id="album-track-select" class="album-track-select"></select>
+                    </div>
                     <div id="recording-metadata" class="recording-metadata"></div>
                 </div>
 
@@ -721,12 +1919,14 @@
                     <option value="paint-exchange">Paint Exchange - 4masks</option>
                 </select>
 
-                <div class="toggle-row">
-                    <label class="toggle-switch">
-                        <input type="checkbox" id="auto-switch-toggle" checked>
-                        <span class="toggle-slider"></span>
+                <div class="toggle-row auto-switch-row">
+                    <label class="auto-switch" title="Auto-switch artist profiles: follow the solo into each player's page">
+                        <span class="toggle-switch">
+                            <input type="checkbox" id="auto-switch-toggle" checked>
+                            <span class="toggle-slider"></span>
+                        </span>
+                        <span class="auto-switch-caption">Auto-switch artist profiles</span>
                     </label>
-                    <span>Auto-switch artist profiles</span>
                     <button class="inline-carrot-btn" id="inline-play-btn" onclick="toggleMiniPlay()" title="Play/Pause">
                         <span class="inline-carrot-leaves"><span></span><span></span><span></span></span>
                         ▶
@@ -748,12 +1948,13 @@
                     <div id="parts-chart" class="parts-chart"></div>
                 </div>
 
-                <!-- Hidden container for embed mode compatibility -->
-                <div id="ensemble-display" class="musician-list" style="display: none;"></div>
+                <!-- Ensemble cards in embed/bottom-bar mode. Hidden by CSS
+                     when neither mode is active. -->
+                <div id="ensemble-display" class="musician-list"></div>
             </div>
         </div>
 
-        <iframe id="pickipedia-frame" class="pickipedia-frame" src="/wiki/Justin_Holmes"></iframe>
+        <div id="pickipedia-frame" class="pickipedia-frame"></div>
 
         <!-- Editor Panel -->
         <div id="editor-panel" class="editor-panel" style="display: none;">
@@ -764,6 +1965,7 @@
             <div id="timeline-editor-container"></div>
             <div class="editor-save-section">
                 <button id="save-to-wiki-btn" class="btn-save-wiki" disabled>Save to PickiPedia</button>
+                <button id="export-yaml-btn" class="btn-save-wiki">Copy YAML</button>
                 <span id="save-status"></span>
             </div>
             <div id="keyboard-help"></div>
@@ -771,13 +1973,26 @@
     </div>
 
     <script type="module">
+        /*
+         * The query string, read once and kept.
+         *
+         * The pane soft-navigates with history.replaceState to /wiki/<page>,
+         * and that drops the query. Anything read from location.search after
+         * the first navigation finds nothing -- which is how ?rhdiag=1 came
+         * to do nothing at all while the file plainly contained it.
+         */
+        const INITIAL_PARAMS = new URLSearchParams(window.location.search);
+        window.__rhdebug = INITIAL_PARAMS.get('rhdebug');
+
         // Song data
         const songs = {
             'august': {
                 title: "August",
                 album: "Vowel Sounds",
                 duration: 180,
-                audioFile: "/audio/August.flac",
+                // No file was ever served at /audio/August.flac. The track lives
+                // on IPFS; trackCid is how we reach it.
+                trackCid: "QmS3QEZFa1c75BBa9vwNEsXkS6GBmS75Cs6RyDJBXqRx8a",
                 ensemble: {
                     "Justin Holmes": ["guitar", "tin whistle"],
                     "Kyle Tuttle": ["5-string banjo"],
@@ -818,7 +2033,9 @@
                 title: "Silver 44",
                 album: "4masks",
                 duration: 215,
-                audioFile: "/audio/silver-44.flac",
+                // No file was ever served at /audio/silver-44.flac. The track lives
+                // on IPFS; trackCid is how we reach it.
+                trackCid: "QmXJ8Ko7nx4SDrvRh3J5AZDjHf46UWbW3SaVymRhEhqHBv",
                 ensemble: {
                     "Justin Holmes": ["guitar", "tin whistle", "vocals"],
                     "Kyle Tuttle": ["5-string banjo"],
@@ -844,7 +2061,9 @@
                 title: "Barlow's Jig",
                 album: "Vowel Sounds",
                 duration: 160,
-                audioFile: "/audio/barlows-jig.flac",
+                // No file was ever served at /audio/barlows-jig.flac. The track lives
+                // on IPFS; trackCid is how we reach it.
+                trackCid: "QmX4AtCi3kZr3up9KhVG18nZxbtJ1vrMpWj3J1FeSUHLmN",
                 ensemble: {
                     "Justin Holmes": ["guitar"],
                     "Kyle Tuttle": ["5-string banjo"],
@@ -871,7 +2090,9 @@
                 title: "Paint Exchange",
                 album: "4masks",
                 duration: 240,
-                audioFile: "/audio/0 - Paint Exchange.flac",
+                // No file was ever served at /audio/0 - Paint Exchange.flac. The track lives
+                // on IPFS; trackCid is how we reach it.
+                trackCid: "QmcBuh5HCvVCCdCz6KqWf891QkXeKc3T7QBaToYE8mSLtS",
                 ensemble: {
                     "Justin Holmes": ["mandolin", "throatsinging"],
                     "Cory Walker": ["5-string banjo"],
@@ -1005,6 +2226,50 @@
             return {};
         }
 
+        /*
+         * Which encoding this browser can actually decode.
+         *
+         * Every Release carries ogg and flac. Ogg is a quarter the size, so
+         * it is the default -- but Safari went most of its life unable to
+         * decode Ogg Vorbis at all, and an iPhone that cannot decode it plays
+         * silence without saying why. FLAC Safari has handled since Safari 11.
+         *
+         * So ask the browser rather than guess from a version number: a
+         * `canPlayType` of "probably" or "maybe" is the only claim either of
+         * us has. Prefer ogg when it is playable, fall back to flac, and if
+         * the browser disclaims both, hand back ogg and let the error surface
+         * rather than silently returning nothing.
+         */
+        function pickEncoding(encodings) {
+            if (!encodings) return null;
+
+            // ?enc=flac / ?enc=ogg forces one, for telling a decoding fault
+            // apart from everything else without changing any code.
+            const forced = INITIAL_PARAMS.get('enc');
+            if (forced && encodings[forced]) {
+                return { cid: encodings[forced], format: forced };
+            }
+
+            const probe = document.createElement('audio');
+            const ok = type => {
+                const verdict = probe.canPlayType(type);
+                return verdict === 'probably' || verdict === 'maybe';
+            };
+            if (encodings.ogg && ok('audio/ogg; codecs="vorbis"')) {
+                return { cid: encodings.ogg, format: 'ogg' };
+            }
+            if (encodings.flac && ok('audio/flac')) {
+                return { cid: encodings.flac, format: 'flac' };
+            }
+            if (encodings.ogg) {
+                console.warn(
+                    'This browser claims it can play neither ogg nor flac; '
+                    + 'trying ogg anyway.');
+                return { cid: encodings.ogg, format: 'ogg' };
+            }
+            return null;
+        }
+
         async function loadTrackFromWiki(cid) {
             const trackData = await fetchYamlPage('Release:' + cid);
             if (!trackData) {
@@ -1013,16 +2278,16 @@
             const metadataData = await fetchYamlPage('Release:' + cid + '/Metadata') || {};
             const metadata = extractMetadata(metadataData);
 
-            const oggCid = trackData.encodings?.ogg;
-            if (!oggCid) {
-                throw new Error('Track has no OGG encoding for playback');
+            const encoding = pickEncoding(trackData.encodings);
+            if (!encoding) {
+                throw new Error('Track has no encoding this browser can play');
             }
 
             return {
                 title: trackData.title || metadata.title || cid,
                 album: trackData.parent_release || metadata.album || '',
                 duration: trackData.duration || 180,
-                audioFile: IPFS_GATEWAY + '/ipfs/' + oggCid,
+                audioFile: IPFS_GATEWAY + '/ipfs/' + encoding.cid,
                 ensemble: metadata.ensemble,
                 timeline: metadata.timeline,
                 standardSectionLength: metadata.standardSectionLength,
@@ -1033,6 +2298,202 @@
                 _sessionType: metadata.sessionType,
                 _engineer: metadata.engineer
             };
+        }
+
+        /*
+         * The four built-in songs name a trackCid, not a file.
+         *
+         * They used to name /audio/August.flac and friends, which nothing has
+         * ever served -- 404 on the preview and on production alike, which is
+         * why picking a song from the dropdown played silence. The audio was
+         * always on IPFS; only the ?track= path knew how to reach it.
+         *
+         * Resolved once per song and cached on the object, so switching back
+         * and forth does not re-fetch the Release page.
+         */
+        async function resolveAudioFile(song) {
+            if (!song || song.audioFile || !song.trackCid) return song;
+            const release = await fetchYamlPage('Release:' + song.trackCid);
+            const encoding = pickEncoding(release && release.encodings);
+            if (!encoding) {
+                throw new Error(
+                    'No playable encoding on Release:' + song.trackCid
+                    + ' -- nothing to play.');
+            }
+            song.audioFile = IPFS_GATEWAY + '/ipfs/' + encoding.cid;
+
+            /*
+             * While the Release page is open, take what the album row needs.
+             *
+             * Without this the four built-in songs had no cover and no track
+             * list -- the album row only ever filled in for a ?track= link --
+             * so the default page looked like a different, poorer app than
+             * the one a listen button opens. Skyler kept being shown layout
+             * changes to a row that was not on his screen.
+             *
+             * `album` holds the parent release's CID because that is what
+             * loadAlbum wants; the four songs used to carry a record's name
+             * there, which nothing could look up.
+             */
+            if (release.parent_release) song.album = release.parent_release;
+            song._trackCid = song.trackCid;
+            if (release.title) song.title = release.title;
+
+            /*
+             * Where the editor writes.
+             *
+             * Only the ?track= path set this, so a song picked from the
+             * dropdown fell through to the legacy
+             * Recording:<Title> (<Album>)/Rabbithole subpage -- a page family
+             * that does not exist for any track and that nothing reads. That
+             * is where Skyler's Silver 44 timeline went on 24 October.
+             * The player reads Release:<cid>/Metadata; the editor must write
+             * the same page or the save is theatre.
+             */
+            song._metadataTitle = 'Release:' + song.trackCid + '/Metadata';
+            return song;
+        }
+
+        // The album this track belongs to: title and the full track list.
+        // Track Release pages carry parent_release; the parent is a
+        // release_type: record page whose `tracks:` is the running order.
+        async function loadAlbum(parentCid) {
+            if (!parentCid) return null;
+            const album = await fetchYamlPage('Release:' + parentCid);
+            if (!album || !Array.isArray(album.tracks)) return null;
+            return { cid: parentCid, title: album.title || '', tracks: album.tracks };
+        }
+
+        // Cover art, the long way round, because the release schema has no
+        // field for it. The record page links to the release
+        // ("Tracks are here: [[Release:Qm...]]"), so the backlink finds the
+        // record page, and the first image on it that is not an instrument
+        // icon is the cover. Fragile by nature — if it finds nothing we show
+        // no art rather than a broken frame. The honest fix is an art field
+        // on the release, which is a schema change and Justin's call.
+        async function findAlbumArt(parentCid) {
+            const q = params => fetch('/api.php?' + new URLSearchParams(
+                Object.assign({ format: 'json', origin: '*' }, params))).then(r => r.json());
+
+            const back = await q({ action: 'query', list: 'backlinks',
+                bltitle: 'Release:' + parentCid, blnamespace: '0', bllimit: '5' });
+            const recordPage = back.query?.backlinks?.[0]?.title;
+            if (!recordPage) return null;
+
+            const imgs = await q({ action: 'query', titles: recordPage,
+                prop: 'images', imlimit: '50' });
+            const candidates = (Object.values(imgs.query?.pages || {})[0]?.images || [])
+                .map(i => i.title)
+                .filter(t => !/Instrument-icon-/i.test(t));
+            if (!candidates.length) return null;
+
+            const info = await q({ action: 'query', titles: candidates[0],
+                prop: 'imageinfo', iiprop: 'url|size', iiurlwidth: '96' });
+            const ii = Object.values(info.query?.pages || {})[0]?.imageinfo?.[0];
+            if (!ii) return null;
+            // thumburl is absent wherever the wiki has no thumbnailer — which
+            // is exactly the case on the preview container, so asking only for
+            // the thumb made the cover vanish in the one place anybody is
+            // looking at it. The full file is 400px square; CSS sizes it.
+            return sameOrigin(ii.thumburl || ii.url || null);
+        }
+
+        /*
+         * The wiki answers with absolute URLs built from its own $wgServer,
+         * so a cover came back as http://…:4009/images/… -- the wiki's port,
+         * not the page's. Every other request this page makes is relative and
+         * goes through whatever host served it; only the images jumped
+         * straight at the wiki. Anyone who can reach the page but not that
+         * port gets no cover and no error, which is how Skyler ended up
+         * looking at an empty square and reasonably reading it as a layout
+         * fault.
+         *
+         * Same path, this origin. The wiki's own images route is proxied, so
+         * there is nothing to configure.
+         */
+        function sameOrigin(url) {
+            if (!url) return null;
+            try {
+                const u = new URL(url, window.location.href);
+                return u.pathname + u.search;
+            } catch (err) {
+                return url;
+            }
+        }
+
+        async function populateAlbumRow(song) {
+            const row = document.getElementById('album-row');
+            const sel = document.getElementById('album-track-select');
+            const art = document.getElementById('album-art');
+            if (!row || !sel || !art) return;
+
+            const album = await loadAlbum(song.album);
+            if (!album) return;
+
+            sel.innerHTML = '';
+            album.tracks.slice()
+                .sort((a, b) => (a.track_number || 0) - (b.track_number || 0))
+                .forEach(t => {
+                    const o = document.createElement('option');
+                    o.value = t.cid;
+                    o.textContent = (t.track_number ? t.track_number + '. ' : '')
+                        + (t.title || t.cid);
+                    if (t.cid === song._trackCid) o.selected = true;
+                    sel.appendChild(o);
+                });
+            sel.title = album.title;
+            // Changing track is a navigation, not a swap: the whole shell
+            // keys off ?track=, and a reload is honest about that.
+            sel.onchange = () => {
+                const url = new URL(window.location.href);
+                url.searchParams.set('track', sel.value);
+                window.location.href = url.toString();
+            };
+
+            row.style.display = '';
+
+            const artUrl = await findAlbumArt(album.cid);
+            if (artUrl) {
+                /*
+                 * A cover that fails used to hide itself, which is the worst
+                 * of both: no picture and no sign there was meant to be one.
+                 * Skyler spent three rounds describing an empty square as a
+                 * layout fault because nothing on the page said otherwise.
+                 *
+                 * Now a failure shows: the slot keeps its size and turns
+                 * into a marked box, and the reason goes on the element for
+                 * anyone who looks.
+                 */
+                art.onerror = () => {
+                    art.classList.add('album-art-missing');
+                    art.alt = 'cover did not load';
+                    art.title = 'The cover failed to load from ' + artUrl;
+                    console.warn('Album art failed to load:', artUrl);
+                };
+                art.classList.remove('album-art-missing');
+                art.src = artUrl;
+                art.alt = album.title || 'album art';
+                art.style.display = '';
+            }
+        }
+
+        async function openPaneForTrack(song) {
+            const fallback = song._metadataTitle;
+            if (!song.title) { openWikiPage(fallback, { push: false }); return; }
+
+            const songPage = 'Song:' + song.title;
+            try {
+                const params = new URLSearchParams({
+                    action: 'query', titles: songPage, format: 'json', origin: '*'
+                });
+                const r = await fetch('/api.php?' + params);
+                const page = Object.values((await r.json()).query?.pages || {})[0];
+                const exists = page && page.missing === undefined;
+                openWikiPage(exists ? songPage : fallback, { push: false });
+            } catch (err) {
+                console.warn('Could not check for a song page:', err);
+                openWikiPage(fallback, { push: false });
+            }
         }
 
         function populateSongInfoHeader(song) {
@@ -1058,38 +2519,723 @@
         // jsyaml is loaded as a UMD global from the <script> tag in <head>.
         const jsYaml = window.jsyaml;
 
-        const trackParam = new URLSearchParams(window.location.search).get('track');
+        const trackParam = INITIAL_PARAMS.get('track');
         if (trackParam) {
             try {
                 const wikiSong = await loadTrackFromWiki(trackParam);
                 wikiSong.colorScheme = defaultColorScheme;
                 songs[trackParam] = wikiSong;
-                window.songChartifactsData = wikiSong;
+                window.rabbitholeSongData = wikiSong;
                 // Hide the song selector — we're locked to one track in this mode.
                 const selector = document.getElementById('song-selector');
                 if (selector) selector.style.display = 'none';
-                // Park the right pane on this track's /Metadata page.
-                document.getElementById('pickipedia-frame').src =
-                    '/wiki/' + wikiSong._metadataTitle;
+                // Park the right pane on the song's own page, falling back to
+                // the track's /Metadata page. Skyler's idea, and the right one:
+                // a song should open on the song, not on the YAML somebody
+                // edits it with. See Song:August/mock for where the title match
+                // breaks — the release carries a title and a CID, and nothing
+                // that says which page is about the work.
+                openPaneForTrack(wikiSong);
                 // Populate the title + recording-info header.
                 populateSongInfoHeader(wikiSong);
+                // Cover and the rest of the record, under the title. Async and
+                // non-blocking: if the wiki is slow or the art is missing, the
+                // player is already playing and simply has no cover.
+                populateAlbumRow(wikiSong).catch(
+                    err => console.warn('Could not build the album row:', err));
             } catch (err) {
                 console.error('Failed to load track from wiki:', err);
                 document.getElementById('webamp-player').innerHTML =
                     '<p style="padding:1em;color:#a00">Could not load track ' +
                     trackParam + ': ' + err.message + '</p>';
-                window.songChartifactsData = songs['august'];
+                window.rabbitholeSongData = songs['august'];
             }
         } else {
-            window.songChartifactsData = songs['august'];
+            const first = songs['august'];
+            await resolveAudioFile(first).catch(
+                err => console.error('Could not resolve the default track:', err));
+            window.rabbitholeSongData = first;
+            populateSongInfoHeader(first);
+            // The cover and the title, but not the album's track list: the
+            // demo selector is still the way around these four, because they
+            // carry hand-written timelines the wiki does not have yet. Two
+            // selectors in one row would be two ways to do one thing, and on
+            // a phone they share a cell and land on top of each other.
+            populateAlbumRow(first)
+                .then(() => {
+                    const albumSel = document.getElementById('album-track-select');
+                    if (albumSel) albumSel.style.display = 'none';
+                })
+                .catch(err => console.warn('Could not build the album row:', err));
         }
         window.allSongs = songs;
 
+        // === The wiki pane ===
+        //
+        // Settled 2026-10-11 and only now built: no iframe. The wiki is
+        // fetched same-origin and put into a div we own, and the same click
+        // that moves the pane pushes the real wiki URL. So the address bar
+        // reads /wiki/Cory_Walker while the song keeps playing, and that URL
+        // is a thing you can send somebody.
+        //
+        // What this gives up: the metadata editor that lives on a
+        // Release:.../Metadata page. Injected HTML does not run scripts, so
+        // that editor no longer boots in the pane — the postMessage bridge
+        // below is now dead weight for that path. The shell's own Edit
+        // Timeline panel is untouched and is the editing route that matters.
+        // The pane is a shadow root, which is the whole trick: MediaWiki's own
+        // stylesheet goes in with the content and cannot reach back out to
+        // restyle the bar. Without it the wiki arrives naked — no infobox
+        // frames, no instrument icons, no yellow wash on bot claims — because
+        // a div full of parsed wikitext inherits nothing. The iframe used to
+        // bring all of this along for free; this is the price of the URL.
+        const PANE_STYLES = [
+            // The same modules a real article page loads, in the same skin.
+            // This asked for Vector and for the generic content styles, and the
+            // wiki runs MonoBook -- but the one that actually mattered was
+            // ext.pickipediaContent.styles, the extension's own stylesheet. It
+            // is what draws the proposal markers, the verify affordances and
+            // the studio blocks, so without it every bot-written paragraph
+            // rendered as a bare grey bar with [unverified] floating beside it.
+            // That is what "the backdrop looks super broken" was.
+            '<link rel="stylesheet" href="/load.php?lang=en&modules=',
+            'ext.pickipediaContent.styles%7Cskins.monobook.styles',
+            '&only=styles&skin=monobook">',
+            '<link rel="stylesheet" href="/load.php?lang=en&modules=',
+            'site.styles&only=styles&skin=monobook">',
+            '<style>',
+            ':host { display: block; font-size: 14px; line-height: 1.5;',
+            '  color: #202122; font-family: -apple-system, BlinkMacSystemFont,',
+            '  "Segoe UI", Roboto, sans-serif; }',
+            'img { max-width: 100%; height: auto; }',
+            'table { max-width: 100%; }',
+            '.pane-title { font-size: 22px; font-weight: 700; color: #2d5016;',
+            '  margin: 0 0 .4em; border-bottom: 1px solid #e5e7e1;',
+            '  padding-bottom: .2em; }',
+            '.pane-loading { color: #6b7566; font-size: 13px; }',
+            'h2 { font-size: 18px; margin: 1em 0 .3em; }',
+            'h3 { font-size: 15px; margin: .8em 0 .3em; }',
+            '.mw-editsection { display: none; }',
+            '</style>'
+        ].join('');
+
+
+        /* ------------------------------------------------------------------
+         * How much of the wiki the pane wears.
+         *
+         * Three ways, switchable from the pane itself, because this is a look
+         * to be judged rather than argued about:
+         *
+         *   content  the article and nothing else (what we have been looking at)
+         *   header   a small header we own: title, a search that works, and a
+         *            way out to the real page
+         *   skin     MonoBook's full chrome, fetched and injected
+         *
+         * The honest caveat on 'skin', and the reason it is not the default:
+         * injected HTML does not run scripts. The sidebar and tabs are real
+         * links and do work, but the search box is furniture -- it accepts
+         * typing and does nothing. A control that looks real and isn't is
+         * worse than no control, so it is labelled where it sits.
+         * ------------------------------------------------------------------ */
+        const PANE_MODES = ['content', 'header', 'skin'];
+
+        function paneMode() {
+            const saved = localStorage.getItem('rabbitholePaneMode');
+            return PANE_MODES.includes(saved) ? saved : 'content';
+        }
+
+        const CHROME_STYLES = [
+            '<style>',
+            '.pane-chrome { display: flex; align-items: center; gap: 8px;',
+            '  padding: 6px 8px; margin: -4px -4px 10px; background: #f3f5f1;',
+            '  border-bottom: 1px solid #d8ddd3; font-size: 13px;',
+            '  position: sticky; top: 0; z-index: 5; }',
+            '.pane-chrome .pane-search { flex: 1 1 auto; min-width: 60px;',
+            '  padding: 4px 6px; border: 1px solid #c3cbbb; border-radius: 3px;',
+            '  font: inherit; }',
+            '.pane-chrome a { color: #2d5016; text-decoration: none; }',
+            '.pane-chrome a:hover { text-decoration: underline; }',
+            '.pane-mode { font: inherit; padding: 3px; border: 1px solid #c3cbbb;',
+            '  border-radius: 3px; background: #fff; }',
+            '.pane-results { list-style: none; padding: 0; margin: 0; }',
+            '.pane-results li { padding: 5px 0; border-bottom: 1px solid #eceee8; }',
+            '.pane-results a { font-weight: 600; }',
+            '.pane-results .snippet { color: #5a6354; font-size: 12px; }',
+            '.pane-fake-note { background: #fff6d8; border: 1px solid #e3d08a;',
+            '  padding: 5px 8px; font-size: 12px; margin: 0 0 8px; }',
+            '</style>'
+        ].join('');
+
+        function modeSwitcher() {
+            const current = paneMode();
+            return '<select class="pane-mode" title="How much of the wiki to show">'
+                + PANE_MODES.map(function (m) {
+                    return '<option value="' + m + '"'
+                        + (m === current ? ' selected' : '') + '>' + m + '</option>';
+                }).join('')
+                + '</select>';
+        }
+
+        async function paneBody(title, parsed) {
+            const path = '/wiki/' + title.replace(/ /g, '_');
+            const mode = paneMode();
+
+            if (mode === 'skin') {
+                // MonoBook renders the chrome server-side, so take the real
+                // page rather than rebuilding it. action=parse gives only the
+                // article body, which is why this is a second fetch.
+                try {
+                    const html = await (await fetch(path)).text();
+                    const doc = new DOMParser().parseFromString(html, 'text/html');
+                    const wrapper = doc.getElementById('globalWrapper');
+                    if (wrapper) {
+                        wrapper.querySelectorAll('script, #siteNotice').forEach(function (el) {
+                            el.remove();
+                        });
+                        return CHROME_STYLES
+                            + '<div class="pane-chrome">' + modeSwitcher()
+                            + '<span>MonoBook, as the wiki renders it</span></div>'
+                            + '<div class="pane-fake-note">The search box below is '
+                            + 'furniture: injected HTML cannot run scripts, so it '
+                            + 'accepts typing and does nothing. The sidebar and tab '
+                            + 'links are real.</div>'
+                            + wrapper.outerHTML;
+                    }
+                } catch (err) {
+                    console.warn('Could not fetch the full page for skin mode', err);
+                }
+                // Fall through to the article rather than showing nothing.
+            }
+
+            // Wrapped in the containers MonoBook's rules hang off. action=parse
+            // returns the parser output on its own, and most of a skin's
+            // typography is written as '#content .thing', so without these the
+            // rules match nothing.
+            const article = '<div id="globalWrapper"><div id="column-content">'
+                + '<div id="content" class="mw-body"><div class="mw-body-content">'
+                + '<h1 class="pane-title firstHeading">'
+                + (parsed.displaytitle || title) + '</h1>'
+                + parsed.text
+                + '</div></div></div></div>';
+
+            if (mode === 'header') {
+                return CHROME_STYLES
+                    + '<div class="pane-chrome">' + modeSwitcher()
+                    + '<input class="pane-search" type="search" '
+                    + 'placeholder="Search PickiPedia" aria-label="Search PickiPedia">'
+                    + '<a href="' + path + '" target="_blank" rel="noopener">open ↗</a>'
+                    + '</div>' + article;
+            }
+
+            return CHROME_STYLES + '<div class="pane-chrome">' + modeSwitcher()
+                + '<span>article only</span></div>' + article;
+        }
+
+        function wirePaneChrome(root) {
+            rewirePaneLinks(root);
+
+            const select = root.querySelector('.pane-mode');
+            if (select) {
+                select.addEventListener('change', function () {
+                    localStorage.setItem('rabbitholePaneMode', select.value);
+                    // Re-render where we are, without adding a history entry.
+                    const here = decodeURIComponent(location.pathname.replace('/wiki/', ''))
+                        .replace(/_/g, ' ');
+                    openWikiPage(here || 'Justin Holmes', { push: false });
+                });
+            }
+
+            const search = root.querySelector('.pane-search');
+            if (search) {
+                search.addEventListener('keydown', async function (ev) {
+                    if (ev.key !== 'Enter' || !search.value.trim()) return;
+                    const params = new URLSearchParams({
+                        action: 'query', list: 'search', srsearch: search.value.trim(),
+                        srlimit: '15', format: 'json', formatversion: '2', origin: '*'
+                    });
+                    const data = await (await fetch('/api.php?' + params)).json();
+                    const hits = data.query?.search || [];
+                    const body = root.querySelector('.mw-body-content');
+                    if (!body) return;
+                    body.innerHTML = '<h1 class="pane-title">' + hits.length
+                        + ' result' + (hits.length === 1 ? '' : 's') + ' for '
+                        + search.value.trim() + '</h1><ul class="pane-results">'
+                        + hits.map(function (hit) {
+                            return '<li><a href="/wiki/'
+                                + encodeURIComponent(hit.title.replace(/ /g, '_'))
+                                + '">' + hit.title + '</a>'
+                                + '<div class="snippet">' + (hit.snippet || '')
+                                + '</div></li>';
+                        }).join('') + '</ul>';
+                    rewirePaneLinks(root);
+                });
+            }
+        }
+
+        async function openWikiPage(title, { push = true, force = false } = {}) {
+            const pane = document.getElementById('pickipedia-frame');
+            if (!pane) return;
+            const path = '/wiki/' + title.replace(/ /g, '_');
+
+            // Already here. Re-fetching and rebuilding the article that is
+            // already in the pane costs a request and two layouts and shows
+            // a "Loading" flash for nothing -- whether the repeat comes from
+            // tapping a musician card for whoever is already on screen, from
+            // a popstate, or from a solo returning with no one in between.
+            // August does not happen to do the last one; other songs will.
+            if (!force && pane.dataset.wikiTitle === title) {
+                if (push) history.pushState({ wikiTitle: title }, '', path);
+                return;
+            }
+
+            const shadow = pane.shadowRoot || pane.attachShadow({ mode: 'open' });
+            // Only blank the pane when there is nothing in it. Replacing a
+            // rendered article with "Loading" and then with the next article
+            // is two layouts and a flash where one layout will do.
+            if (!pane.dataset.wikiTitle) {
+                shadow.innerHTML = PANE_STYLES
+                    + '<div class="pane-loading">Loading ' + title + '…</div>';
+            }
+
+            try {
+                const params = new URLSearchParams({
+                    action: 'parse', page: title, prop: 'text|displaytitle',
+                    formatversion: '2', format: 'json', origin: '*'
+                });
+                const data = await (await fetch('/api.php?' + params)).json();
+                const parsed = data.parse;
+                if (!parsed) throw new Error(data.error?.info || 'no such page');
+
+                const root = pane.shadowRoot || pane.attachShadow({ mode: 'open' });
+                root.innerHTML = PANE_STYLES + await paneBody(title, parsed);
+                pane.dataset.wikiTitle = title;
+                wirePaneChrome(root);
+                pane.scrollTop = 0;
+                rewirePaneLinks(root);
+                if (push) history.pushState({ wikiTitle: title }, '', path);
+                else history.replaceState({ wikiTitle: title }, '', path);
+            } catch (err) {
+                console.warn('Could not open', title, err);
+                (pane.shadowRoot || pane.attachShadow({ mode: 'open' })).innerHTML =
+                    PANE_STYLES + '<div class="pane-loading">Could not load '
+                    + title + ' — <a href="' + path + '">open it directly</a>.</div>';
+            }
+        }
+
+        // Links inside the pane stay inside the pane. Anything that is not an
+        // ordinary wiki page — an edit link, a Special: page, an off-site
+        // link — is left alone and opens the normal way.
+        /**
+         * A Listen in Rabbithole button inside the pane does not go anywhere.
+         *
+         * Sky, 2026-10-18: "the listen on RH button with the chase will just
+         * expand that tab if its not open and start playing the song and just
+         * start playing it if the tab is open".
+         *
+         * Following the link would reload the shell, which throws away the
+         * player, the queue and whatever is playing -- the one thing a dock
+         * exists to avoid. So the click is caught, the track CID is lifted out
+         * of the href, and the running player is handed the new song.
+         *
+         * The href stays exactly as it is, because outside this shell -- on the
+         * wiki proper, in a Mood, in somebody's bookmarks -- following it is
+         * precisely the right behaviour.
+         */
+        function rewireListenButtons(pane) {
+            pane.querySelectorAll('a[href*="/rabbithole/"]').forEach(a => {
+                let cid;
+                try {
+                    cid = new URL(a.href, location.origin).searchParams.get('track');
+                } catch (err) {
+                    return;
+                }
+                if (!cid) return;
+
+                let action;
+                try {
+                    action = new URL(a.href, location.origin).searchParams.get('action');
+                } catch (err) {
+                    action = null;
+                }
+
+                a.addEventListener('click', async e => {
+                    e.preventDefault();
+                    if (action === 'trail') {
+                        await trailToHere(a, cid);
+                    } else if (action === 'queue') {
+                        queueTrack(cid, a);
+                    } else {
+                        await playTrackInDock(cid);
+                    }
+                });
+            });
+        }
+
+        /* ------------------------------------------------------------------
+         * The queue.
+         *
+         * Justin, 2026-10-18, on what "Listen in Rabbithole" could mean:
+         * listen now, listen next, or find me a rabbithole from here to there.
+         * This is the second one. The third needs the catalog and is not this.
+         *
+         * The player has been calling window.playNextInRabbithole() when a
+         * track ends since before any of this, and nothing has ever defined
+         * it -- so a finished song just stopped. This defines it.
+         * ------------------------------------------------------------------ */
+        const rabbitholeQueue = [];
+
+        /* ------------------------------------------------------------------
+         * Trails: how you get from what is playing to the song you are
+         * reading about, through the people who played on both.
+         *
+         * Justin's third meaning of "Listen in Rabbithole", and the only one
+         * that earns the name. The graph is already on the wiki -- Has
+         * performer subobjects, one per person per song, carrying the
+         * instrument -- so every hop is true because somebody played it.
+         *
+         * The search itself is in src/trail.js and is tested there. This is
+         * only the fetching and the showing.
+         * ------------------------------------------------------------------ */
+        let performerGraphPromise = null;
+
+        function performerGraph() {
+            if (!performerGraphPromise) {
+                const params = new URLSearchParams({
+                    action: 'ask', format: 'json', origin: '*',
+                    query: '[[Has performer::+]]|?Has performer|?Has instrument|limit=500'
+                });
+                performerGraphPromise = fetch('/api.php?' + params)
+                    .then(r => r.json())
+                    .then(d => buildGraph(d.query && d.query.results))
+                    .catch(err => {
+                        console.warn('Could not read the performer graph', err);
+                        performerGraphPromise = null;
+                        return { band: {}, plays: {} };
+                    });
+            }
+            return performerGraphPromise;
+        }
+
+        /**
+         * The track CID a song page carries, read off its own listen button.
+         *
+         * This is the song-to-recording edge, and it does not exist as data:
+         * nothing on the wiki says "this composition was released as that
+         * CID". What does exist is the listen button, which a human put the
+         * CID into. So the button is the edge, for now. When a real property
+         * exists this should read that instead.
+         */
+        const cidForSong = {};
+
+        async function trackCidForSong(songTitle) {
+            if (cidForSong[songTitle] !== undefined) {
+                return cidForSong[songTitle];
+            }
+
+            const params = new URLSearchParams({
+                action: 'parse', page: songTitle, prop: 'text',
+                formatversion: '2', format: 'json', origin: '*'
+            });
+            try {
+                const data = await (await fetch('/api.php?' + params)).json();
+                const html = data.parse && data.parse.text;
+                const match = html && html.match(/[?&]track=([A-Za-z0-9]+)/);
+                cidForSong[songTitle] = match ? match[1] : null;
+            } catch (err) {
+                cidForSong[songTitle] = null;
+            }
+            return cidForSong[songTitle];
+        }
+
+        /** The song page for whatever is playing, as a page title. */
+        function playingSongTitle() {
+            const data = window.rabbitholeSongData;
+            return data && data.title ? 'Song:' + data.title : null;
+        }
+
+        async function trailToHere(button, targetCid) {
+            const target = 'Song:' + (
+                document.getElementById('pickipedia-frame')
+                    .shadowRoot.querySelector('.pane-title, .firstHeading')
+                    ?.textContent.replace(/^Song:/, '').trim() || ''
+            );
+            const from = playingSongTitle();
+
+            if (!from) {
+                flashButton(button, 'nothing playing to start from');
+                return;
+            }
+            if (from === target) {
+                flashButton(button, 'you are already here');
+                return;
+            }
+
+            flashButton(button, 'looking…');
+            const graph = await performerGraph();
+            const hops = findTrail(graph, from, target);
+
+            if (!hops) {
+                flashButton(button, 'no way there from here');
+                return;
+            }
+
+            renderTrail(from, hops);
+
+            // Queue the songs along the way, so the trail is a thing you can
+            // listen to rather than only read.
+            const queued = [];
+            for (const song of trailSongs(from, hops).slice(1)) {
+                const cid = await trackCidForSong(song);
+                if (cid && !rabbitholeQueue.includes(cid)) {
+                    rabbitholeQueue.push(cid);
+                    queued.push(song);
+                }
+            }
+            flashButton(button, hops.length + ' hop' + (hops.length === 1 ? '' : 's')
+                + ', ' + queued.length + ' queued');
+        }
+
+        function renderTrail(from, hops) {
+            const pane = document.getElementById('pickipedia-frame');
+            const root = pane && pane.shadowRoot;
+            if (!root) return;
+
+            root.querySelectorAll('.pp-trail').forEach(el => el.remove());
+
+            const panel = document.createElement('div');
+            panel.className = 'pp-trail';
+            panel.setAttribute('style', 'margin:.6em 0; padding:.6em .8em;'
+                + 'border:1px solid #c9d3c3; border-left:4px solid #4a7c59;'
+                + 'background:#f6f8f4; font-size:13px; line-height:1.5;');
+            panel.innerHTML = '<strong>Down the rabbithole from '
+                + from.replace(/^Song:/, '') + '</strong><ol style="margin:.4em 0 0; padding-left:1.4em;">'
+                + hops.map(hop => '<li>' + hop.via
+                    + (hop.instrument ? ' <em>(' + hop.instrument + ')</em>' : '')
+                    + ' played on both — to <strong>'
+                    + hop.to.replace(/^Song:/, '') + '</strong></li>').join('')
+                + '</ol>';
+
+            const body = root.querySelector('.mw-body-content') || root;
+            body.insertBefore(panel, body.firstChild);
+        }
+
+        function queueTrack(cid, button) {
+            if (rabbitholeQueue.includes(cid)) {
+                flashButton(button, 'already queued');
+                return;
+            }
+
+            rabbitholeQueue.push(cid);
+            flashButton(button, rabbitholeQueue.length === 1
+                ? 'queued — plays next'
+                : 'queued — ' + rabbitholeQueue.length + ' waiting');
+        }
+
+        /**
+         * Say something happened, where the thing happened.
+         *
+         * Two silent failures turned up today -- a play button that did
+         * nothing while the player was still loading, and a listen button
+         * whose only complaint was a console warning. Queueing is worse than
+         * both: it is invisible by nature, since nothing about the page
+         * changes. So the button says so itself.
+         */
+        /*
+         * flashButton rewrites the element's own text, which is right for a
+         * button and wrong for a <select> -- setting textContent on a select
+         * throws its options away. So for a control that owns its contents,
+         * put the message beside it instead.
+         */
+        function flashBeside(el, message) {
+            if (!el || !el.parentNode) return;
+            let note = el.parentNode.querySelector('.inline-flash-note');
+            if (!note) {
+                note = document.createElement('span');
+                note.className = 'inline-flash-note';
+                note.style.cssText =
+                    'margin-left:6px; font-size:11px; color:#a00; white-space:nowrap;';
+                el.parentNode.insertBefore(note, el.nextSibling);
+            }
+            clearTimeout(note._flashTimer);
+            note.textContent = message;
+            note._flashTimer = setTimeout(() => { note.textContent = ''; }, 4000);
+        }
+
+        function flashButton(button, message) {
+            if (!button) return;
+            const label = button.querySelector('span') || button;
+
+            // Remember the real label the first time, not whatever is showing.
+            // Clicking twice inside the flash window would otherwise capture
+            // the flashed text as the original and the button would keep it
+            // for good -- a button permanently reading "already queued".
+            if (label.dataset.restLabel === undefined) {
+                label.dataset.restLabel = label.textContent;
+            }
+            clearTimeout(label._flashTimer);
+
+            label.textContent = message;
+            label._flashTimer = setTimeout(() => {
+                label.textContent = label.dataset.restLabel;
+            }, 2200);
+        }
+
+        window.playNextInRabbithole = async function() {
+            const next = rabbitholeQueue.shift();
+            if (!next) return;
+            await playTrackInDock(next);
+        };
+
+        async function playTrackInDock(cid) {
+            // Open the dock first, so a slow fetch happens in front of the
+            // player rather than behind a closed bar.
+            if (document.body.classList.contains('bar-collapsed')) {
+                window.toggleSidebar();
+            }
+
+            try {
+                const song = await loadTrackFromWiki(cid);
+                window.rabbitholeSongData = song;
+
+                if (window.rabbitholePlayer
+                    && typeof window.rabbitholePlayer.loadNewSong === 'function') {
+                    await window.rabbitholePlayer.loadNewSong(song);
+                    setTimeout(addMusicianClickHandlers, 500);
+                }
+
+                // The track is the shareable thing, so put it in the URL --
+                // replace, not push, so Back still means the page you came
+                // from rather than the same page minus a song.
+                const url = new URL(location.href);
+                url.searchParams.set('track', cid);
+                history.replaceState({ ...history.state, track: cid }, '', url);
+            } catch (err) {
+                console.warn('Could not play', cid, 'in the dock', err);
+            }
+        }
+
+        function rewirePaneLinks(pane) {
+            rewireListenButtons(pane);
+            pane.querySelectorAll('a[href^="/wiki/"]').forEach(a => {
+                const title = decodeURIComponent(
+                    a.getAttribute('href').slice('/wiki/'.length)).replace(/_/g, ' ');
+                if (/^(Special|File|Category):/.test(title)) return;
+                a.addEventListener('click', e => {
+                    e.preventDefault();
+                    openWikiPage(title);
+                });
+            });
+        }
+
+        window.addEventListener('popstate', (e) => {
+            const title = e.state && e.state.wikiTitle;
+            if (title) openWikiPage(title, { push: false });
+        });
+
         // Navigate to musician's PickiPedia page
         window.navigateToMusician = function(musicianName) {
-            const slug = musicianName.replace(/\s+/g, '_');
-            document.getElementById('pickipedia-frame').src = '/wiki/' + slug;
+            openWikiPage(musicianName);
         };
+
+        // With no ?track=, nothing else fills the pane. The iframe used to
+        // carry src="/wiki/Justin_Holmes" as its default; keep that.
+        if (!trackParam) {
+            openWikiPage('Justin Holmes', { push: false });
+        }
+
+        /*
+         * The editor button's two labels, in one place.
+         *
+         * They used to be written as strings at the two points that toggle
+         * the editor, which meant anything done to the label elsewhere was
+         * undone the first time it was pressed.
+         */
+        const EDITOR_LABELS = {
+            open: 'Edit Timeline',
+            close: 'Close Editor',
+        };
+
+        window.setEditorButtonLabel = function (which) {
+            const btn = document.getElementById('editor-toggle-btn');
+            if (!btn) return;
+            btn.textContent = EDITOR_LABELS[which];
+            btn.title = EDITOR_LABELS[which];
+        };
+
+        /*
+         * On a phone, the track list says the song and nothing else.
+         *
+         * "August - Vowel Sounds" is two facts, and the row already carries
+         * the second one as the cover beside it. Dropping the album halves
+         * the longest label, which is the one thing that decides how wide
+         * the control has to be -- and the control has been reading as cut
+         * on an iPhone at widths that cannot cut it here, so leave it less
+         * to render rather than keep guessing at the width.
+         *
+         * The full labels stay on a desktop, where there is room for both
+         * facts and the album is worth having in the list.
+         */
+        /* The other half of shortenTrackLabelsOnNarrowScreens: a window
+           dragged wide again should get its album names back. */
+        /* The switch's caption, long and short. Same reasoning as the track
+           list: the full name goes in the tooltip, so nothing is lost. */
+        const SWITCH_CAPTION = {
+            long: 'Auto-switch artist profiles',
+            short: 'Follow artist',
+        };
+
+        function setSwitchCaptionForViewport() {
+            const cap = document.querySelector('.auto-switch-caption');
+            const label = document.querySelector('.auto-switch');
+            if (!cap) return;
+            const narrow = window.matchMedia('( max-width: 1100px )').matches;
+            cap.textContent = narrow ? SWITCH_CAPTION.short : SWITCH_CAPTION.long;
+            if (label) label.title = SWITCH_CAPTION.long
+                + ': follow the solo into each player\'s page';
+        }
+
+        function restoreTrackLabelsOnWideScreens() {
+            if (window.matchMedia('( max-width: 1100px )').matches) return;
+            document.querySelectorAll('#song-selector option').forEach(o => {
+                if (o.dataset.fullLabel !== undefined) {
+                    o.textContent = o.dataset.fullLabel;
+                }
+            });
+        }
+
+        function shortenTrackLabelsOnNarrowScreens() {
+            if (!window.matchMedia('( max-width: 1100px )').matches) return;
+            document.querySelectorAll('#song-selector option').forEach(o => {
+                if (o.dataset.fullLabel === undefined) {
+                    o.dataset.fullLabel = o.textContent;
+                }
+                o.textContent = o.dataset.fullLabel.split(' - ')[0];
+            });
+        }
+        /*
+         * Both label choices depend on how wide the viewport is, and a
+         * viewport changes width without a reload: a phone is rotated, a
+         * window is dragged, a page is zoomed. Chosen once at load, the
+         * long labels survive into a layout with no room for them -- the
+         * track list keeps its album suffix, grows by 60px, and shoves the
+         * editor button into the switch. Seen by rotating a 390px portrait
+         * page to landscape and back.
+         *
+         * So re-decide whenever the viewport changes. Both functions are
+         * idempotent and keep the full text on the element, so this can run
+         * as often as it likes.
+         */
+        function relabelForViewport() {
+            shortenTrackLabelsOnNarrowScreens();
+            restoreTrackLabelsOnWideScreens();
+            setSwitchCaptionForViewport();
+            window.setEditorButtonLabel(
+                document.querySelector('.layout.with-editor') ? 'close' : 'open');
+        }
+
+        relabelForViewport();
+        window.addEventListener('resize', relabelForViewport);
+        window.addEventListener('orientationchange', relabelForViewport);
 
         // Load selected song
         window.loadSelectedSong = async function() {
@@ -1098,10 +3244,28 @@
             const newSong = songs[songKey];
             if (!newSong) return;
 
-            window.songChartifactsData = newSong;
+            // Silence with nothing in the console was the bug three times
+            // this week. If the audio cannot be resolved, say so where a
+            // person will see it.
+            try {
+                await resolveAudioFile(newSong);
+            } catch (err) {
+                console.error('Could not resolve audio for', songKey, err);
+                flashBeside(selector, 'no audio for this track');
+                return;
+            }
 
-            if (window.chartifactsPlayer && typeof window.chartifactsPlayer.loadNewSong === 'function') {
-                await window.chartifactsPlayer.loadNewSong(newSong);
+            window.rabbitholeSongData = newSong;
+            populateSongInfoHeader(newSong);
+            populateAlbumRow(newSong)
+                .then(() => {
+                    const albumSel = document.getElementById('album-track-select');
+                    if (albumSel) albumSel.style.display = 'none';
+                })
+                .catch(err => console.warn('Could not build the album row:', err));
+
+            if (window.rabbitholePlayer && typeof window.rabbitholePlayer.loadNewSong === 'function') {
+                await window.rabbitholePlayer.loadNewSong(newSong);
                 setTimeout(addMusicianClickHandlers, 500);
             }
         };
@@ -1116,10 +3280,22 @@
         }
 
         // Initialize player
-        const { default: WebampChartifacts } = await import('./src/player/webamp-chartifacts.js');
+        const { buildGraph, findTrail, trailSongs } = await import('./src/trail.js');
 
-        window.chartifactsPlayer = new WebampChartifacts('webamp-player', window.songChartifactsData, {
-            embedMode: false,
+        // Before the player module loads, because Webamp builds its audio
+        // graph as it initialises and the graph is what warps the sound on
+        // an iPhone. See src/player/ios-web-audio.js.
+        const { installWebAudioBypass, followVolume, shouldBypassWebAudio } =
+            await import('./src/player/ios-web-audio.js');
+        const bypassed = installWebAudioBypass(window.location.search);
+
+        const { default: RabbitholeWebampPlayer } = await import('./src/player/rabbithole-player.js');
+
+        // In bottom-bar mode the cards live in #ensemble-display (in the
+        // middle zone of the bar). Default mode keeps cards inside webamp.
+        const isBottomBar = document.body.classList.contains('bottom-bar');
+        window.rabbitholePlayer = new RabbitholeWebampPlayer('webamp-player', window.rabbitholeSongData, {
+            embedMode: isBottomBar,
             fixedPosition: false,
             onSoloChange: (musicianName) => {
                 const autoSwitch = document.getElementById('auto-switch-toggle').checked;
@@ -1130,6 +3306,250 @@
             }
         });
 
+        // With the graph bypassed the volume slider drives a gain node that
+        // is downstream of nothing; point it at the element instead.
+        if (bypassed) {
+            const wireVolume = (tries = 0) => {
+                const media = window.rabbitholePlayer
+                    && window.rabbitholePlayer.webamp
+                    && window.rabbitholePlayer.webamp.media;
+                if (!media || !followVolume(media)) {
+                    if (tries < 50) setTimeout(() => wireVolume(tries + 1), 200);
+                    return;
+                }
+                const state = window.rabbitholePlayer.webamp.store.getState();
+                media.setVolume(state.media.volume);
+            };
+            wireVolume();
+        }
+
+        /*
+         * ?rhdiag=1 -- an on-screen readout of what the audio is doing.
+         *
+         * Skyler hears the audio speed up and slow down on an iPhone, most
+         * audibly at the A that follows the first B of August (t=50, where
+         * the solo passes to Harry Clark). None of it reproduces on a
+         * desktop: the whole 4MB file buffers, there are no long tasks, and
+         * audio time tracks wall-clock time to within a tenth of a second
+         * across the stretch where he hears it. So the measurement has to
+         * happen on the phone, and a phone has no console you can read while
+         * you listen.
+         *
+         * What it shows: the media element's own currentTime against the
+         * wall clock. If they stay together, the audio is running at speed
+         * and what he is hearing is something else; if the audio falls
+         * behind in steps, it is stalling. Buffered end says whether the
+         * file is ahead of the playhead. Any waiting/stalled/ratechange the
+         * element fires is listed with the time it happened.
+         */
+        if (INITIAL_PARAMS.get('rhdiag')) {
+            const box = document.createElement('div');
+            box.style.cssText = 'position:fixed; top:0; left:0; right:0; z-index:9999;'
+                + 'background:#111; color:#eee; font:13px/1.4 system-ui, sans-serif;'
+                + 'padding:8px 10px; pointer-events:none;';
+            document.body.appendChild(box);
+
+            const waitForAudio = (tries = 0) => {
+                const p = window.rabbitholePlayer;
+                const audio = p && p.webamp && p.webamp.media
+                    && p.webamp.media._source && p.webamp.media._source._audio;
+                if (!audio) {
+                    if (tries < 100) setTimeout(() => waitForAudio(tries + 1), 200);
+                    return;
+                }
+
+                /*
+                 * A list, not a latch.
+                 *
+                 * The first version reported the first thing it saw and then
+                 * stopped looking -- and the first thing it saw was itself.
+                 * iOS reports the element as playing a little before sound
+                 * actually flows, so the opening half-second of silence read
+                 * as the audio falling behind, the bar latched on it at
+                 * t=1.6s, and the spot that actually matters at t=50 was
+                 * never reached. Twice now this thing has cried wolf about
+                 * its own startup.
+                 *
+                 * So: measure drift only once the song has genuinely been
+                 * running (two seconds of audio actually advanced), keep the
+                 * findings as a list rather than a verdict, and re-arm after
+                 * each one so a single early artefact cannot blind the rest.
+                 */
+                const findings = [];
+                const note = (line) => {
+                    if (findings.length && findings[findings.length - 1] === line) return;
+                    findings.push(line);
+                    if (findings.length > 5) findings.shift();
+                };
+                const render = (status) => {
+                    box.innerHTML = findings.length
+                        ? '<b>' + findings.join('</b><br><b>') + '</b>'
+                            + '<br><span style="color:#9c9; font-size:11px">'
+                            + status + '</span>'
+                        : '<b>Listening…</b><br><span style="color:#9c9; font-size:11px">'
+                            + status + '</span>';
+                };
+                render('play the song; this bar keeps everything it catches');
+
+                // A seek lands outside what is buffered and fires `waiting` on
+                // the way; that is the seek working, not a fault.
+                let lastSeekAt = -1e9;
+                audio.addEventListener('seeking',
+                    () => { lastSeekAt = performance.now(); });
+
+                ['waiting', 'stalled', 'error'].forEach(ev =>
+                    audio.addEventListener(ev, () => {
+                        if (audio.currentTime < 3) return;
+                        if (performance.now() - lastSeekAt < 3000) return;
+                        note('STALLED at ' + audio.currentTime.toFixed(1) + 's'
+                            + ' (' + ev + ', buffered to '
+                            + (audio.buffered.length
+                                ? audio.buffered.end(audio.buffered.length - 1).toFixed(0)
+                                : 0) + 's)');
+                    }));
+
+                audio.addEventListener('ratechange', () => {
+                    if (audio.playbackRate !== 1) {
+                        note('RATE set to ' + audio.playbackRate
+                            + ' at ' + audio.currentTime.toFixed(1) + 's');
+                    }
+                });
+
+                // Drift: does audio time keep up with the wall clock?
+                let wall0 = null, audio0 = null, lastT = null;
+                const rebase = () => { wall0 = null; };
+                setInterval(() => {
+                    const playing = !audio.paused && !audio.ended;
+                    const jumped = lastT !== null
+                        && Math.abs(audio.currentTime - lastT) > 1.5;
+                    lastT = audio.currentTime;
+
+                    if (!playing || jumped) {
+                        rebase();
+                        render((playing ? 'playing' : 'paused')
+                            + ' at ' + audio.currentTime.toFixed(1) + 's');
+                        return;
+                    }
+                    // Warm up: wait for the song to be properly under way
+                    // before believing anything the clock says.
+                    if (audio.currentTime < 3) {
+                        rebase();
+                        render('starting… ' + audio.currentTime.toFixed(1) + 's');
+                        return;
+                    }
+                    if (wall0 === null) {
+                        wall0 = performance.now(); audio0 = audio.currentTime;
+                        return;
+                    }
+                    const wall = (performance.now() - wall0) / 1000;
+                    const drift = (audio.currentTime - audio0) - wall;
+                    if (wall > 2 && Math.abs(drift) > 0.25) {
+                        note((drift < 0 ? 'FELL BEHIND ' : 'RAN AHEAD ')
+                            + Math.abs(drift).toFixed(2) + 's'
+                            + ' by ' + audio.currentTime.toFixed(1) + 's');
+                        rebase();
+                        return;
+                    }
+                    render('playing at ' + audio.currentTime.toFixed(1) + 's'
+                        + (findings.length ? '' : ' · nothing caught yet'));
+                }, 250);
+            };
+            waitForAudio();
+        }
+
+        if (isBottomBar) {
+            // Initial icon points down (▼) = "click to collapse the bar".
+            const initIcon = document.getElementById('minimize-icon');
+            if (initIcon) initIcon.textContent = '▼';
+
+            // In embed mode the player skips the constrain-and-position pass
+            // it does for the full-mode left-sidebar layout, so Webamp's main
+            // window floats wherever its default transform puts it (typically
+            // the middle of the viewport). Pin it to the top-left of the
+            // webamp-wrapper, retrying while Webamp settles.
+            const pinWebamp = (attempts = 0) => {
+                const mainWindow = document.querySelector('#main-window');
+                const webampElement = document.getElementById('webamp');
+                const wrapper = document.querySelector('.webamp-wrapper');
+                if (!mainWindow || !webampElement || !wrapper) {
+                    if (attempts < 30) setTimeout(() => pinWebamp(attempts + 1), 100);
+                    return;
+                }
+                wrapper.appendChild(webampElement);
+                wrapper.style.position = 'relative';
+                webampElement.style.display = 'block';
+                webampElement.style.visibility = 'visible';
+                webampElement.style.opacity = '1';
+                const mainWindowParent = mainWindow.parentElement;
+                if (mainWindowParent && mainWindowParent.style) {
+                    mainWindowParent.style.transform = 'translate(0px, 0px)';
+                }
+            };
+            pinWebamp();
+
+            /*
+             * And again whenever the viewport changes.
+             *
+             * Webamp's window is draggable and carries its position in a
+             * transform on its parent. Pinning it once at startup is not
+             * enough: rotating the phone, or resetting a zoom, leaves that
+             * transform holding a position that no longer means what it did
+             * and the player drifts out of the corner of the bar -- 8px
+             * right after one rotation here, and Justin watched it jump in
+             * Firefox when he reset the zoom.
+             *
+             * This puts it back. It does not stop the dragging, which is
+             * the real fix and belongs upstream in Webamp; until that
+             * exists, a window that wanders home on the next resize is a
+             * good deal better than one that stays where it was pushed.
+             */
+            let repinTimer = null;
+            const repin = () => {
+                clearTimeout(repinTimer);
+                repinTimer = setTimeout(() => pinWebamp(), 60);
+            };
+            window.addEventListener('resize', repin);
+            window.addEventListener('orientationchange', repin);
+
+            /*
+             * And hold it there.
+             *
+             * Checked upstream rather than hoping: Webamp's public Options
+             * today are availableSkins, enableDoubleSizeMode, enableHotkeys,
+             * enableMediaSession, filePickers, the three handle* callbacks,
+             * initialSkin, initialTracks, requireButterchurnPresets,
+             * windowLayout and zIndex. There is no sticky mode and nothing
+             * tracking one -- the only issue whose title matches, #129, is
+             * about windows snapping to each other and was closed in 2016.
+             * We are on 1.5.0 against a current 2.3.1, and none of the
+             * versions between add one.
+             *
+             * So pin it here. Webamp carries the window's position as a
+             * transform on its parent; anything that moves it -- a drag, a
+             * zoom, a rotation -- writes that attribute, and this writes it
+             * back. The same trick the full-mode layout already uses, which
+             * is where I should have looked first.
+             *
+             * This is a dock, not a desktop: the player has one place to be.
+             */
+            const holdWebampStill = (attempts = 0) => {
+                const mainWindow = document.querySelector('#main-window');
+                if (!mainWindow || !mainWindow.parentElement) {
+                    if (attempts < 30) setTimeout(() => holdWebampStill(attempts + 1), 100);
+                    return;
+                }
+                const parent = mainWindow.parentElement;
+                const HOME = 'translate(0px, 0px)';
+                new MutationObserver(() => {
+                    if (parent.style.transform !== HOME) {
+                        parent.style.transform = HOME;
+                    }
+                }).observe(parent, { attributes: true, attributeFilter: ['style'] });
+                parent.style.transform = HOME;
+            };
+            holdWebampStill();
+        }
+
         // Listen for "Apply Changes" from the editor inside the iframe
         // (Release:.../Metadata page). The iframe editor doesn't have a
         // reference to this player, so it postMessages the new timeline
@@ -1137,17 +3557,17 @@
         window.addEventListener('message', (event) => {
             const msg = event.data;
             if (!msg || msg.type !== 'rabbithole:metadata-applied') return;
-            if (!window.chartifactsPlayer) return;
+            if (!window.rabbitholePlayer) return;
             // Update timeline (visualization changes immediately)
-            if (msg.timeline && typeof window.chartifactsPlayer.updateTimeline === 'function') {
-                window.chartifactsPlayer.updateTimeline(msg.timeline);
+            if (msg.timeline && typeof window.rabbitholePlayer.updateTimeline === 'function') {
+                window.rabbitholePlayer.updateTimeline(msg.timeline);
             }
             // Mirror to the active song so future re-renders see it
-            if (window.songChartifactsData) {
-                if (msg.timeline) window.songChartifactsData.timeline = msg.timeline;
-                if (msg.ensemble) window.songChartifactsData.ensemble = msg.ensemble;
+            if (window.rabbitholeSongData) {
+                if (msg.timeline) window.rabbitholeSongData.timeline = msg.timeline;
+                if (msg.ensemble) window.rabbitholeSongData.ensemble = msg.ensemble;
                 if (msg.standardSectionLength !== undefined) {
-                    window.songChartifactsData.standardSectionLength = msg.standardSectionLength;
+                    window.rabbitholeSongData.standardSectionLength = msg.standardSectionLength;
                 }
             }
         });
@@ -1191,7 +3611,7 @@
             const container = document.getElementById('mini-musicians');
             if (!container) return;
 
-            const song = window.songChartifactsData;
+            const song = window.rabbitholeSongData;
             if (!song || !song.ensemble) return;
 
             container.innerHTML = '';
@@ -1229,16 +3649,39 @@
 
         // Toggle sidebar minimize/maximize
         window.toggleSidebar = function() {
-            const layout = document.querySelector('.layout');
             const icon = document.getElementById('minimize-icon');
-            layout.classList.toggle('minimized');
-            icon.textContent = layout.classList.contains('minimized') ? '▶' : '◀';
+
+            if (document.body.classList.contains('bottom-bar')) {
+                // Collapse the bottom bar AND put Webamp in shade mode.
+                const collapsed = document.body.classList.toggle('bar-collapsed');
+                icon.textContent = collapsed ? '▲' : '▼';
+
+                // Toggle Webamp's windowshade. Programmatic click() on
+                // Webamp's own #shade div doesn't fire its handler (Webamp
+                // listens for pointerdown, not click), so dispatch the
+                // Redux action directly. The action is a toggle, so we
+                // only fire when our class state DOESN'T already match
+                // Webamp's shade state — keeps us in sync if the user
+                // also poked Webamp's own shade button.
+                if (window.rabbitholePlayer && window.rabbitholePlayer.webamp && window.rabbitholePlayer.webamp.store) {
+                    const store = window.rabbitholePlayer.webamp.store;
+                    const isShaded = store.getState().windows.genWindows.main.shade;
+                    if (collapsed !== isShaded) {
+                        store.dispatch({ type: 'TOGGLE_WINDOW_SHADE_MODE', windowId: 'main' });
+                    }
+                }
+            } else {
+                // Original left-sidebar minimize behavior (column collapse).
+                const layout = document.querySelector('.layout');
+                layout.classList.toggle('minimized');
+                icon.textContent = layout.classList.contains('minimized') ? '▶' : '◀';
+            }
         };
 
         // Mini player controls
         window.toggleMiniPlay = function() {
-            if (window.chartifactsPlayer && window.chartifactsPlayer.webamp && window.chartifactsPlayer.webamp.store) {
-                const store = window.chartifactsPlayer.webamp.store;
+            if (window.rabbitholePlayer && window.rabbitholePlayer.webamp && window.rabbitholePlayer.webamp.store) {
+                const store = window.rabbitholePlayer.webamp.store;
                 const state = store.getState();
                 const status = state.media.status;
 
@@ -1251,15 +3694,15 @@
         };
 
         window.seekMini = function(event) {
-            if (window.chartifactsPlayer && window.chartifactsPlayer.webamp && window.chartifactsPlayer.webamp.store) {
+            if (window.rabbitholePlayer && window.rabbitholePlayer.webamp && window.rabbitholePlayer.webamp.store) {
                 const rect = event.currentTarget.getBoundingClientRect();
                 const clickY = event.clientY - rect.top;
                 const height = rect.height;
                 const percent = 1 - (clickY / height);
-                const duration = window.songChartifactsData.duration || 180;
+                const duration = window.rabbitholeSongData.duration || 180;
                 const seekTime = Math.max(0, Math.min(duration, percent * duration));
 
-                window.chartifactsPlayer.webamp.store.dispatch({
+                window.rabbitholePlayer.webamp.store.dispatch({
                     type: 'SEEK_TO_PERCENT_COMPLETE',
                     percent: percent * 100
                 });
@@ -1268,10 +3711,10 @@
 
         // Update mini player UI
         setInterval(() => {
-            if (window.chartifactsPlayer && window.chartifactsPlayer.webamp && window.chartifactsPlayer.webamp.store) {
-                const state = window.chartifactsPlayer.webamp.store.getState();
+            if (window.rabbitholePlayer && window.rabbitholePlayer.webamp && window.rabbitholePlayer.webamp.store) {
+                const state = window.rabbitholePlayer.webamp.store.getState();
                 const { status, timeElapsed, length } = state.media;
-                const duration = length || window.songChartifactsData.duration || 180;
+                const duration = length || window.rabbitholeSongData.duration || 180;
 
                 // Update play button states (both mini and inline)
                 const miniBtn = document.getElementById('mini-play-btn');
@@ -1325,7 +3768,7 @@
                 layout.classList.remove('with-editor');
                 panel.style.display = 'none';
                 btn.classList.remove('active');
-                btn.textContent = 'Edit Timeline';
+                window.setEditorButtonLabel('open');
 
                 // Clean up
                 if (keyboardShortcuts) keyboardShortcuts.dispose();
@@ -1339,7 +3782,7 @@
                 layout.classList.add('with-editor');
                 panel.style.display = 'block';
                 btn.classList.add('active');
-                btn.textContent = 'Close Editor';
+                window.setEditorButtonLabel('close');
 
                 // Initialize editor
                 await initializeEditor();
@@ -1357,7 +3800,7 @@
             const { WikiSync } = await import('./src/editor/wiki-sync.js');
 
             // Get current song data
-            const currentSong = window.songChartifactsData;
+            const currentSong = window.rabbitholeSongData;
             const recordingTitle = `${currentSong.title} (${currentSong.album})`;
 
             // Create editable data state
@@ -1374,7 +3817,7 @@
             editorInstance = new TimelineEditor(
                 'timeline-editor-container',
                 editableData,
-                window.chartifactsPlayer
+                window.rabbitholePlayer
             );
 
             // Set up keyboard shortcuts
@@ -1387,6 +3830,74 @@
 
             // Set up save button
             document.getElementById('save-to-wiki-btn').addEventListener('click', saveToWiki);
+            document.getElementById('export-yaml-btn').addEventListener('click', exportYaml);
+        }
+
+        /*
+         * The YAML, in your hand.
+         *
+         * Saving to the wiki needs a logged-in session and the right to edit
+         * the Release namespace, and neither is true of somebody reading the
+         * demo. Copying the text and pasting it into the page needs nobody to
+         * grant anybody anything, and it is the same bytes the save would
+         * have written. Skyler's call, 2026-10-25: export and paste first,
+         * wire up real saving after.
+         */
+        function currentMetadataYaml() {
+            const song = window.rabbitholeSongData;
+            return jsYaml.dump({
+                timeline: editableData.workingData.timeline || {},
+                ensemble: editableData.workingData.ensemble || {},
+                ...(editableData.workingData.standardSectionLength != null
+                    ? { standardSectionLength: editableData.workingData.standardSectionLength }
+                    : {}),
+                ...(song && song.title ? { title: song.title } : {})
+            }, { sortKeys: false, lineWidth: 120 });
+        }
+
+        async function exportYaml() {
+            if (!editableData) return;
+            const statusSpan = document.getElementById('save-status');
+            const yamlBody = currentMetadataYaml();
+            const page = (window.rabbitholeSongData || {})._metadataTitle;
+
+            let copied = false;
+            try {
+                await navigator.clipboard.writeText(yamlBody);
+                copied = true;
+            } catch (err) {
+                // Clipboard needs a secure context, and the preview is plain
+                // HTTP. Falling back to showing the text is not a failure --
+                // it is the same text, selectable.
+                if (window.__rhdebug) console.log('clipboard refused, showing the text', err);
+            }
+
+            const box = document.createElement('div');
+            box.className = 'yaml-export-box';
+            box.innerHTML = '<p><strong>' + (copied ? 'Copied.' : 'Select and copy this.')
+                + '</strong> Paste it as the whole contents of '
+                + (page
+                    ? '<a href="/index.php?title=' + encodeURIComponent(page)
+                      + '&action=edit" target="_blank" rel="noopener"><code>'
+                      + page + '</code></a>'
+                    : 'the track\u2019s <code>Release:&lt;cid&gt;/Metadata</code> page')
+                + '.</p>';
+            const ta = document.createElement('textarea');
+            ta.readOnly = true;
+            ta.value = yamlBody;
+            box.appendChild(ta);
+            const close = document.createElement('button');
+            close.textContent = 'Close';
+            close.onclick = () => box.remove();
+            box.appendChild(close);
+
+            const panel = document.getElementById('editor-panel');
+            const old = panel.querySelector('.yaml-export-box');
+            if (old) old.remove();
+            panel.appendChild(box);
+            ta.focus();
+            ta.select();
+            statusSpan.textContent = '';
         }
 
         async function saveToWiki() {
@@ -1404,7 +3915,7 @@
             statusSpan.className = '';
 
             try {
-                const currentSong = window.songChartifactsData;
+                const currentSong = window.rabbitholeSongData;
 
                 // If this song was loaded via ?track= URL param, write back
                 // to its Release:Qm.../Metadata page using plain YAML and the
@@ -1492,7 +4003,7 @@
 
             // If editor is open, reinitialize with new song
             if (editorInstance) {
-                const currentSong = window.songChartifactsData;
+                const currentSong = window.rabbitholeSongData;
                 const recordingTitle = `${currentSong.title} (${currentSong.album})`;
 
                 // Check for unsaved changes

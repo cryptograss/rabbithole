@@ -669,3 +669,673 @@
         margin-top: 4px;
     }
 }
+
+/* ===========================================================
+   The song as a vertical line.
+
+   Skyler, 2026-10-25: a timeline you can run the mouse down
+   until you reach the right moment, and drop a marker there.
+   The list answers "what is at 1:04"; the line answers "where
+   am I in the song", which is the question you hold while you
+   are listening to it.
+   =========================================================== */
+
+.editor-body {
+    display: flex;
+    gap: 10px;
+    align-items: stretch;
+}
+
+.editor-body .marker-list {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+/* Room above the line for the first label.
+   A tick's text sits 6px above its own line, and a marker's 5px, so at
+   0:00 both hang above the top of the track -- and with the column
+   clipped they were simply cut off. Clipping happens at the padding
+   edge, so padding is the room. Skyler, 2026-10-25. */
+.timeline-ruler {
+    flex: 0 0 158px;
+    padding: 30px 0 10px;
+    overflow: hidden;
+}
+
+.ruler-track {
+    position: relative;
+    height: 400px;
+    width: 100%;
+    background: linear-gradient(to right, transparent 0, transparent 26px,
+                #c3cbbb 26px, #c3cbbb 28px, transparent 28px);
+    cursor: crosshair;
+    user-select: none;
+}
+
+/* Sections, when the recording is authored around a click. On a click
+   the section is the unit you think in, so it is the unit you can see. */
+.ruler-band {
+    position: absolute;
+    left: 20px;
+    right: 0;
+    border-top: 1px solid #e5e7e1;
+}
+
+.ruler-band.odd { background: rgba(74, 124, 89, 0.05); }
+.ruler-band.even { background: rgba(74, 124, 89, 0.11); }
+
+.ruler-band-label {
+    position: absolute;
+    left: 10px;
+    top: 1px;
+    font-size: 9px;
+    color: #7d8a7d;
+}
+
+.ruler-tick {
+    position: absolute;
+    left: 0;
+    width: 26px;
+    border-top: 1px solid #d4d8d2;
+}
+
+.ruler-tick-label {
+    position: absolute;
+    top: -6px;
+    left: 0;
+    font-size: 9px;
+    color: #7d8a7d;
+    font-variant-numeric: tabular-nums;
+}
+
+.ruler-marker {
+    position: absolute;
+    left: 22px;
+    right: 0;
+    height: 0;
+    border-top: 2px solid #4a7c59;
+    cursor: pointer;
+}
+
+.ruler-marker.selected {
+    border-top-color: #b05a3c;
+}
+
+.ruler-marker-label {
+    position: absolute;
+    left: 10px;
+    top: -5px;
+    right: 0;
+    font-size: 9px;
+    line-height: 1;
+    color: #2d5016;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    background: rgba(255, 255, 255, 0.85);
+    padding: 1px 2px;
+    pointer-events: none;
+}
+
+.ruler-marker.selected .ruler-marker-label {
+    color: #b05a3c;
+    font-weight: 600;
+}
+
+/* Where the music actually is. Moved directly rather than by re-render,
+   so nothing you are typing is thrown away as the song plays. */
+.ruler-playhead {
+    position: absolute;
+    left: 14px;
+    right: 0;
+    height: 0;
+    border-top: 2px solid #d94a1a;
+    pointer-events: none;
+}
+
+.ruler-playhead::before {
+    content: '';
+    position: absolute;
+    left: -6px;
+    top: -4px;
+    border: 4px solid transparent;
+    border-left-color: #d94a1a;
+}
+
+.ruler-hover {
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 0;
+    border-top: 1px dashed #4a7c59;
+    pointer-events: none;
+}
+
+.ruler-hover-time {
+    position: absolute;
+    left: 30px;
+    top: -12px;
+    font-size: 9px;
+    color: #fff;
+    background: #4a7c59;
+    padding: 1px 3px;
+    border-radius: 2px;
+    font-variant-numeric: tabular-nums;
+}
+
+/* With the ruler taking the left of the panel, the marker rows have less
+   width than they used to assume. Let the summary line be the thing that
+   gives -- it is a summary, and the full data is one click away -- rather
+   than letting the row overflow its column and clip the time box. */
+.editor-body .marker-list {
+    overflow-x: hidden;
+}
+
+.editor-body .marker-row,
+.editor-body .marker-header {
+    min-width: 0;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.editor-body .marker-info {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* The template box. Skyler, 2026-10-25: click the ruler and a box pops up
+   with the options, rather than a field you have to know the words for. */
+.marker-form {
+    position: absolute;
+    right: 12px;
+    top: 56px;
+    width: 300px;
+    z-index: 30;
+    background: #fffdf5;
+    border: 1px solid #4a7c59;
+    border-radius: 6px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
+    padding: 10px;
+    font-size: 12px;
+}
+
+.timeline-editor { position: relative; }
+
+.marker-form-head {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 8px;
+}
+
+.marker-form-head strong { color: #2d5016; }
+
+.mf-time {
+    width: 72px;
+    font-family: ui-monospace, Menlo, Consolas, monospace;
+    font-size: 12px;
+    padding: 2px 4px;
+    border: 1px solid #c3cbbb;
+    border-radius: 3px;
+}
+
+.mf-close {
+    margin-left: auto;
+    border: none;
+    background: none;
+    cursor: pointer;
+    color: #7d8a7d;
+}
+
+.mf-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 6px;
+}
+
+.mf-row > span:first-child {
+    flex: 0 0 60px;
+    color: #4a5a4a;
+}
+
+.mf-row select {
+    flex: 1 1 auto;
+    min-width: 0;
+    padding: 3px;
+    border: 1px solid #c3cbbb;
+    border-radius: 3px;
+}
+
+.mf-parts { display: flex; gap: 4px; }
+
+.mf-part {
+    border: 1px solid #c3cbbb;
+    background: #fff;
+    border-radius: 3px;
+    padding: 3px 9px;
+    cursor: pointer;
+    font-size: 11px;
+}
+
+.mf-part.on {
+    background: #4a7c59;
+    border-color: #3c6749;
+    color: #fff;
+}
+
+/* Everything a marker can say, on the face of the box. Skyler,
+   2026-10-25: all the info in visible sight. A folded-away section is a
+   section nobody fills in. */
+.mf-who {
+    margin: 8px 0;
+    padding: 6px;
+    border: 1px solid #e5e7e1;
+    border-radius: 4px;
+    background: #fff;
+}
+
+.mf-who-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 11px;
+    color: #4a5a4a;
+    margin-bottom: 4px;
+}
+
+.mf-band {
+    border: 1px solid #c3cbbb;
+    background: #fff;
+    border-radius: 3px;
+    padding: 2px 6px;
+    font-size: 10px;
+    cursor: pointer;
+}
+
+.mf-band.on {
+    background: #4a7c59;
+    border-color: #3c6749;
+    color: #fff;
+}
+
+.mf-who-row {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    margin-bottom: 2px;
+}
+
+.mf-who-name {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 11px;
+}
+
+.mf-inout {
+    border: 1px solid #c3cbbb;
+    background: #fff;
+    border-radius: 3px;
+    padding: 1px 7px;
+    font-size: 10px;
+    cursor: pointer;
+    min-width: 30px;
+}
+
+.mf-who-row .mf-inout.on {
+    background: #4a7c59;
+    border-color: #3c6749;
+    color: #fff;
+}
+
+.mf-note {
+    margin: 2px 0;
+    font-size: 11px;
+    color: #7d8a7d;
+}
+
+.mf-more { margin: 8px 0; }
+
+.mf-more-label {
+    display: block;
+    font-size: 11px;
+    color: #4a5a4a;
+}
+
+.mf-yaml {
+    width: 100%;
+    min-height: 72px;
+    margin-top: 6px;
+    font-family: ui-monospace, Menlo, Consolas, monospace;
+    font-size: 11px;
+    box-sizing: border-box;
+}
+
+.mf-actions {
+    display: flex;
+    gap: 6px;
+    justify-content: flex-end;
+    margin-top: 8px;
+}
+
+.mf-actions button {
+    border: 1px solid #c3cbbb;
+    background: #fff;
+    border-radius: 4px;
+    padding: 4px 10px;
+    cursor: pointer;
+}
+
+/* .mf-actions button is one class and one element, which beats a lone
+   class -- so these have to be written as descendants or the save button
+   is white text on a white ground. The same specificity trap made the
+   active part block invisible for an hour on 17 October. */
+.mf-actions .mf-save {
+    background: #4a7c59;
+    border-color: #3c6749;
+    color: #fff;
+    font-weight: 600;
+}
+
+.mf-actions .mf-delete { color: #b05a3c; }
+
+.mf-error {
+    color: #c00;
+    font-size: 11px;
+    margin-top: 4px;
+    min-height: 14px;
+}
+
+/* Typing somebody into the band. On a track with no ensemble recorded
+   there is nobody to toggle, so there has to be a way to put them there. */
+.mf-who-add {
+    display: flex;
+    gap: 4px;
+    margin-top: 6px;
+}
+
+.mf-add-name {
+    flex: 1 1 auto;
+    min-width: 0;
+    padding: 2px 4px;
+    border: 1px solid #c3cbbb;
+    border-radius: 3px;
+    font-size: 11px;
+}
+
+.mf-who .mf-add {
+    border: 1px solid #c3cbbb;
+    background: #fff;
+    border-radius: 3px;
+    padding: 2px 10px;
+    font-size: 11px;
+    cursor: pointer;
+}
+
+/* What a person already is, going into this marker. */
+.mf-who-row.is-in .mf-who-name { color: #2d5016; }
+.mf-who-row.is-out .mf-who-name { color: #8a948a; }
+
+/* "stays in" / "stays out" is longer than "—", and it is the usual choice. */
+.mf-who-row .mf-inout[data-value=""] {
+    min-width: 62px;
+    font-style: italic;
+}
+
+.btn-tidy {
+    border: 1px solid #c3cbbb;
+    background: #fff;
+    border-radius: 4px;
+    padding: 4px 10px;
+    cursor: pointer;
+    font-size: 12px;
+}
+
+.tidy-note {
+    flex-basis: 100%;
+    font-size: 11px;
+    color: #4a7c59;
+    margin-top: 4px;
+}
+
+/* A name you can correct. */
+.mf-who-name { cursor: text; }
+.mf-who-name:hover { text-decoration: underline dotted; }
+
+.mf-rename {
+    flex: 1 1 auto;
+    min-width: 0;
+    padding: 1px 3px;
+    font-size: 11px;
+    border: 1px solid #4a7c59;
+    border-radius: 3px;
+}
+
+/* Justin, 2026-10-26: feedback after trying it.
+   - the red bar was not obviously "where the song is"
+   - the column was about three times wider than the bar
+   - a marker was hard to hit once it existed */
+
+.timeline-ruler { flex: 0 0 112px; }
+
+/* The line itself, thicker, so the track reads as a track. */
+.ruler-track {
+    background: linear-gradient(to right, transparent 0, transparent 24px,
+                #9fae9c 24px, #9fae9c 28px, transparent 28px);
+}
+
+/* The playhead: a full-width bar with a label that says what it is. */
+.ruler-playhead {
+    left: 10px;
+    border-top: 3px solid #d94a1a;
+    box-shadow: 0 0 0 1px rgba(217, 74, 26, 0.25);
+}
+
+.ruler-playhead-tag {
+    position: absolute;
+    right: 0;
+    top: -17px;
+    background: #d94a1a;
+    color: #fff;
+    font-size: 9px;
+    line-height: 1;
+    padding: 2px 4px;
+    border-radius: 2px;
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+}
+
+/* An invisible, taller target around each marker: the line you SEE is 2px
+   but the thing you hit is 16. */
+.ruler-marker::before {
+    content: '';
+    position: absolute;
+    left: -4px;
+    right: 0;
+    top: -8px;
+    height: 16px;
+}
+
+.ruler-marker { border-top-width: 3px; }
+.ruler-marker:hover { border-top-color: #b05a3c; }
+.ruler-marker:hover .ruler-marker-label {
+    background: #fff4ed;
+    box-shadow: 0 0 0 1px #b05a3c;
+}
+
+.editor-flash {
+    flex-basis: 100%;
+    font-size: 11px;
+    color: #4a5a4a;
+    margin-top: 4px;
+}
+
+.editor-flash button {
+    border: 1px solid #c3cbbb;
+    background: #fff;
+    border-radius: 3px;
+    padding: 1px 8px;
+    cursor: pointer;
+}
+
+/* The rabbit rides the playhead: sits on the line, hops while it plays.
+   It is also a handle -- grab it and drag to where the song should be. */
+.ruler-rabbit {
+    position: absolute;
+    left: -6px;
+    bottom: 1px;
+    width: 26px;
+    height: 26px;
+    image-rendering: pixelated;
+    pointer-events: auto;
+    cursor: grab;
+    filter: drop-shadow(0 1px 0 rgba(0, 0, 0, 0.35));
+}
+
+.ruler-rabbit:hover {
+    transform: scale(1.15);
+}
+
+.ruler-rabbit:active {
+    cursor: grabbing;
+}
+
+.ruler-playhead.running .ruler-rabbit {
+    animation: ruler-rabbit-hop 0.42s ease-in-out infinite;
+}
+
+@keyframes ruler-rabbit-hop {
+    0%, 100% { transform: translateY(0) rotate(0deg); }
+    45%      { transform: translateY(-7px) rotate(-8deg); }
+    70%      { transform: translateY(-2px) rotate(3deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .ruler-playhead.running .ruler-rabbit { animation: none; }
+}
+
+/* Zoomed in, the ruler scrolls; at 1x the whole song fits and it doesn't. */
+.timeline-ruler {
+    max-height: 440px;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+}
+
+/* The waveform, behind everything on the track: loudness to the right of
+   the line, time down the page. */
+.ruler-wave {
+    position: absolute;
+    left: 28px;
+    top: 0;
+    width: calc(100% - 28px);
+    height: 100%;
+    pointer-events: none;
+}
+
+.timeline-ruler.wave-loading .ruler-track::after {
+    content: 'loading waveform…';
+    position: absolute;
+    left: 32px;
+    top: 40%;
+    font-size: 9px;
+    color: #9fae9c;
+}
+
+.ruler-zoom {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    font-size: 11px;
+    font-variant-numeric: tabular-nums;
+}
+
+.ruler-zoom button {
+    min-width: 22px;
+    padding: 2px 6px;
+    line-height: 1;
+}
+
+.ruler-zoom-level {
+    min-width: 26px;
+    text-align: center;
+    color: #4a5a4a;
+}
+
+/* When delivery-kid has no waveform for this song, offer to draw it from
+   the audio -- a whole-song download, so only on request. */
+.ruler-wave-offer {
+    position: absolute;
+    left: 32px;
+    top: 30%;
+    font-size: 9px;
+    padding: 2px 5px;
+    border: 1px dashed #9fae9c;
+    background: #fff;
+    color: #4a7c59;
+    cursor: pointer;
+    z-index: 2;
+}
+
+/* Who is on the recording, and on what. */
+.ensemble-panel {
+    margin: 12px 0 4px;
+    padding: 10px 12px;
+    border: 1px solid #dfe4dc;
+    border-radius: 6px;
+    background: #f7f9f5;
+    display: grid;
+    gap: 6px;
+}
+
+.ens-head {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+}
+
+.ens-head h4 {
+    margin: 0;
+    font-size: 12px;
+    font-weight: 600;
+    color: #2f4a36;
+}
+
+.ens-missing {
+    font-size: 11px;
+    color: #b05a3c;
+}
+
+.ens-row {
+    display: grid;
+    grid-template-columns: 9.5em 1fr;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+}
+
+.ens-name {
+    color: #2f3a2f;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.ens-instruments {
+    font: inherit;
+    padding: 4px 6px;
+    border: 1px solid #c9d1c5;
+    border-radius: 4px;
+    background: #fff;
+    min-width: 0;
+}
+
+.ens-row.empty .ens-instruments {
+    border-color: #e0b7a6;
+    background: #fffaf7;
+}

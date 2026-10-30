@@ -49,8 +49,27 @@ export class EditableTrackData {
      * Check if there are unsaved changes
      */
     get isDirty() {
-        return JSON.stringify(this.workingData.timeline) !==
-               JSON.stringify(this.originalData.timeline);
+        // The ensemble counts: instruments and renames are edits too.
+        const now = this._snapshot();
+        return JSON.stringify([now.timeline, now.ensemble]) !==
+               JSON.stringify([this.originalData.timeline || {}, this.originalData.ensemble || null]);
+    }
+
+    /** What undo keeps: the timeline and the ensemble, together. */
+    _snapshot() {
+        return this._deepClone({ snapshot: true, timeline: this.workingData.timeline || {},
+                                 ensemble: this.workingData.ensemble || null });
+    }
+
+    _restore(state) {
+        // Older entries were the timeline alone.
+        if (state && state.snapshot === true) {
+            this.workingData.timeline = state.timeline;
+            if (state.ensemble) this.workingData.ensemble = state.ensemble;
+            else delete this.workingData.ensemble;
+        } else {
+            this.workingData.timeline = state;
+        }
     }
 
     /**
@@ -248,8 +267,8 @@ export class EditableTrackData {
         if (this.undoStack.length === 0) return;
 
         const previousState = this.undoStack.pop();
-        this.redoStack.push(this._deepClone(this.workingData.timeline));
-        this.workingData.timeline = previousState;
+        this.redoStack.push(this._snapshot());
+        this._restore(previousState);
 
         this._notifyChange();
     }
@@ -261,8 +280,8 @@ export class EditableTrackData {
         if (this.redoStack.length === 0) return;
 
         const nextState = this.redoStack.pop();
-        this.undoStack.push(this._deepClone(this.workingData.timeline));
-        this.workingData.timeline = nextState;
+        this.undoStack.push(this._snapshot());
+        this._restore(nextState);
 
         this._notifyChange();
     }
@@ -334,7 +353,7 @@ export class EditableTrackData {
     }
 
     _saveUndoState() {
-        this.undoStack.push(this._deepClone(this.workingData.timeline));
+        this.undoStack.push(this._snapshot());
         if (this.undoStack.length > this.maxUndoSteps) {
             this.undoStack.shift();
         }

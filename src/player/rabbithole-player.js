@@ -6,11 +6,42 @@
 import Webamp from 'webamp';
 import Packery from 'packery';
 
-class WebampChartifacts {
+import { musicianEntries, statusAt } from '../musician-status.js';
+// How long any one highlight may hold, in seconds. The timelines ask for more
+// in places (Paint Exchange: 8.5s of spotlight, 7s of flourish) and at that
+// length an effect stops reading as emphasis and starts reading as a bug.
+const SPOTLIGHT_MAX_SECONDS = 4;
+
+/*
+ * Tracing, off unless asked for.
+ *
+ * The display loop runs every 100ms and used to log from inside it. On a
+ * desktop that is invisible; on a phone with an inspector attached each
+ * console call is a real cost, and the useful lines were buried in the noise
+ * either way. Turn it on with ?rhdebug=1, or
+ * localStorage.rabbitholeDebug = '1'.
+ */
+const DEBUG = (() => {
+    try {
+        if (typeof window === 'undefined') return false;
+        // The host page captures the query before it soft-navigates and
+        // throws it away; prefer that over reading location.search here,
+        // which by now may be /wiki/<page> with no query at all.
+        if (window.__rhdebug) return true;
+        if (new URLSearchParams(window.location.search).get('rhdebug')) return true;
+        return window.localStorage.getItem('rabbitholeDebug') === '1';
+    } catch (err) {
+        return false;
+    }
+})();
+
+const trace = DEBUG ? console.log.bind(console) : () => {};
+
+class RabbitholeWebampPlayer {
     constructor(containerId, trackData, options = {}) {
-        console.debug('DEBUG: WebampChartifacts constructor called with container:', containerId);
-        console.debug('DEBUG: Track data:', trackData);
-        console.debug('DEBUG: Options:', options);
+        trace('DEBUG: RabbitholeWebampPlayer constructor called with container:', containerId);
+        trace('DEBUG: Track data:', trackData);
+        trace('DEBUG: Options:', options);
 
         this.container = document.getElementById(containerId);
         this.trackData = trackData;
@@ -21,7 +52,7 @@ class WebampChartifacts {
             return;
         }
 
-        console.debug('DEBUG: Found container, proceeding with initialization');
+        trace('DEBUG: Found container, proceeding with initialization');
         this.webamp = null;
         this.currentSolo = null;
         this.lastAutoShownSoloist = null; // Track which soloist we last auto-showed
@@ -58,7 +89,7 @@ class WebampChartifacts {
             return;
         }
 
-        const styleId = `webamp-chartifacts-dynamic-styles`;
+        const styleId = `rabbithole-player-dynamic-styles`;
         // Remove existing dynamic styles if they exist
         const existingStyle = document.getElementById(styleId);
         if (existingStyle) {
@@ -118,15 +149,15 @@ class WebampChartifacts {
     }
 
     async init() {
-        console.debug('DEBUG: Starting init() for embed mode');
+        trace('DEBUG: Starting init() for embed mode');
 
         // For embed mode, skip the complex UI and focus on Webamp
         if (this.options.embedMode) {
-            console.debug('DEBUG: In embed mode - initializing Webamp only');
+            trace('DEBUG: In embed mode - initializing Webamp only');
             await this.initWebamp();
             this.setupTimeTracking();
         } else {
-            console.debug('DEBUG: In full mode - initializing full UI');
+            trace('DEBUG: In full mode - initializing full UI');
             this.renderSimpleUI();
             await this.initWebamp();
             this.setupTimeTracking();
@@ -144,6 +175,9 @@ class WebampChartifacts {
             partBox.id = `part-${index}`;
             partBox.className = 'part-box';
             partBox.textContent = part;
+            partBox.title = 'Jump to this part';
+            partBox.style.cursor = 'pointer';
+            partBox.addEventListener('click', () => this.seekToPart(index));
             partsChart.appendChild(partBox);
         });
 
@@ -189,7 +223,7 @@ class WebampChartifacts {
         });
 
         // Render Webamp directly to the main container - no custom HTML
-        console.debug('DEBUG: Container before rendering:', {
+        trace('DEBUG: Container before rendering:', {
             exists: !!this.container,
             id: this.container.id,
             className: this.container.className,
@@ -199,9 +233,9 @@ class WebampChartifacts {
         });
 
         this.webamp.renderWhenReady(this.container).then(() => {
-            console.debug(`DEBUG: Webamp rendered successfully in container:`, this.container.id);
+            trace(`DEBUG: Webamp rendered successfully in container:`, this.container.id);
 
-            console.debug('DEBUG: Container after rendering:', {
+            trace('DEBUG: Container after rendering:', {
                 exists: !!this.container,
                 children: this.container.children.length,
                 style: this.container.style.cssText,
@@ -211,12 +245,12 @@ class WebampChartifacts {
             });
 
             if (this.options.embedMode) {
-                console.debug('DEBUG: Embed mode - creating ensemble with simple positioning');
+                trace('DEBUG: Embed mode - creating ensemble with simple positioning');
                 // In embed mode, create ensemble in the dedicated containers
                 this.createEnsembleForEmbed();
                 this.setupWebampListeners();
             } else {
-                console.debug('DEBUG: Full mode - setting up complex positioning');
+                trace('DEBUG: Full mode - setting up complex positioning');
                 // Wait a moment for Webamp to fully initialize before constraining
                 setTimeout(() => {
                     // Move the #webamp element into our container to constrain it
@@ -244,7 +278,7 @@ class WebampChartifacts {
     }
 
     createEnsembleForEmbed() {
-        console.debug('DEBUG: Creating ensemble for embed mode');
+        trace('DEBUG: Creating ensemble for embed mode');
 
         // Use the existing dedicated containers in the embed template
         const ensembleContainer = document.getElementById('ensemble-display');
@@ -261,7 +295,7 @@ class WebampChartifacts {
         // Create parts chart
         this.populatePartsContainer(partsContainer);
 
-        console.debug('DEBUG: Embed ensemble and parts created successfully');
+        trace('DEBUG: Embed ensemble and parts created successfully');
     }
 
     populateEnsembleContainer(container) {
@@ -278,7 +312,7 @@ class WebampChartifacts {
             const primaryInstrument = Array.isArray(instruments) ? instruments[0] : instruments;
 
             musicianDiv.innerHTML = `
-                <div class="musician-name">${musicianName} (${primaryInstrument})</div>
+                <div class="musician-name">${musicianName}${primaryInstrument ? ` (${primaryInstrument})` : ''}</div>
                 <div class="chartifact-line">Chartifact "0x1234ff" owned by cryptograss.eth</div>
             `;
 
@@ -302,13 +336,16 @@ class WebampChartifacts {
             partBox.id = `part-${index}`;
             partBox.className = 'part-box';
             partBox.textContent = part;
+            partBox.title = 'Jump to this part';
+            partBox.style.cursor = 'pointer';
+            partBox.addEventListener('click', () => this.seekToPart(index));
             container.appendChild(partBox);
         });
     }
 
     constrainWebampToContainer() {
         const webampElement = document.getElementById('webamp');
-        console.debug('DEBUG: constrainWebampToContainer - webamp element:', {
+        trace('DEBUG: constrainWebampToContainer - webamp element:', {
             exists: !!webampElement,
             parentBefore: webampElement ? webampElement.parentElement.tagName + '#' + webampElement.parentElement.id : 'none',
             containerExists: !!this.container,
@@ -321,7 +358,7 @@ class WebampChartifacts {
         }
 
         // Move the #webamp element into our container
-        console.debug('DEBUG: Moving webamp element into container...');
+        trace('DEBUG: Moving webamp element into container...');
         this.container.appendChild(webampElement);
 
         // Ensure Webamp is visible
@@ -329,7 +366,7 @@ class WebampChartifacts {
         webampElement.style.visibility = 'visible';
         webampElement.style.opacity = '1';
 
-        console.debug('DEBUG: After moving webamp:', {
+        trace('DEBUG: After moving webamp:', {
             webampParent: webampElement.parentElement.tagName + '#' + webampElement.parentElement.id,
             containerChildren: this.container.children.length,
             webampRect: webampElement.getBoundingClientRect(),
@@ -340,20 +377,20 @@ class WebampChartifacts {
         // Set the container to relative positioning so Webamp can position within it
         this.container.style.position = 'relative';
 
-        console.log('Webamp constrained to container');
+        trace('Webamp constrained to container');
     }
 
     createEnsembleInsideWebamp() {
-        console.debug('DEBUG: createEnsembleInsideWebamp called');
+        trace('DEBUG: createEnsembleInsideWebamp called');
 
         // Wait for #main-window to exist
         const waitForMainWindow = () => {
             const mainWindow = document.querySelector('#main-window');
             if (mainWindow) {
-                console.debug('DEBUG: Found #main-window, creating ensemble after it');
+                trace('DEBUG: Found #main-window, creating ensemble after it');
                 this.createEnsembleAfterMainWindow(mainWindow);
             } else {
-                console.debug('DEBUG: #main-window not found yet, waiting...');
+                trace('DEBUG: #main-window not found yet, waiting...');
                 setTimeout(waitForMainWindow, 100);
             }
         };
@@ -366,7 +403,7 @@ class WebampChartifacts {
         const webampContainer = document.getElementById('webamp');
         const mainWindowParent = mainWindow.parentElement;
 
-        console.debug('DEBUG: Webamp positioning analysis:', {
+        trace('DEBUG: Webamp positioning analysis:', {
             webampContainer: {
                 exists: !!webampContainer,
                 style: webampContainer ? webampContainer.style.cssText : 'N/A',
@@ -386,13 +423,21 @@ class WebampChartifacts {
             }
         });
 
-        // Detect mobile viewport
-        const isMobile = window.innerWidth <= 768;
+        // Detect mobile viewport.
+        //
+        // 1100, not 768, and it matters: below 768 the cards flow under the
+        // player, above it they are absolutely positioned 120px down -- a
+        // number that assumes the main window is where a desktop puts it.
+        // A phone held sideways is 844px wide, so it took the desktop branch
+        // and the cards landed on top of the skin. That is the "player cards
+        // overlapping into the webamp" Skyler reported on 2026-10-24.
+        // 1100 is the same breakpoint the stylesheet switches layouts at.
+        const isMobile = window.innerWidth <= 1100;
 
         // Try to intercept and override the transform
         if (mainWindowParent.style.transform) {
-            console.debug('DEBUG: Found transform on parent:', mainWindowParent.style.transform);
-            console.debug('DEBUG: Attempting to override transform...');
+            trace('DEBUG: Found transform on parent:', mainWindowParent.style.transform);
+            trace('DEBUG: Attempting to override transform...');
 
             // Override the transform to position at top-left
             mainWindowParent.style.transform = 'translate(10px, 10px)';
@@ -405,7 +450,7 @@ class WebampChartifacts {
                 mainWindowParent.style.transform = 'none'; // Remove transform on mobile
             }
 
-            console.debug('DEBUG: Override applied, new transform:', mainWindowParent.style.transform);
+            trace('DEBUG: Override applied, new transform:', mainWindowParent.style.transform);
         }
 
         // Create ensemble display
@@ -413,17 +458,25 @@ class WebampChartifacts {
         ensembleDiv.id = 'ensemble-display-in-webamp';
         ensembleDiv.className = 'ensemble-display-in-webamp';
 
-        // Position ensemble - use relative positioning on mobile for proper flow
-        if (isMobile) {
-            ensembleDiv.style.position = 'relative';
-            ensembleDiv.style.width = '100%';
-            ensembleDiv.style.marginTop = '10px';
-        } else {
-            ensembleDiv.style.position = 'absolute';
-            // ensembleDiv.style.left = '0px';
-            ensembleDiv.style.top = '120px'; // Below main window (120px height + 10px gap)
-            ensembleDiv.style.width = '269px';
-        }
+        /*
+         * Position the ensemble under the player.
+         *
+         * The parent is Webamp's own window wrapper, which is absolutely
+         * positioned and has no width of its own -- so `position: relative`
+         * lays the cards out from the *top* of that wrapper, straight over
+         * the skin, and `width: 100%` collapses them to a few pixels. Both
+         * were live faults: Skyler saw the cards overlapping the player and
+         * showing through it on 2026-10-24.
+         *
+         * So: absolute, offset by the main window's measured height rather
+         * than by the 120px somebody counted once. A skin is not obliged to
+         * be 116px tall, and on a phone it is not where a desktop puts it.
+         */
+        const mainWindowHeight = mainWindow ? mainWindow.offsetHeight : 116;
+        ensembleDiv.style.position = 'absolute';
+        ensembleDiv.style.left = '0px';
+        ensembleDiv.style.top = (mainWindowHeight + 10) + 'px';
+        ensembleDiv.style.width = isMobile ? '272px' : '269px';
         // ensembleDiv.style.maxHeight = 'none'; // No height limit - show all content
         ensembleDiv.style.overflow = 'visible'; // No scrollbars
 
@@ -437,10 +490,10 @@ class WebampChartifacts {
 
             // Handle instrument display - instruments is an array in YAML
             const primaryInstrument = Array.isArray(instruments) ? instruments[0] : instruments;
-            console.debug(`DEBUG: Creating musician card for ${musicianName}, instruments:`, instruments, 'primary:', primaryInstrument);
+            trace(`DEBUG: Creating musician card for ${musicianName}, instruments:`, instruments, 'primary:', primaryInstrument);
 
             musicianDiv.innerHTML = `
-                <div class="musician-name">${musicianName} (${primaryInstrument})</div>
+                <div class="musician-name">${musicianName}${primaryInstrument ? ` (${primaryInstrument})` : ''}</div>
                 <div class="chartifact-line">Chartifact "0x1234ff" owned by cryptograss.eth</div>
             `;
             ensembleDiv.appendChild(musicianDiv);
@@ -467,16 +520,16 @@ class WebampChartifacts {
         if (partsChart) {
             // Repopulate parts chart with new song's parts
             this.populatePartsContainer(partsChart);
-            console.debug('DEBUG: Populated parts chart in place');
+            trace('DEBUG: Populated parts chart in place');
         }
 
         // Insert ensemble right after #main-window
         mainWindow.parentNode.appendChild(ensembleDiv);
-        console.debug('DEBUG: Appended ensemble after main-window');
+        trace('DEBUG: Appended ensemble after main-window');
 
         // Debug where the ensemble actually ended up
         setTimeout(() => {
-            console.debug('DEBUG: Final ensemble position:', {
+            trace('DEBUG: Final ensemble position:', {
                 ensembleRect: ensembleDiv.getBoundingClientRect(),
                 ensembleParent: ensembleDiv.parentElement.tagName + (ensembleDiv.parentElement.id ? '#' + ensembleDiv.parentElement.id : ''),
                 mainWindowRect: mainWindow.getBoundingClientRect(),
@@ -496,15 +549,15 @@ class WebampChartifacts {
                         mutation.target.style.transform &&
                         !mutation.target.style.transform.includes('translate(10px, 10px)')) {
 
-                        console.debug('DEBUG: Webamp trying to move parent! Old transform:', mutation.target.style.transform);
+                        trace('DEBUG: Webamp trying to move parent! Old transform:', mutation.target.style.transform);
                         // Override it back to our position
                         mutation.target.style.transform = 'translate(10px, 10px)';
-                        console.debug('DEBUG: Blocked Webamp transform, keeping at translate(10px, 10px)');
+                        trace('DEBUG: Blocked Webamp transform, keeping at translate(10px, 10px)');
                     }
 
                     // Also log window changes
                     if (mutation.target.classList.contains('window')) {
-                        console.debug('DEBUG: Webamp window style changed:', {
+                        trace('DEBUG: Webamp window style changed:', {
                             target: mutation.target.id,
                             style: mutation.target.style.cssText
                         });
@@ -539,7 +592,7 @@ class WebampChartifacts {
         // Initialize Packery for smooth repositioning
         this.initEnsembleGrid(ensembleDiv);
 
-        console.debug('DEBUG: Ensemble display created after #main-window');
+        trace('DEBUG: Ensemble display created after #main-window');
 
         // Set initial state at time 0 (before playback starts)
         // Wait for musician cards to be in the DOM
@@ -549,7 +602,7 @@ class WebampChartifacts {
             const card = document.getElementById(cardId);
             if (card) {
                 this.updateEnsembleDisplay(0);
-                console.debug('DEBUG: Initial state set at time 0');
+                trace('DEBUG: Initial state set at time 0');
             } else {
                 setTimeout(waitForCardsAndUpdate, 50);
             }
@@ -608,7 +661,7 @@ class WebampChartifacts {
 
     setupTimeTracking() {
         // Simple time tracking for status updates
-        console.log('Webamp ready for interaction');
+        trace('Webamp ready for interaction');
     }
 
     startTimeTracking() {
@@ -668,13 +721,63 @@ class WebampChartifacts {
         return momentTimes.sort((a, b) => a - b);
     }
 
+    /**
+     * The start time of each part in extractSongParts(), in the same order.
+     *
+     * Built by the same filter deliberately: the parts strip is an index into
+     * the song, so a part and its time have to come from one pass or the strip
+     * will seek to the wrong place as soon as the two filters drift apart.
+     *
+     * @return {number[]} Seconds, parallel to extractSongParts().
+     */
+    extractSongPartTimes() {
+        if (this._cachedSongPartTimes) {
+            return this._cachedSongPartTimes;
+        }
+
+        const times = [];
+        const processedTimeline = this.processTimelineKeys();
+
+        Object.entries(processedTimeline)
+            .map(([timeStr, arrangement]) => ({ time: Number(timeStr), arrangement }))
+            .sort((a, b) => a.time - b.time)
+            .forEach(({ time, arrangement }) => {
+                if (arrangement.part && (arrangement._isSectionStart || !arrangement._isSubMoment)) {
+                    times.push(time);
+                }
+            });
+
+        this._cachedSongPartTimes = times;
+        return times;
+    }
+
+    /**
+     * Jump to a part of the song by its index in the parts strip.
+     *
+     * @param {number} index Position in extractSongParts().
+     * @return {boolean} Whether a seek happened.
+     */
+    seekToPart(index) {
+        const times = this.extractSongPartTimes();
+        const time = times[index];
+        if (time === undefined || !this.webamp) {
+            return false;
+        }
+
+        // Nudge past the boundary. Seeking exactly onto a part's start time
+        // lands on the frame before the arrangement changes often enough to
+        // look like the click did nothing.
+        this.webamp.seekToTime(Math.max(0, time + 0.05));
+        return true;
+    }
+
     extractSongParts() {
         // Cache the result since song parts don't change during playback
         if (this._cachedSongParts) {
             return this._cachedSongParts;
         }
 
-        console.debug('DEBUG extractSongParts: Building parts from timeline keys:', Object.keys(this.trackData.timeline));
+        trace('DEBUG extractSongParts: Building parts from timeline keys:', Object.keys(this.trackData.timeline));
 
         // Build chronological sequence of parts from PROCESSED timeline
         const partSequence = [];
@@ -815,7 +918,7 @@ class WebampChartifacts {
         // Check if name/star needs updating
         const nameDiv = musicianDiv.querySelector('.musician-name');
         const starPrefix = showStar ? '\u2B50 ' : ''; // Unicode for star emoji
-        const expectedName = `${starPrefix}${musicianName} (${instrument})`;
+        const expectedName = `${starPrefix}${musicianName}${instrument ? ` (${instrument})` : ''}`;
         const currentName = nameDiv ? nameDiv.textContent : '';
 
         // Skip update if nothing changed
@@ -856,7 +959,7 @@ class WebampChartifacts {
 
         // Update content (starPrefix already calculated above for change detection)
         musicianDiv.innerHTML = `
-            <div class="musician-name">${starPrefix}${musicianName} (${instrument})</div>
+            <div class="musician-name">${starPrefix}${musicianName}${instrument ? ` (${instrument})` : ''}</div>
             <div class="chartifact-line">Chartifact "0x1234ff" owned by cryptograss.eth</div>
         `;
 
@@ -887,10 +990,18 @@ class WebampChartifacts {
     }
 
     initEnsembleGrid(gridElement) {
-        // Initialize Packery for ensemble (better for smooth repositioning)
+        // Packery positions every card absolutely, which is why a CSS grid or
+        // flex rule on this container does nothing at all -- the column count
+        // lives here, in columnWidth. A full-width column is one card per
+        // row; half gets two side by side, which is what a short screen
+        // wants. Skyler, 2026-10-24: "put the player cards next to each
+        // other". The cards take a matching width from the stylesheet.
+        const full = gridElement.offsetWidth;
+        const twoUp = window.innerWidth <= 1100;
+
         this.packery = new Packery(gridElement, {
             itemSelector: '.musician-item',
-            columnWidth: gridElement.offsetWidth,  // Use actual grid width
+            columnWidth: twoUp ? Math.floor((full - 2) / 2) : full,
             gutter: 2,            // Small gap between items (matches CSS)
             transitionDuration: '0.4s'
         });
@@ -917,7 +1028,7 @@ class WebampChartifacts {
                 return weightA - weightB;
             });
 
-            console.log('Sorting ensemble - weights:',
+            trace('Sorting ensemble - weights:',
                 sortedItems.map(el => `${el.dataset.musician}: ${el.dataset.sortOrder}`)
             );
 
@@ -1073,7 +1184,7 @@ class WebampChartifacts {
 
         // Throttle logging to avoid spam but catch runaway issues
         if (!this.lastLogTime || Date.now() - this.lastLogTime > 2000) {
-            console.log(`DEBUG updateEnsembleDisplay: Running at time=${currentTime}`);
+            trace(`DEBUG updateEnsembleDisplay: Running at time=${currentTime}`);
             this.lastLogTime = Date.now();
         }
 
@@ -1084,7 +1195,7 @@ class WebampChartifacts {
 
         // Log major changes (only when arrangement actually changes)
         if (arrangement !== this.currentEra) {
-            console.log(`Time ${currentTime}: NEW arrangement =`, arrangement);
+            trace(`Time ${currentTime}: NEW arrangement =`, arrangement);
         }
 
         // Track solo changes for animation and weight updates
@@ -1164,7 +1275,7 @@ class WebampChartifacts {
 
         // Trigger band flash if arrangement changed and bandFlash is set
         if (arrangementChanged && arrangement) {
-            console.log('Arrangement changed:', arrangement, 'bandFlash:', bandFlash);
+            trace('Arrangement changed:', arrangement, 'bandFlash:', bandFlash);
         }
         if (bandFlash && arrangementChanged) {
             this.triggerBandFlash(bandFlashDuration, bandFlashPulseSpeed, bandFlashIntensity, bandFlashColor);
@@ -1186,8 +1297,24 @@ class WebampChartifacts {
                 this.triggerSpotlight(musicianDiv, musicianName, spotlightBlackout, spotlightGlow, spotlightColor);
             }
 
-            // Check if this musician has a role
-            if (currentSolo === musicianName) {
+            // Check if this musician has a role.
+            //
+            // The feature map comes first, and it is the half of 2e83c1a
+            // (15 Sep 2025, "Multiple feature artists now possible") that went
+            // missing: calculateDynamicWeight() still sorts the cards by scene,
+            // but nothing put the scene on the card, so cooldown, harmony and
+            // rhythm reordered silently and never changed colour. The CSS for
+            // them survived in arthel's stylesheet and read as dead code.
+            const features = arrangement ? arrangement.feature : null;
+            const musicianScene = features ? features[musicianName] : null;
+
+            if (musicianScene) {
+                // The scene is the class, so a timeline can name a role without
+                // the player having to know it in advance.
+                this.updateMusicianCard(
+                    musicianDiv, musicianName, instrument, [musicianScene], musicianScene === 'lead'
+                );
+            } else if (currentSolo === musicianName) {
                 // This musician is soloing
                 this.updateMusicianCard(musicianDiv, musicianName, instrument, ['lead'], true);
             } else if (currentPickup === musicianName) {
@@ -1322,6 +1449,9 @@ class WebampChartifacts {
     }
 
     triggerFlourish(musicianDiv, musicianName, duration = 2.0, pulseSpeed = 1.2, intensity = 0.7, color = 'coral') {
+        // Same ceiling as the spotlight, same reason: Paint Exchange asks for
+        // seven seconds of pulsing on one card and it reads as stuck.
+        duration = Math.min(duration, SPOTLIGHT_MAX_SECONDS);
         // Track which flourishes we've already triggered to prevent re-triggering
         if (!this.triggeredFlourishes) {
             this.triggeredFlourishes = new Set();
@@ -1344,7 +1474,7 @@ class WebampChartifacts {
             this.triggeredFlourishes.delete(flourishId);
         }, (duration + 1) * 1000);
 
-        console.log(`🌸 FLOURISH on ${musicianName}: duration=${duration}s, pulseSpeed=${pulseSpeed}s, intensity=${intensity}, color=${color}`);
+        trace(`🌸 FLOURISH on ${musicianName}: duration=${duration}s, pulseSpeed=${pulseSpeed}s, intensity=${intensity}, color=${color}`);
 
         // Add flourish class
         musicianDiv.classList.add('flourish-active');
@@ -1418,7 +1548,7 @@ class WebampChartifacts {
             this.triggeredBandFlashes.delete(flashId);
         }, (duration + 1) * 1000);
 
-        console.log(`⚡ BAND FLASH: duration=${duration}s, pulseSpeed=${pulseSpeed}s, intensity=${intensity}, color=${color}`);
+        trace(`⚡ BAND FLASH: duration=${duration}s, pulseSpeed=${pulseSpeed}s, intensity=${intensity}, color=${color}`);
 
         // Find the ensemble container - check non-embed (in-webamp) first, then embed
         const ensembleContainer = document.getElementById('ensemble-display-in-webamp') ||
@@ -1428,7 +1558,7 @@ class WebampChartifacts {
             return;
         }
 
-        console.log('Band flash: Found container', ensembleContainer.id, ensembleContainer);
+        trace('Band flash: Found container', ensembleContainer.id, ensembleContainer);
 
         // Ensure container and ancestors allow overflow for glow
         ensembleContainer.style.overflow = 'visible';
@@ -1487,149 +1617,52 @@ class WebampChartifacts {
         }, duration * 1000);
     }
 
+    // A spotlight used to mean: paint the page background black, fade
+    // everything else on it to 8% opacity — other cards, the parts strip, the
+    // player itself — zoom the card to 1.15 and put a radial gold gradient
+    // behind it. For as long as the YAML asked, which on Paint Exchange is
+    // five seconds of blackout plus three and a half of glow.
+    //
+    // Skyler, watching it: "def too much - takes over the whole page for way
+    // too long - I think it should highlight the name subtly."
+    //
+    // So it is a card highlight now. Nothing outside the ensemble is touched:
+    // the page keeps its background, the parts strip keeps tracking the song,
+    // the player stays readable. The other players recede rather than vanish —
+    // 0.55, not 0.08, because the whole point of a card is the name on it and
+    // you should still be able to read the band around the person featured.
+    //
+    // The same YAML still drives it, so nothing needs re-annotating. The one
+    // thing overruled is the total length: an eight-and-a-half-second
+    // highlight reads as a stuck animation however gentle it is.
     triggerSpotlight(musicianDiv, musicianName, blackoutDuration = 3, glowDuration = 2, color = 'coral') {
-        // Track which spotlights we've already triggered
         if (!this.triggeredSpotlights) {
             this.triggeredSpotlights = new Set();
         }
 
-        // Get current time to create a unique spotlight ID
-        const currentTime = this.getCurrentTime();
-        const spotlightId = `${musicianName}-${Math.floor(currentTime)}`;
-
-        // Skip if we already triggered this spotlight
+        const spotlightId = `${musicianName}-${Math.floor(this.getCurrentTime())}`;
         if (this.triggeredSpotlights.has(spotlightId)) {
             return;
         }
-
-        // Mark as triggered
         this.triggeredSpotlights.add(spotlightId);
 
-        const totalDuration = blackoutDuration + glowDuration;
+        const asked = blackoutDuration + glowDuration;
+        const total = Math.min(asked, SPOTLIGHT_MAX_SECONDS);
+        setTimeout(() => this.triggeredSpotlights.delete(spotlightId), (total + 2) * 1000);
 
-        // Clean up old spotlight IDs after they're definitely done
-        setTimeout(() => {
-            this.triggeredSpotlights.delete(spotlightId);
-        }, (totalDuration + 2) * 1000);
+        trace(`SPOTLIGHT on ${musicianName}: ${total}s`
+            + (asked > total ? ` (capped from ${asked}s)` : '') + `, color=${color}`);
 
-        // Store color for use later in the method
         this._currentSpotlightColor = color;
 
-        console.log(`🔦 SPOTLIGHT on ${musicianName}: ${blackoutDuration}s blackout + ${glowDuration}s glow, color=${color}`);
-
-        // Darken the body background instead of using overlay
-        const originalBodyBg = document.body.style.background;
-        document.body.style.transition = `background ${blackoutDuration * 0.15}s ease-in`;
-        document.body.style.background = '#111';
-
-        // Fade everything except the spotlighted musician using :not selector
-        // Get all direct children of body and major containers, fade them all
-        const elementsToFade = [];
-
-        // All musician cards except this one
-        document.querySelectorAll('.musician-card').forEach(card => {
-            if (card !== musicianDiv) {
-                elementsToFade.push(card);
-            }
-        });
-
-        // All major page sections
-        document.querySelectorAll('.player-container > *:not(#webamp), .left-panel > *:not(#webamp-player), .right-panel, header, nav, .next-up, #rabbithole-next-up, .file-selector, .song-selector, #song-selector').forEach(el => {
-            if (!el.contains(musicianDiv)) {
-                elementsToFade.push(el);
-            }
-        });
-
-        // Parts chart and main window
-        const partsChart = document.getElementById('parts-chart-in-webamp') || document.getElementById('parts-chart');
-        const mainWindow = document.getElementById('main-window');
-        if (partsChart) elementsToFade.push(partsChart);
-        if (mainWindow) elementsToFade.push(mainWindow);
-
-        // Store original body background for cleanup
-        musicianDiv._originalBodyBg = originalBodyBg;
-
-        elementsToFade.forEach(el => {
-            el.style.opacity = '0.08';
-            el.style.transition = `opacity ${blackoutDuration * 0.15}s ease`;
-        });
-
-        // Add intense glow to the spotlighted musician
-        musicianDiv.classList.add('spotlight-active');
-
-        // Ensure glow isn't clipped - check ancestor containers
-        const ensembleContainer = musicianDiv.closest('#ensemble-display') || musicianDiv.parentElement;
-        if (ensembleContainer) {
-            ensembleContainer.style.overflow = 'visible';
-        }
-        musicianDiv.parentElement.style.overflow = 'visible';
-
-        // CRITICAL: Override player-content overflow which clips the glow
-        const playerContent = musicianDiv.closest('.player-content');
-        if (playerContent) {
-            playerContent.style.overflow = 'visible';
-            musicianDiv._playerContent = playerContent;
-        }
-
-        // Style the card and apply glow - use transform for zoom effect
-        musicianDiv.style.position = 'relative';
-        musicianDiv.style.zIndex = '10001';
-        musicianDiv.style.borderColor = '#ffd700';
-        musicianDiv.style.borderWidth = '3px';
-        musicianDiv.style.background = 'linear-gradient(135deg, #fffde7, #fff8e1)';
-        musicianDiv.style.transformOrigin = 'center center';
-
-        // Slow zoom from solo size (1.05) to spotlight size (1.15)
-        const zoomDuration = blackoutDuration * 0.8;
-        console.log(`🔍 Spotlight zoom: ${zoomDuration}s transition`);
-
-        // Force the browser to acknowledge current state
-        const currentTransform = getComputedStyle(musicianDiv).transform;
-        musicianDiv.style.transform = currentTransform === 'none' ? 'scale(1)' : currentTransform;
-
-        // Force reflow to ensure browser registers current state
-        musicianDiv.offsetHeight;
-
-        // Now apply transition and target scale
-        // Use setProperty with important to override CSS transitions
-        musicianDiv.style.setProperty('transition', `transform ${zoomDuration}s ease-out`, 'important');
-        musicianDiv.style.transform = 'scale(1.15)';
-
-        // Create a glowing backdrop element behind the musician card
-        const glowBackdrop = document.createElement('div');
-        glowBackdrop.className = 'spotlight-glow-backdrop';
-        glowBackdrop.style.cssText = `
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            width: 120%;
-            height: 120%;
-            background: radial-gradient(ellipse at center,
-                rgba(255, 215, 0, 0.8) 0%,
-                rgba(255, 140, 0, 0.6) 30%,
-                rgba(255, 69, 0, 0.4) 50%,
-                transparent 70%);
-            border-radius: 20px;
-            z-index: -1;
-            pointer-events: none;
-        `;
-
-        // Insert backdrop - musician div should already have position relative from CSS
-        musicianDiv.insertBefore(glowBackdrop, musicianDiv.firstChild);
-
-        // Apply intense box-shadow animation using color-based glow
-        const glow = this.createGlowKeyframes(this._currentSpotlightColor || 'coral', 1.6);
+        // The highlight: a contained pulse on the one card.
+        const glow = this.createGlowKeyframes(color, 0.9);
         const animName = `spotlight-pulse-${Date.now()}`;
         const styleSheet = document.createElement('style');
         styleSheet.textContent = `
             @keyframes ${animName} {
-                0%, 100% {
-                    box-shadow: ${glow.min};
-                }
-                50% {
-                    box-shadow: ${glow.max};
-                }
+                0%, 100% { box-shadow: ${glow.min}; }
+                50%      { box-shadow: ${glow.max}; }
             }
 
             #${musicianDiv.id}.spotlight-active {
@@ -1637,118 +1670,33 @@ class WebampChartifacts {
             }
         `;
         document.head.appendChild(styleSheet);
+        musicianDiv.classList.add('spotlight-active');
 
-        // Store references for cleanup
-        musicianDiv._spotlightBackdrop = glowBackdrop;
-
-        // Dim other musicians
-        Object.entries(this.trackData.ensemble).forEach(([name]) => {
-            if (name !== musicianName) {
-                const otherDiv = document.getElementById(`musician-${name.replace(/\s+/g, '-').toLowerCase()}`);
-                if (otherDiv) {
-                    otherDiv.style.opacity = '0.1';
-                    otherDiv.style.transition = `opacity ${blackoutDuration * 0.15}s ease`;
-                }
-            }
+        // Everyone else steps back half a pace.
+        const others = [];
+        Object.keys(this.trackData.ensemble || {}).forEach(name => {
+            if (name === musicianName) return;
+            const el = document.getElementById(
+                `musician-${name.replace(/\s+/g, '-').toLowerCase()}`);
+            if (!el) return;
+            el.style.transition = 'opacity 0.4s ease';
+            el.style.opacity = '0.55';
+            others.push(el);
         });
 
-        // Phase 1: End blackout after blackoutDuration (keep glow)
-        const fadeOutTime = 1.0; // seconds for transitions
         setTimeout(() => {
-            // Fade other musicians back in smoothly
-            Object.entries(this.trackData.ensemble).forEach(([name]) => {
-                if (name !== musicianName) {
-                    const otherDiv = document.getElementById(`musician-${name.replace(/\s+/g, '-').toLowerCase()}`);
-                    if (otherDiv) {
-                        otherDiv.style.transition = `opacity ${fadeOutTime}s ease-out`;
-                        otherDiv.style.opacity = '';
-                    }
-                }
-            });
+            musicianDiv.classList.remove('spotlight-active');
+            musicianDiv.style.animation = '';
+            musicianDiv.style.transition = 'box-shadow 0.6s ease-out';
+            musicianDiv.style.boxShadow = '';
+            others.forEach(el => { el.style.opacity = ''; });
 
-            // Fade other page elements back in smoothly
-            elementsToFade.forEach(el => {
-                el.style.transition = `opacity ${fadeOutTime}s ease-out`;
-                el.style.opacity = '';
-            });
-
-            // Restore body background
-            document.body.style.transition = `background ${fadeOutTime}s ease-out`;
-            document.body.style.background = musicianDiv._originalBodyBg || '';
-        }, blackoutDuration * 1000);
-
-        // Phase 2: End glow after blackoutDuration + glowDuration
-        const glowFadeTime = 2.0; // slower fade for the glow
-        setTimeout(() => {
-            // Fade out the glow and scale back to solo size (1.05) smoothly
-            // Clear previous transition first, then set new one
-            musicianDiv.style.removeProperty('transition');
-            musicianDiv.offsetHeight; // Force reflow
-            musicianDiv.style.setProperty('transition', `box-shadow ${glowFadeTime}s ease-out, border-color ${glowFadeTime}s ease-out, transform ${glowFadeTime}s ease-out, background ${glowFadeTime}s ease-out, border-width ${glowFadeTime}s ease-out`, 'important');
-
-            // Small delay to let transition register
             setTimeout(() => {
-                musicianDiv.style.boxShadow = 'none';
-                musicianDiv.style.borderColor = '';
-                musicianDiv.style.borderWidth = '';
-                musicianDiv.style.background = '';
-                musicianDiv.style.transform = 'scale(1.05)';  // Solo size, not normal
-                musicianDiv.classList.remove('spotlight-active');
-                musicianDiv.style.animation = '';
-            }, 50);
-
-            // Clean up after glow fade completes
-            setTimeout(() => {
-                // Remove stylesheet and backdrop
                 styleSheet.remove();
-                if (musicianDiv._spotlightBackdrop) {
-                    musicianDiv._spotlightBackdrop.remove();
-                    delete musicianDiv._spotlightBackdrop;
-                }
-                // Restore player-content overflow
-                if (musicianDiv._playerContent) {
-                    musicianDiv._playerContent.style.overflow = '';
-                    delete musicianDiv._playerContent;
-                }
-
-                // Clear all spotlight styles (keep transform at solo size - don't snap back)
-                musicianDiv.style.position = '';
                 musicianDiv.style.transition = '';
                 musicianDiv.style.boxShadow = '';
-                musicianDiv.style.zIndex = '';
-                // Don't clear transform - keep it at scale(1.05) for solo state
-                musicianDiv.style.transformOrigin = '';
-
-                // Defensive: a spotlight that gets interrupted (rapid solo
-                // changes, navigation, hot-swap of timeline) can leave the
-                // card with display:none / opacity:0 / visibility:hidden
-                // from a fade-out that never paired with a fade-in. Force
-                // visibility back to defaults — the regular update loop
-                // paints state via classes, not inline display/opacity.
-                musicianDiv.style.display = '';
-                musicianDiv.style.visibility = '';
-                if (musicianDiv.style.opacity === '0' ||
-                    musicianDiv.style.opacity === '0.08' ||
-                    musicianDiv.style.opacity === '0.1') {
-                    musicianDiv.style.opacity = '';
-                }
-
-                Object.entries(this.trackData.ensemble).forEach(([name]) => {
-                    const div = document.getElementById(`musician-${name.replace(/\s+/g, '-').toLowerCase()}`);
-                    if (div) {
-                        div.style.transition = '';
-                        // Same defensive clearing for non-spotlighted cards
-                        // whose opacity transitions might have been interrupted.
-                        if (div.style.opacity === '0.08' || div.style.opacity === '0.1') {
-                            div.style.opacity = '';
-                        }
-                    }
-                });
-                elementsToFade.forEach(el => {
-                    el.style.transition = '';
-                });
-            }, glowFadeTime * 1000 + 100);
-        }, (blackoutDuration + glowDuration) * 1000);
+            }, 700);
+        }, total * 1000);
     }
 
     flashEntireEnsemble() {
@@ -1782,7 +1730,7 @@ class WebampChartifacts {
         const musicianDiv = document.getElementById(`musician-${musicianName.replace(/\s+/g, '-').toLowerCase()}`);
         if (!musicianDiv) return;
 
-        console.log(`Flashing specific musician: ${musicianName}`);
+        trace(`Flashing specific musician: ${musicianName}`);
 
         // Apply flash class
         musicianDiv.classList.add('flash');
@@ -1827,7 +1775,7 @@ class WebampChartifacts {
         const arrangement = this.trackData.timeline[momentTime];
         if (!arrangement) return;
 
-        console.log(`Triggering moment at ${momentTime}:`, arrangement);
+        trace(`Triggering moment at ${momentTime}:`, arrangement);
 
         // New musicians system
         if (arrangement.musicians) {
@@ -1859,32 +1807,41 @@ class WebampChartifacts {
     // Remove showPickupEffect since pickup is now an era, not a moment
 
     getMusicianStatus(musicianName, currentTime) {
-        // Walk through timeline chronologically to find musician's current status
+        // The rule lives in src/musician-status.js so the editor can show
+        // what a marker inherits using exactly the same logic.
         const processedTimeline = this.processTimelineKeys();
-        const timelineEntries = Object.entries(processedTimeline)
-            .map(([timeStr, arrangement]) => ({ time: Number(timeStr), arrangement }))
-            .filter(({ arrangement }) => arrangement.musicians)
-            .sort((a, b) => a.time - b.time);
+        return statusAt(musicianEntries(processedTimeline), musicianName, currentTime);
+    }
 
-        let status = 'out'; // Default to out
+    /**
+     * How long the loaded track is, in seconds, or 0 if not known yet.
+     *
+     * Webamp's own state carries the length once the audio has loaded its
+     * metadata; the media element is the fallback, since the two are not
+     * always populated at the same moment.
+     */
+    getDuration() {
+        if (!this.webamp || !this.webamp.store) return 0;
+        const state = this.webamp.store.getState();
 
-        for (const { time, arrangement } of timelineEntries) {
-            if (time > currentTime) break;
-
-            const musicians = arrangement.musicians;
-
-            // Check band shortcut
-            if (musicians.band === 'in') {
-                status = 'in';
-            } else if (musicians.band === 'out') {
-                status = 'out';
-            } else if (musicians[musicianName]) {
-                // Individual musician status
-                status = musicians[musicianName];
-            }
+        /*
+         * The length lives on the track, not on `media`.
+         *
+         * state.media carries timeMode, timeElapsed, volume, balance,
+         * shuffle, repeat and status -- and no length at all, which is why
+         * the editor's old percentage seek missed and why the ruler had
+         * nothing better than the metadata's guess. Webamp fills in
+         * state.tracks[id].duration once the audio reports it.
+         */
+        const tracks = state.tracks || {};
+        const order = (state.playlist && state.playlist.trackOrder) || [];
+        const current = state.playlist && state.playlist.currentTrack;
+        const id = current !== undefined && current !== null ? current : order[0];
+        const track = tracks[id] || tracks[order[0]];
+        if (track && isFinite(track.duration) && track.duration > 0) {
+            return track.duration;
         }
-
-        return status;
+        return 0;
     }
 
     getCurrentTime() {
@@ -1893,6 +1850,14 @@ class WebampChartifacts {
             return state.media.timeElapsed || 0;
         }
         return 0;
+    }
+
+    isPlaying() {
+        if (this.webamp && this.webamp.store) {
+            const state = this.webamp.store.getState();
+            return !!(state.media && state.media.status === 'PLAYING');
+        }
+        return false;
     }
 
     stopTimeTracking() {
@@ -2020,8 +1985,8 @@ class WebampChartifacts {
     }
 
     loadNewSong(newTrackData) {
-        console.debug('DEBUG: Loading new song:', newTrackData.title);
-        console.debug('DEBUG: New ensemble:', Object.keys(newTrackData.ensemble));
+        trace('DEBUG: Loading new song:', newTrackData.title);
+        trace('DEBUG: New ensemble:', Object.keys(newTrackData.ensemble));
 
         // Set loading flag to prevent resetEnsembleDisplay from running
         this.isLoadingNewSong = true;
@@ -2031,7 +1996,7 @@ class WebampChartifacts {
 
         // Update track data
         this.trackData = newTrackData;
-        console.debug('DEBUG: trackData.ensemble after update:', Object.keys(this.trackData.ensemble));
+        trace('DEBUG: trackData.ensemble after update:', Object.keys(this.trackData.ensemble));
 
         // Reset state
         this.currentSolo = null;
@@ -2042,16 +2007,52 @@ class WebampChartifacts {
         this.upcomingMomentTimes = [...this.allMomentTimes];
         this.initializeMusicianWeights();
 
-        // Update Webamp with new track
+        // Update Webamp with new track.
+        //
+        // setTracksToPlay does what it says -- it starts playing. Picking a
+        // different song from the list therefore began playing it, whether
+        // or not anything was playing before, which is startling when you
+        // are reading a page and only meant to change what is loaded.
+        // Skyler, 2026-10-25. So: remember whether we were playing, and if
+        // we were not, pause once the new track has been handed over. A
+        // switch made mid-song still keeps playing, which is what a person
+        // changing tracks while listening means by it.
         if (this.webamp && this.webamp.getMediaStatus) {
-            // Stop current playback
+            const wasPlaying = this.webamp.getMediaStatus() === 'PLAYING';
+
             this.webamp.stop();
 
-            // Load new track
+            // setTracksToPlay replaces the playlist and starts playing.
+            // Appending instead leaves the old track current -- the data
+            // switches and the audio does not, which is worse than the
+            // autoplay -- so keep it, and stop the playback it begins.
             this.webamp.setTracksToPlay([{
                 url: newTrackData.audioFile,
                 defaultName: newTrackData.title
             }]);
+
+            if (!wasPlaying) {
+                /*
+                 * The play happens when the audio has loaded, which is later
+                 * than any single timeout worth writing. So watch for it:
+                 * the first time it reports PLAYING, pause. Bounded at three
+                 * seconds so a track that never loads cannot leave a timer
+                 * running, and cancelled on the next song change.
+                 *
+                 * Skyler, 2026-10-25: choosing a different song should load
+                 * it, not start it.
+                 */
+                clearInterval(this._autoplayGuard);
+                const until = Date.now() + 3000;
+                this._autoplayGuard = setInterval(() => {
+                    if (this.webamp.getMediaStatus() === 'PLAYING') {
+                        this.webamp.pause();
+                        clearInterval(this._autoplayGuard);
+                    } else if (Date.now() > until) {
+                        clearInterval(this._autoplayGuard);
+                    }
+                }, 50);
+            }
         }
 
         // Update ensemble display
@@ -2073,7 +2074,7 @@ class WebampChartifacts {
         // Restart time tracking
         this.setupTimeTracking();
 
-        console.debug('DEBUG: New song loaded successfully');
+        trace('DEBUG: New song loaded successfully');
     }
 
     /**
@@ -2082,7 +2083,7 @@ class WebampChartifacts {
      * @param {Object} newTimeline - New timeline object
      */
     updateTimeline(newTimeline) {
-        console.debug('DEBUG: Hot-swapping timeline');
+        trace('DEBUG: Hot-swapping timeline');
 
         // Update the timeline in track data
         this.trackData.timeline = newTimeline;
@@ -2109,7 +2110,7 @@ class WebampChartifacts {
             this._timeUpdateCallback(currentTime, arrangement);
         }
 
-        console.debug('DEBUG: Timeline hot-swap complete');
+        trace('DEBUG: Timeline hot-swap complete');
     }
 
     /**
@@ -2144,7 +2145,7 @@ class WebampChartifacts {
 
 // Export for use in pages
 if (typeof window !== 'undefined') {
-    window.WebampChartifacts = WebampChartifacts;
+    window.RabbitholeWebampPlayer = RabbitholeWebampPlayer;
 }
 
-export default WebampChartifacts;
+export default RabbitholeWebampPlayer;
