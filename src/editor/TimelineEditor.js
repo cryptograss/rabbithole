@@ -779,6 +779,7 @@ export class TimelineEditor {
                 this.setZoom(this._zoom() * (e.deltaY < 0 ? 2 : 0.5), timeAt(e.clientY), e.clientY - box.top);
             }, { passive: false });
             ruler.addEventListener('touchstart', () => { this._userScrolledAt = performance.now(); }, { passive: true });
+            ruler.addEventListener('scroll', () => { this._userScrolledAt = performance.now(); }, { passive: true });
         }
 
         // A marker on the line opens itself, filled in.
@@ -2004,16 +2005,26 @@ export class TimelineEditor {
 
                 // Zoomed in, the ruler scrolls to keep the rabbit in view --
                 // unless you scrolled it yourself in the last few seconds.
-                // Only while the song is actually playing: a stopped rabbit
-                // must not drag the ruler along, or adding a marker while the
-                // song sits still wrenches the ruler back to where it stands.
+                // A stopped rabbit must not drag the ruler along, and neither
+                // may a call that did not move the clock. Adding a marker
+                // re-enters this on the instant -- the song holds still -- so
+                // a marker lands without the ruler moving, and the view rides
+                // only on real ticks, where the clock actually advanced.
                 const ruler = this.container.querySelector('.timeline-ruler');
                 const songPlaying = !this.player || !this.player.isPlaying || this.player.isPlaying();
-                if (ruler && this._zoom() > 1 && duration > 0 && songPlaying &&
+                const step = currentTime - (this._lastHeadTime ?? currentTime);
+                if (ruler && this._zoom() > 1 && duration > 0 && songPlaying && step > 0 &&
                     performance.now() - (this._userScrolledAt || 0) > 3000) {
                     const y = track.offsetTop + (currentTime / duration) * track.offsetHeight;
                     const view = ruler.clientHeight;
-                    if (y < ruler.scrollTop + 40 || y > ruler.scrollTop + view - 40) {
+                    // Catch up with the rabbit, never pull back to it. If you
+                    // scrolled ahead to read the chart, the view stays put and
+                    // the rabbit rides up into it; only falling behind (the
+                    // rabbit gone below the edge) draws the ruler forward.
+                    // Skyler, 2026-10-30: being yanked back to the top after
+                    // each marker was the thing that made charting a long
+                    // song a scroll-fest.
+                    if (y > ruler.scrollTop + view - 40) {
                         ruler.scrollTop = Math.max(0, y - view / 3);
                         this._rulerScroll = ruler.scrollTop;
                     }
@@ -2023,7 +2034,6 @@ export class TimelineEditor {
                 // it doesn't; a jump (a seek) doesn't count as running.
                 // Ticks come faster than the clock moves, and stop when it
                 // pauses, so it stops running once time has held still.
-                const step = currentTime - (this._lastHeadTime ?? currentTime);
                 if (step > 0 && step < 1) {
                     head.classList.add('running');
                     clearTimeout(this._rabbitRest);
