@@ -73,6 +73,7 @@ export class TimelineEditor {
         if (this.player && this.player.onTimeUpdate) {
             this.player.onTimeUpdate(this._onTimeUpdate);
         }
+        this._startFromOnPlay();
 
         // Initial render
         this.render();
@@ -1896,6 +1897,15 @@ export class TimelineEditor {
          * part's start time lands on the frame before the arrangement
          * changes, often enough to look like nothing happened.
          */
+        /*
+         * Stopped, the seek may not take, and PLAY from a stop starts at the
+         * top anyway. So remember where you asked to be, and go there when
+         * it starts. Skyler, 2026-10-31: drag the rabbit, press play, and
+         * it began at the beginning.
+         */
+        const stopped = this.player.isPlaying && !this.player.isPlaying();
+        this._startFrom = stopped ? time : null;
+
         if (typeof this.player.webamp.seekToTime === 'function') {
             this.player.webamp.seekToTime(Math.max(0, time + 0.05));
             return;
@@ -1937,10 +1947,19 @@ export class TimelineEditor {
          * the playhead is where it was asked to be. seekToTime is
          * idempotent, so asking twice costs nothing.
          */
+        this._startFrom = null;
         if (webamp.store) {
             webamp.store.dispatch({ type: 'PLAY' });
         }
 
+        this._seekUntilLanded(time);
+    }
+
+    /**
+     * Ask for a time until the playhead is there, for a couple of seconds.
+     */
+    _seekUntilLanded(time) {
+        const webamp = this.player.webamp;
         const target = Math.max(0, time + 0.05);
         const landed = () => Math.abs(this.player.getCurrentTime() - target) < 2;
 
@@ -1961,6 +1980,25 @@ export class TimelineEditor {
             }
             trySeek();
         }, 200);
+    }
+
+    /**
+     * When playback starts -- webamp's button, Space, anything -- after a
+     * seek made while stopped, go to where that seek asked for.
+     */
+    _startFromOnPlay() {
+        const store = this.player && this.player.webamp && this.player.webamp.store;
+        if (!store) return;
+        let previous = store.getState().media.status;
+        store.subscribe(() => {
+            const status = store.getState().media.status;
+            const started = status === 'PLAYING' && previous !== 'PLAYING';
+            previous = status;
+            if (!started || this._startFrom == null) return;
+            const time = this._startFrom;
+            this._startFrom = null;
+            this._seekUntilLanded(time);
+        });
     }
 
     /**
