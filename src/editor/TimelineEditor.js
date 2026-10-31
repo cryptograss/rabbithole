@@ -1905,6 +1905,8 @@ export class TimelineEditor {
          */
         const stopped = this.player.isPlaying && !this.player.isPlaying();
         this._startFrom = stopped ? time : null;
+        // A seek of your own outranks one still being retried.
+        clearInterval(this._seekWhenReady);
 
         if (typeof this.player.webamp.seekToTime === 'function') {
             this.player.webamp.seekToTime(Math.max(0, time + 0.05));
@@ -1962,6 +1964,16 @@ export class TimelineEditor {
         const webamp = this.player.webamp;
         const target = Math.max(0, time + 0.05);
         const landed = () => Math.abs(this.player.getCurrentTime() - target) < 2;
+        /*
+         * Landed once is not landed. The first play of the page loads the
+         * audio, and the load puts the clock back to 0 after the seek has
+         * already reported success -- a 29 MB FLAC off IPFS can take longer
+         * than a couple of seconds, too. So it counts as landed only when
+         * it has stayed there across two checks, and keeps asking for ten.
+         * Skyler, 2026-10-31: the fix worked after moving the rabbit, but
+         * not on the first play from a fresh page.
+         */
+        let held = 0;
 
         const trySeek = () => {
             if (typeof webamp.seekToTime === 'function') {
@@ -1972,14 +1984,15 @@ export class TimelineEditor {
         trySeek();
 
         clearInterval(this._seekWhenReady);
-        const until = Date.now() + 2500;
+        const until = Date.now() + 10000;
         this._seekWhenReady = setInterval(() => {
-            if (landed() || Date.now() > until) {
+            held = landed() ? held + 1 : 0;
+            if (held >= 2 || Date.now() > until) {
                 clearInterval(this._seekWhenReady);
                 return;
             }
-            trySeek();
-        }, 200);
+            if (!held) trySeek();
+        }, 250);
     }
 
     /**
