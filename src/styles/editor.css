@@ -1339,3 +1339,41 @@
     border-color: #e0b7a6;
     background: #fffaf7;
 }
+
+/* The section grid: controls in the header, a line on the ruler where
+   each section starts. Finer than the bands, so the two can share. */
+.grid-controls {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11px;
+}
+
+.grid-controls input[type="number"] {
+    width: 52px;
+    font-size: 11px;
+    padding: 1px 2px;
+}
+
+.grid-fit-note {
+    color: #4a5a4a;
+    font-style: italic;
+}
+
+.ruler-gridline {
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 0;
+    border-top: 1px dashed rgba(74, 124, 89, 0.45);
+    pointer-events: none;
+}
+
+.grid-controls button,
+.grid-controls label {
+    white-space: nowrap;
+}
+
+.grid-controls {
+    flex-wrap: wrap;
+}

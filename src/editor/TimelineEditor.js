@@ -16,6 +16,7 @@ import jsYaml from 'js-yaml';
 import { musicianEntries, statusAt, compactMusicians, unmatchedNames, renameMusician } from '../musician-status.js';
 
 import { loadPeaks, loadServerPeaks, drawWaveform } from './waveform.js';
+import { partTimes, fitGrid, gridLines, snapTime, planSnap } from './section-grid.js';
 
 // The rabbit that runs down the ruler as the song plays.
 const RABBIT_URL = new URL('../images/rabbit.png', import.meta.url).href;
@@ -310,6 +311,7 @@ export class TimelineEditor {
                             <span class="ruler-zoom-level">${this._zoom()}×</span>
                             <button class="btn-zoom-in" ${this._zoom() >= 32 ? 'disabled' : ''}>+</button>
                         </span>
+                        ${this.renderGridControls(entries)}
                         <button class="btn-add-marker" title="Add a marker where the playhead is (M)">
                             + Add Marker at <span class="add-marker-time">${this.formatTime(this.currentPlayingTime || 0)}</span>
                         </button>
@@ -614,6 +616,12 @@ export class TimelineEditor {
             }
         }
 
+        // The snap grid, when one is set: a line where each section starts.
+        const grid = this._grid;
+        const lines = grid ? gridLines(grid.start, grid.length, duration).map(t =>
+            `<div class="ruler-gridline" style="top:${pct(t)}%" title="Grid ${this.formatTime(t)}"></div>`
+        ).join('') : '';
+
         const markers = entries.map(entry => {
             const { time, data } = entry;
             const who = data.solo || data.pickup || '';
@@ -631,6 +639,7 @@ export class TimelineEditor {
                 <div class="ruler-track" data-duration="${duration}" style="height:${trackPx}px">
                     <canvas class="ruler-wave"></canvas>
                     ${bands.join('')}
+                    ${lines}
                     ${ticks.join('')}
                     ${markers}
                     <div class="ruler-playhead" style="top:${pct(this.currentPlayingTime || 0)}%"><img class="ruler-rabbit" src="${RABBIT_URL}" alt="" draggable="false"><span class="ruler-playhead-tag">now <b>${this.formatTime(this.currentPlayingTime || 0).replace(/\.\d$/, '')}</b></span></div>
@@ -745,7 +754,7 @@ export class TimelineEditor {
                 if (wasRabbit) placePlayhead(t);
                 this.seekTo(t);
             } else {
-                this.openMarkerForm(t, null);
+                this.openMarkerForm(this._snap(t), null);
             }
         });
 
@@ -1529,6 +1538,8 @@ export class TimelineEditor {
         if (addBtn) {
             addBtn.addEventListener('click', () => this.addMarkerAtCurrentTime());
 
+        this._attachGridListeners();
+
         const tidyBtn = this.container.querySelector('.btn-tidy');
         if (tidyBtn) {
             tidyBtn.addEventListener('click', () => this.tidyMusicians());
@@ -1774,6 +1785,94 @@ export class TimelineEditor {
     }
 
     /**
+     * The section grid, and snapping to it.
+     *
+     * Justin's biggest fear in the editor is imprecision; on a song played
+     * to a click, the parts change on a grid, so a marker dropped near a
+     * line can land on it. "Fit" finds the grid from the part markers
+     * already placed; the two numbers can be typed over. With Snap on, new
+     * markers (M, the add button, a click on the ruler) land on the nearest
+     * line when they are within reach of one, and stay where they were put
+     * when not -- a pickup half a beat early is still a pickup. "Snap all"
+     * moves the part markers already there, as one step Undo takes back.
+     *
+     * The grid lives in the editor only: nothing about it is saved, so
+     * trying it on a finished chart costs nothing until you Copy YAML.
+     */
+    renderGridControls(entries) {
+        const g = this._grid;
+        const fit = this._gridFit;
+        return `
+            <span class="grid-controls" title="Section grid: snap markers to where the parts change">
+                <button class="btn-grid-fit" title="Find the grid from the part markers">Fit grid</button>
+                <label>every <input class="grid-length" type="number" step="0.01" min="0.5"
+                       value="${g ? g.length : ''}" placeholder="s">s</label>
+                <label>from <input class="grid-start" type="number" step="0.01" min="0"
+                       value="${g ? g.start : ''}" placeholder="s">s</label>
+                <label class="grid-snap-label"><input class="grid-snap" type="checkbox"
+                       ${this._snapOn ? 'checked' : ''} ${g ? '' : 'disabled'}> Snap</label>
+                <button class="btn-grid-snap-all" ${g ? '' : 'disabled'}
+                        title="Move part markers near a line onto it (Undo takes it back)">Snap all</button>
+                ${fit ? `<span class="grid-fit-note">${fit}</span>` : ''}
+            </span>`;
+    }
+
+    _attachGridListeners() {
+        const q = sel => this.container.querySelector(sel);
+        const fitBtn = q('.btn-grid-fit');
+        if (!fitBtn) return;
+
+        fitBtn.addEventListener('click', () => {
+            const g = fitGrid(partTimes(this.data.getTimelineEntries()));
+            if (!g) {
+                this._gridFit = 'needs 4+ part markers';
+            } else {
+                this._grid = { length: g.length, start: g.start };
+                this._snapOn = true;
+                this._gridFit = `${g.caught} of ${g.of} parts on it`;
+            }
+            this.render();
+        });
+
+        const setFromInputs = () => {
+            const length = parseFloat(q('.grid-length').value);
+            const start = parseFloat(q('.grid-start').value) || 0;
+            this._grid = length > 0 ? { length, start } : null;
+            if (!this._grid) this._snapOn = false;
+            this._gridFit = null;
+            this.render();
+        };
+        q('.grid-length').addEventListener('change', setFromInputs);
+        q('.grid-start').addEventListener('change', setFromInputs);
+
+        q('.grid-snap').addEventListener('change', (e) => {
+            this._snapOn = e.target.checked;
+        });
+
+        q('.btn-grid-snap-all').addEventListener('click', () => {
+            const g = this._grid;
+            if (!g) return;
+            const moves = planSnap(this.data.getTimelineEntries(), g.start, g.length);
+            if (!moves.length) {
+                this._gridFit = 'nothing to move';
+                this.render();
+                return;
+            }
+            const far = Math.max(...moves.map(m => Math.abs(m.to - m.from)));
+            this._gridFit = `moved ${moves.length}, furthest ${far.toFixed(1)}s`;
+            this.data.moveMarkers(moves);
+            this._notifyTimelineChange();
+        });
+    }
+
+    /** A time, snapped to the grid if snapping is on. */
+    _snap(time) {
+        const g = this._grid;
+        if (!this._snapOn || !g) return time;
+        return snapTime(time, g.start, g.length);
+    }
+
+    /**
      * Add a new marker at the current playback time
      */
     addMarkerAtCurrentTime() {
@@ -1789,7 +1888,7 @@ export class TimelineEditor {
      * resolution of anything you could hear.
      */
     addMarkerAt(seconds) {
-        let time = Math.round((seconds || 0) * 10) / 10;
+        let time = Math.round(this._snap(seconds || 0) * 10) / 10;
 
         while (this.data.timeline && this.data.timeline[String(time)] !== undefined) {
             time = Math.round((time + 0.1) * 10) / 10;
