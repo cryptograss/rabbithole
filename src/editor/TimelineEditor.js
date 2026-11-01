@@ -986,6 +986,19 @@ export class TimelineEditor {
                 const on = btn.classList.contains('on');
                 box.querySelectorAll('.mf-part').forEach(b => b.classList.remove('on'));
                 if (!on) btn.classList.add('on');
+                /*
+                 * On a marker that already exists, the part takes at once,
+                 * without waiting for Save. Skyler, 2026-11-01: pressed jam,
+                 * and Copy YAML still said outro.
+                 */
+                if (existingTime !== null && this.data.getMarker(existingTime)) {
+                    const marker = { ...this.data.getMarker(existingTime) };
+                    if (on) delete marker.part; else marker.part = btn.dataset.part;
+                    this.data._saveUndoState();
+                    this.data.workingData.timeline[this.data._timeToKey(existingTime)] = marker;
+                    this.data._notifyChange();
+                    this._notifyTimelineChange();
+                }
             });
         });
 

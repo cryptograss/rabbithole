@@ -282,6 +282,13 @@ export class KeyboardShortcuts {
 
         this.data.updateMarkerData(time, { part });
         this._notifyTimelineChange();
+
+        // An open form for this marker would write its old part back on Save.
+        const form = document.querySelector('.marker-form');
+        if (form) {
+            form.querySelectorAll('.mf-part').forEach(b =>
+                b.classList.toggle('on', b.dataset.part === part));
+        }
     }
 
     /**

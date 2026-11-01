@@ -180,6 +180,7 @@ class RabbitholeWebampPlayer {
             partBox.addEventListener('click', () => this.seekToPart(index));
             partsChart.appendChild(partBox);
         });
+        this._markPartRows(partsChart, songParts.length);
 
         // Ensemble will be created after Webamp renders (moved to renderWhenReady)
     }
@@ -341,6 +342,19 @@ class RabbitholeWebampPlayer {
             partBox.addEventListener('click', () => this.seekToPart(index));
             container.appendChild(partBox);
         });
+        this._markPartRows(container, songParts.length);
+    }
+
+    /*
+     * A long song's strip goes on two rows. Skyler, 2026-11-01: Barlows has
+     * 35 parts and they ran off the page. The stylesheet decides how two
+     * rows look; this only says how many blocks go on each.
+     */
+    _markPartRows(chart, count) {
+        if (!chart) return;
+        const twoRows = count > 20;
+        chart.classList.toggle('two-rows', twoRows);
+        chart.style.setProperty('--parts-per-row', twoRows ? Math.ceil(count / 2) : count);
     }
 
     constrainWebampToContainer() {

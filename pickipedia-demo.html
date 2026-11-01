@@ -1270,6 +1270,32 @@
             border-color: #3c6749;
             color: #fff;
         }
+
+        /* A long song on two rows, each the same number of blocks, so the
+           second row still lines up under the first as the rest of the song. */
+        body.bottom-bar .parts-chart.two-rows {
+            flex-wrap: wrap;
+            height: auto;
+            row-gap: 3px;
+        }
+
+        body.bottom-bar .parts-chart.two-rows .part-box {
+            flex: 0 0 calc((100% - (var(--parts-per-row) - 1) * 3px) / var(--parts-per-row));
+        }
+
+        /* And the bar grows by a row to hold it: 24 more pixels on the dock,
+           the strip, and the padding that keeps the player clear of it. */
+        body.bottom-bar:has(.parts-chart.two-rows) {
+            --rh-dock-height: 176px;
+        }
+
+        body.bottom-bar:has(.parts-chart.two-rows) #rabbithole-sidebar {
+            padding-bottom: 58px;
+        }
+
+        body.bottom-bar .data-section:has(.parts-chart.two-rows) {
+            height: 58px;
+        }
         /* === The bar on a narrow screen ===
 
            Last in the file on purpose. The bottom-bar rules above set `order`
