@@ -346,7 +346,7 @@ export class KeyboardShortcuts {
                     <li><kbd>Up/Down</kbd> Adjust time (±0.1s, ±1s with Shift)</li>
                     <li><kbd>Tab</kbd> Navigate markers</li>
                     <li><kbd>1-9</kbd> Set solo to musician</li>
-                    <li><kbd>A/B/C/D/I/O</kbd> Set part</li>
+                    <li><kbd>A/B/C/D/I/J/O</kbd> Set part (J = jam)</li>
                     <li><kbd>Enter</kbd> Play from marker</li>
                     <li><kbd>Del</kbd> Delete marker</li>
                     <li><kbd>Ctrl+Z</kbd> Undo</li>
