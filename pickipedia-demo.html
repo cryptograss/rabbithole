@@ -330,6 +330,31 @@
             position: relative;
         }
 
+        /* In the sidebar the player fills what the header leaves, not the
+           whole sidebar: at height 100% it started 36px down and so always
+           ended 36px past the bottom, and the last row of song parts sat
+           under the edge of the window. Skyler, 2026-11-01: "outro is still
+           cut off". A taller song still scrolls the sidebar. */
+        body:not(.bottom-bar) #rabbithole-sidebar {
+            display: flex;
+            flex-direction: column;
+        }
+
+        body:not(.bottom-bar) .player-container {
+            height: auto;
+            flex: 1 0 auto;
+        }
+
+        /* And the strip stays in sight when the sidebar is taller than the
+           window and scrolls -- on a 720px screen it is, by 36px. */
+        body:not(.bottom-bar) .data-section {
+            position: sticky;
+            bottom: 0;
+            z-index: 5;
+            background: #fff;
+            padding-bottom: 6px;
+        }
+
         /* The A/B switch. Deliberately plain and labelled with which layout
            you are looking at, so a screenshot says which one it is. */
         .layout-ab-wrap {
