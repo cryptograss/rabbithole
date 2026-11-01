@@ -823,7 +823,7 @@ export class TimelineEditor {
 
         const t = Math.round(time * 10) / 10;
         const data = existingTime !== null ? (this.data.getMarker(existingTime) || {}) : {};
-        const parts = ['intro', 'A', 'B', 'C', 'D', 'outro'];
+        const parts = ['intro', 'A', 'B', 'C', 'D', 'jam', 'outro'];
 
         /*
          * Who this box can offer.

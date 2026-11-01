@@ -6,7 +6,7 @@
  * - M: Add marker at current time
  * - Arrow keys: Fine-tune time (±0.1s, ±1s with shift)
  * - 1-9: Quick-select musician by ensemble order
- * - A/B/C/D/I/O: Set part (A, B, C, D, Intro, Outro)
+ * - A/B/C/D/I/J/O: Set part (A, B, C, D, Intro, Jam, Outro)
  * - Tab/Shift+Tab: Navigate markers
  * - Delete/Backspace: Delete selected marker
  * - Ctrl+Z: Undo
@@ -179,13 +179,14 @@ export class KeyboardShortcuts {
             return;
         }
 
-        // Part keys: A, B, C, D, I (intro), O (outro)
+        // Part keys: A, B, C, D, I (intro), J (jam), O (outro)
         const partKeys = {
             'a': 'A',
             'b': 'B',
             'c': 'C',
             'd': 'D',
             'i': 'intro',
+            'j': 'jam',
             'o': 'outro'
         };
 
