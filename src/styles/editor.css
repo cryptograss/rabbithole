@@ -909,9 +909,15 @@
     border-radius: 3px;
 }
 
-/* Wraps: seven parts (jam joined on 1 Nov) are wider than the form, and
+/* Two rows, always: seven parts (jam joined on 1 Nov) are wider than the form, and
    outro went off its right edge. Skyler, 2026-11-02. */
-.mf-parts { display: flex; flex-wrap: wrap; gap: 4px; min-width: 0; }
+.mf-parts {
+    display: grid;
+    grid-template-columns: repeat(4, auto);
+    justify-content: start;
+    gap: 4px;
+    min-width: 0;
+}
 
 .mf-part {
     border: 1px solid #c3cbbb;
