@@ -893,7 +893,7 @@
                lands exactly on the strip's top edge: 2 + 116 + 34 = 152. At
                140 it overlapped the strip by twelve pixels and the strip's
                background painted over the bottom of the player. */
-            height: var(--rh-dock-height);
+            height: calc(var(--rh-dock-height) + var(--rh-strip-extra, 0px));
             /* Room for the song-parts strip, which is absolutely positioned
                against this box. box-sizing is border-box globally, so the bar
                stays 152px tall and the main row gets 116px of it — exactly
@@ -917,11 +917,11 @@
         }
 
         body.bottom-bar .pickipedia-frame {
-            height: calc(100vh - var(--rh-dock-height));
+            height: calc(100vh - calc(var(--rh-dock-height) + var(--rh-strip-extra, 0px)));
         }
 
         body.bottom-bar .editor-panel {
-            height: calc(100vh - var(--rh-dock-height));
+            height: calc(100vh - calc(var(--rh-dock-height) + var(--rh-strip-extra, 0px)));
         }
 
         /* Pull .player-container's children up to be direct flex items of
@@ -1311,7 +1311,7 @@
         /* And the bar grows by a row to hold it: 24 more pixels on the dock,
            the strip, and the padding that keeps the player clear of it. */
         body.bottom-bar:has(.parts-chart.two-rows) {
-            --rh-dock-height: 176px;
+            --rh-strip-extra: 24px;
         }
 
         body.bottom-bar:has(.parts-chart.two-rows) #rabbithole-sidebar {
