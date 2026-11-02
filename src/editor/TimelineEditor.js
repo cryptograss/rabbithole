@@ -998,6 +998,15 @@ export class TimelineEditor {
                     this.data.workingData.timeline[this.data._timeToKey(existingTime)] = marker;
                     this.data._notifyChange();
                     this._notifyTimelineChange();
+                    /*
+                     * The change re-renders the editor, which took the form
+                     * with it; a second click on the reopened form then
+                     * turned the part back off. Skyler, 2026-11-02: "the jam
+                     * section isn't copying over". Put the form back.
+                     */
+                    if (!this.container.querySelector('.marker-form')) {
+                        this.openMarkerForm(existingTime, existingTime);
+                    }
                 }
             });
         });
