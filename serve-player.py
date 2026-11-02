@@ -14,6 +14,14 @@ WIKI = 'https://pickipedia.xyz'
 STRIP_HEADERS = {'x-frame-options', 'content-security-policy'}
 
 class Handler(http.server.SimpleHTTPRequestHandler):
+    # A preview is for seeing the latest push. Without this, browsers keep
+    # the old ES modules (only the page URL carries ?v=), and a fix looks
+    # like it never landed. Skyler, 2026-11-02.
+    def end_headers(self):
+        if not any(self.path.startswith(p) for p in ('/api-proxy', '/wiki/', '/w/', '/api.php', '/index.php', '/load.php')):
+            self.send_header('Cache-Control', 'no-cache')
+        super().end_headers()
+
     def do_GET(self):
         if self.path.startswith('/api-proxy'):
             self._proxy_api()
