@@ -16,6 +16,7 @@ import jsYaml from 'js-yaml';
 import { musicianEntries, statusAt, compactMusicians, unmatchedNames, renameMusician } from '../musician-status.js';
 
 import { loadPeaks, loadServerPeaks, drawWaveform } from './waveform.js';
+import { partTimes, fitGrid, gridLines, snapTime, planSnap } from './section-grid.js';
 
 // The rabbit that runs down the ruler as the song plays.
 const RABBIT_URL = new URL('../images/rabbit.png', import.meta.url).href;
@@ -28,7 +29,7 @@ export class TimelineEditor {
     static NEW_MARKER_TEMPLATE = [
         'solo: ',
         'part: ',
-        '# part: intro | A | B | outro',
+        '# part: intro | A | B | C | D | outro',
         '# pickup: Name          -- somebody leading in',
         '# musicians:            -- who comes in or drops out',
         '#   Name: in',
@@ -73,6 +74,7 @@ export class TimelineEditor {
         if (this.player && this.player.onTimeUpdate) {
             this.player.onTimeUpdate(this._onTimeUpdate);
         }
+        this._startFromOnPlay();
 
         // Initial render
         this.render();
@@ -290,6 +292,8 @@ export class TimelineEditor {
         const musicians = this.data.getMusicianNames();
         const oldRuler = this.container.querySelector('.timeline-ruler');
         if (oldRuler) this._rulerScroll = oldRuler.scrollTop;
+        const oldList = this.container.querySelector('.marker-list');
+        if (oldList) this._listScroll = oldList.scrollTop;
 
         this.container.innerHTML = `
             <div class="timeline-editor">
@@ -307,7 +311,8 @@ export class TimelineEditor {
                             <span class="ruler-zoom-level">${this._zoom()}×</span>
                             <button class="btn-zoom-in" ${this._zoom() >= 32 ? 'disabled' : ''}>+</button>
                         </span>
-                        <button class="btn-add-marker" title="Add a marker where the playhead is (Space)">
+                        ${this.renderGridControls(entries)}
+                        <button class="btn-add-marker" title="Add a marker where the playhead is (M)">
                             + Add Marker at <span class="add-marker-time">${this.formatTime(this.currentPlayingTime || 0)}</span>
                         </button>
                     </div>
@@ -347,6 +352,8 @@ export class TimelineEditor {
         this._attachRulerListeners();
         const ruler = this.container.querySelector('.timeline-ruler');
         if (ruler && this._rulerScroll) ruler.scrollTop = this._rulerScroll;
+        const list = this.container.querySelector('.marker-list');
+        if (list && this._listScroll !== undefined) list.scrollTop = this._listScroll;
         this._drawWave();
         this._highlightCurrentMarker();
     }
@@ -609,6 +616,12 @@ export class TimelineEditor {
             }
         }
 
+        // The snap grid, when one is set: a line where each section starts.
+        const grid = this._grid;
+        const lines = grid ? gridLines(grid.start, grid.length, duration).map(t =>
+            `<div class="ruler-gridline" style="top:${pct(t)}%" title="Grid ${this.formatTime(t)}"></div>`
+        ).join('') : '';
+
         const markers = entries.map(entry => {
             const { time, data } = entry;
             const who = data.solo || data.pickup || '';
@@ -626,6 +639,7 @@ export class TimelineEditor {
                 <div class="ruler-track" data-duration="${duration}" style="height:${trackPx}px">
                     <canvas class="ruler-wave"></canvas>
                     ${bands.join('')}
+                    ${lines}
                     ${ticks.join('')}
                     ${markers}
                     <div class="ruler-playhead" style="top:${pct(this.currentPlayingTime || 0)}%"><img class="ruler-rabbit" src="${RABBIT_URL}" alt="" draggable="false"><span class="ruler-playhead-tag">now <b>${this.formatTime(this.currentPlayingTime || 0).replace(/\.\d$/, '')}</b></span></div>
@@ -740,7 +754,7 @@ export class TimelineEditor {
                 if (wasRabbit) placePlayhead(t);
                 this.seekTo(t);
             } else {
-                this.openMarkerForm(t, null);
+                this.openMarkerForm(this._snap(t), null);
             }
         });
 
@@ -809,7 +823,7 @@ export class TimelineEditor {
 
         const t = Math.round(time * 10) / 10;
         const data = existingTime !== null ? (this.data.getMarker(existingTime) || {}) : {};
-        const parts = ['intro', 'A', 'B', 'outro'];
+        const parts = ['intro', 'A', 'B', 'C', 'D', 'jam', 'outro'];
 
         /*
          * Who this box can offer.
@@ -972,6 +986,28 @@ export class TimelineEditor {
                 const on = btn.classList.contains('on');
                 box.querySelectorAll('.mf-part').forEach(b => b.classList.remove('on'));
                 if (!on) btn.classList.add('on');
+                /*
+                 * On a marker that already exists, the part takes at once,
+                 * without waiting for Save. Skyler, 2026-11-01: pressed jam,
+                 * and Copy YAML still said outro.
+                 */
+                if (existingTime !== null && this.data.getMarker(existingTime)) {
+                    const marker = { ...this.data.getMarker(existingTime) };
+                    if (on) delete marker.part; else marker.part = btn.dataset.part;
+                    this.data._saveUndoState();
+                    this.data.workingData.timeline[this.data._timeToKey(existingTime)] = marker;
+                    this.data._notifyChange();
+                    this._notifyTimelineChange();
+                    /*
+                     * The change re-renders the editor, which took the form
+                     * with it; a second click on the reopened form then
+                     * turned the part back off. Skyler, 2026-11-02: "the jam
+                     * section isn't copying over". Put the form back.
+                     */
+                    if (!this.container.querySelector('.marker-form')) {
+                        this.openMarkerForm(existingTime, existingTime);
+                    }
+                }
             });
         });
 
@@ -1524,6 +1560,8 @@ export class TimelineEditor {
         if (addBtn) {
             addBtn.addEventListener('click', () => this.addMarkerAtCurrentTime());
 
+        this._attachGridListeners();
+
         const tidyBtn = this.container.querySelector('.btn-tidy');
         if (tidyBtn) {
             tidyBtn.addEventListener('click', () => this.tidyMusicians());
@@ -1769,6 +1807,94 @@ export class TimelineEditor {
     }
 
     /**
+     * The section grid, and snapping to it.
+     *
+     * Justin's biggest fear in the editor is imprecision; on a song played
+     * to a click, the parts change on a grid, so a marker dropped near a
+     * line can land on it. "Fit" finds the grid from the part markers
+     * already placed; the two numbers can be typed over. With Snap on, new
+     * markers (M, the add button, a click on the ruler) land on the nearest
+     * line when they are within reach of one, and stay where they were put
+     * when not -- a pickup half a beat early is still a pickup. "Snap all"
+     * moves the part markers already there, as one step Undo takes back.
+     *
+     * The grid lives in the editor only: nothing about it is saved, so
+     * trying it on a finished chart costs nothing until you Copy YAML.
+     */
+    renderGridControls(entries) {
+        const g = this._grid;
+        const fit = this._gridFit;
+        return `
+            <span class="grid-controls" title="Section grid: snap markers to where the parts change">
+                <button class="btn-grid-fit" title="Find the grid from the part markers">Fit grid</button>
+                <label>every <input class="grid-length" type="number" step="0.01" min="0.5"
+                       value="${g ? g.length : ''}" placeholder="s">s</label>
+                <label>from <input class="grid-start" type="number" step="0.01" min="0"
+                       value="${g ? g.start : ''}" placeholder="s">s</label>
+                <label class="grid-snap-label"><input class="grid-snap" type="checkbox"
+                       ${this._snapOn ? 'checked' : ''} ${g ? '' : 'disabled'}> Snap</label>
+                <button class="btn-grid-snap-all" ${g ? '' : 'disabled'}
+                        title="Move part markers near a line onto it (Undo takes it back)">Snap all</button>
+                ${fit ? `<span class="grid-fit-note">${fit}</span>` : ''}
+            </span>`;
+    }
+
+    _attachGridListeners() {
+        const q = sel => this.container.querySelector(sel);
+        const fitBtn = q('.btn-grid-fit');
+        if (!fitBtn) return;
+
+        fitBtn.addEventListener('click', () => {
+            const g = fitGrid(partTimes(this.data.getTimelineEntries()));
+            if (!g) {
+                this._gridFit = 'needs 4+ part markers';
+            } else {
+                this._grid = { length: g.length, start: g.start };
+                this._snapOn = true;
+                this._gridFit = `${g.caught} of ${g.of} parts on it`;
+            }
+            this.render();
+        });
+
+        const setFromInputs = () => {
+            const length = parseFloat(q('.grid-length').value);
+            const start = parseFloat(q('.grid-start').value) || 0;
+            this._grid = length > 0 ? { length, start } : null;
+            if (!this._grid) this._snapOn = false;
+            this._gridFit = null;
+            this.render();
+        };
+        q('.grid-length').addEventListener('change', setFromInputs);
+        q('.grid-start').addEventListener('change', setFromInputs);
+
+        q('.grid-snap').addEventListener('change', (e) => {
+            this._snapOn = e.target.checked;
+        });
+
+        q('.btn-grid-snap-all').addEventListener('click', () => {
+            const g = this._grid;
+            if (!g) return;
+            const moves = planSnap(this.data.getTimelineEntries(), g.start, g.length);
+            if (!moves.length) {
+                this._gridFit = 'nothing to move';
+                this.render();
+                return;
+            }
+            const far = Math.max(...moves.map(m => Math.abs(m.to - m.from)));
+            this._gridFit = `moved ${moves.length}, furthest ${far.toFixed(1)}s`;
+            this.data.moveMarkers(moves);
+            this._notifyTimelineChange();
+        });
+    }
+
+    /** A time, snapped to the grid if snapping is on. */
+    _snap(time) {
+        const g = this._grid;
+        if (!this._snapOn || !g) return time;
+        return snapTime(time, g.start, g.length);
+    }
+
+    /**
      * Add a new marker at the current playback time
      */
     addMarkerAtCurrentTime() {
@@ -1784,7 +1910,7 @@ export class TimelineEditor {
      * resolution of anything you could hear.
      */
     addMarkerAt(seconds) {
-        let time = Math.round((seconds || 0) * 10) / 10;
+        let time = Math.round(this._snap(seconds || 0) * 10) / 10;
 
         while (this.data.timeline && this.data.timeline[String(time)] !== undefined) {
             time = Math.round((time + 0.1) * 10) / 10;
@@ -1892,6 +2018,17 @@ export class TimelineEditor {
          * part's start time lands on the frame before the arrangement
          * changes, often enough to look like nothing happened.
          */
+        /*
+         * Stopped, the seek may not take, and PLAY from a stop starts at the
+         * top anyway. So remember where you asked to be, and go there when
+         * it starts. Skyler, 2026-10-31: drag the rabbit, press play, and
+         * it began at the beginning.
+         */
+        const stopped = this.player.isPlaying && !this.player.isPlaying();
+        this._startFrom = stopped ? time : null;
+        // A seek of your own outranks one still being retried.
+        clearInterval(this._seekWhenReady);
+
         if (typeof this.player.webamp.seekToTime === 'function') {
             this.player.webamp.seekToTime(Math.max(0, time + 0.05));
             return;
@@ -1933,12 +2070,31 @@ export class TimelineEditor {
          * the playhead is where it was asked to be. seekToTime is
          * idempotent, so asking twice costs nothing.
          */
+        this._startFrom = null;
         if (webamp.store) {
             webamp.store.dispatch({ type: 'PLAY' });
         }
 
+        this._seekUntilLanded(time);
+    }
+
+    /**
+     * Ask for a time until the playhead is there, for a couple of seconds.
+     */
+    _seekUntilLanded(time) {
+        const webamp = this.player.webamp;
         const target = Math.max(0, time + 0.05);
         const landed = () => Math.abs(this.player.getCurrentTime() - target) < 2;
+        /*
+         * Landed once is not landed. The first play of the page loads the
+         * audio, and the load puts the clock back to 0 after the seek has
+         * already reported success -- a 29 MB FLAC off IPFS can take longer
+         * than a couple of seconds, too. So it counts as landed only when
+         * it has stayed there across two checks, and keeps asking for ten.
+         * Skyler, 2026-10-31: the fix worked after moving the rabbit, but
+         * not on the first play from a fresh page.
+         */
+        let held = 0;
 
         const trySeek = () => {
             if (typeof webamp.seekToTime === 'function') {
@@ -1949,14 +2105,34 @@ export class TimelineEditor {
         trySeek();
 
         clearInterval(this._seekWhenReady);
-        const until = Date.now() + 2500;
+        const until = Date.now() + 10000;
         this._seekWhenReady = setInterval(() => {
-            if (landed() || Date.now() > until) {
+            held = landed() ? held + 1 : 0;
+            if (held >= 2 || Date.now() > until) {
                 clearInterval(this._seekWhenReady);
                 return;
             }
-            trySeek();
-        }, 200);
+            if (!held) trySeek();
+        }, 250);
+    }
+
+    /**
+     * When playback starts -- webamp's button, Space, anything -- after a
+     * seek made while stopped, go to where that seek asked for.
+     */
+    _startFromOnPlay() {
+        const store = this.player && this.player.webamp && this.player.webamp.store;
+        if (!store) return;
+        let previous = store.getState().media.status;
+        store.subscribe(() => {
+            const status = store.getState().media.status;
+            const started = status === 'PLAYING' && previous !== 'PLAYING';
+            previous = status;
+            if (!started || this._startFrom == null) return;
+            const time = this._startFrom;
+            this._startFrom = null;
+            this._seekUntilLanded(time);
+        });
     }
 
     /**

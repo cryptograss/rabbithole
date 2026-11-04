@@ -29,7 +29,7 @@
         }
     }
     </script>
-    <link rel="stylesheet" href="./src/styles/editor.css">
+    <link rel="stylesheet" href="./src/styles/editor.css?v=fabd19a-2">
     <link rel="stylesheet" href="./src/styles/scenes.css">
     <style>
         * {
@@ -328,6 +328,31 @@
         .player-container {
             padding: 6px 10px;
             position: relative;
+        }
+
+        /* In the sidebar the player fills what the header leaves, not the
+           whole sidebar: at height 100% it started 36px down and so always
+           ended 36px past the bottom, and the last row of song parts sat
+           under the edge of the window. Skyler, 2026-11-01: "outro is still
+           cut off". A taller song still scrolls the sidebar. */
+        body:not(.bottom-bar) #rabbithole-sidebar {
+            display: flex;
+            flex-direction: column;
+        }
+
+        body:not(.bottom-bar) .player-container {
+            height: auto;
+            flex: 1 0 auto;
+        }
+
+        /* And the strip stays in sight when the sidebar is taller than the
+           window and scrolls -- on a 720px screen it is, by 36px. */
+        body:not(.bottom-bar) .data-section {
+            position: sticky;
+            bottom: 0;
+            z-index: 5;
+            background: #fff;
+            padding-bottom: 6px;
         }
 
         /* The A/B switch. Deliberately plain and labelled with which layout
@@ -868,7 +893,7 @@
                lands exactly on the strip's top edge: 2 + 116 + 34 = 152. At
                140 it overlapped the strip by twelve pixels and the strip's
                background painted over the bottom of the player. */
-            height: var(--rh-dock-height);
+            height: calc(var(--rh-dock-height) + var(--rh-strip-extra, 0px));
             /* Room for the song-parts strip, which is absolutely positioned
                against this box. box-sizing is border-box globally, so the bar
                stays 152px tall and the main row gets 116px of it — exactly
@@ -892,11 +917,11 @@
         }
 
         body.bottom-bar .pickipedia-frame {
-            height: calc(100vh - var(--rh-dock-height));
+            height: calc(100vh - calc(var(--rh-dock-height) + var(--rh-strip-extra, 0px)));
         }
 
         body.bottom-bar .editor-panel {
-            height: calc(100vh - var(--rh-dock-height));
+            height: calc(100vh - calc(var(--rh-dock-height) + var(--rh-strip-extra, 0px)));
         }
 
         /* Pull .player-container's children up to be direct flex items of
@@ -1269,6 +1294,32 @@
             background: #4a7c59;
             border-color: #3c6749;
             color: #fff;
+        }
+
+        /* A long song on two rows, each the same number of blocks, so the
+           second row still lines up under the first as the rest of the song. */
+        body.bottom-bar .parts-chart.two-rows {
+            flex-wrap: wrap;
+            height: auto;
+            row-gap: 3px;
+        }
+
+        body.bottom-bar .parts-chart.two-rows .part-box {
+            flex: 0 0 calc((100% - (var(--parts-per-row) - 1) * 3px) / var(--parts-per-row));
+        }
+
+        /* And the bar grows by a row to hold it: 24 more pixels on the dock,
+           the strip, and the padding that keeps the player clear of it. */
+        body.bottom-bar:has(.parts-chart.two-rows) {
+            --rh-strip-extra: 24px;
+        }
+
+        body.bottom-bar:has(.parts-chart.two-rows) #rabbithole-sidebar {
+            padding-bottom: 58px;
+        }
+
+        body.bottom-bar .data-section:has(.parts-chart.two-rows) {
+            height: 58px;
         }
         /* === The bar on a narrow screen ===
 
@@ -3794,10 +3845,10 @@
 
         async function initializeEditor() {
             // Import editor modules
-            const { EditableTrackData } = await import('./src/editor/EditableTrackData.js');
-            const { TimelineEditor } = await import('./src/editor/TimelineEditor.js');
-            const { KeyboardShortcuts } = await import('./src/editor/keyboard-shortcuts.js');
-            const { WikiSync } = await import('./src/editor/wiki-sync.js');
+            const { EditableTrackData } = await import('./src/editor/EditableTrackData.js?v=a7675e7');
+            const { TimelineEditor } = await import('./src/editor/TimelineEditor.js?v=a7675e7');
+            const { KeyboardShortcuts } = await import('./src/editor/keyboard-shortcuts.js?v=a7675e7');
+            const { WikiSync } = await import('./src/editor/wiki-sync.js?v=a7675e7');
 
             // Get current song data
             const currentSong = window.rabbitholeSongData;
@@ -3968,7 +4019,7 @@
                 } else {
                     // Local dev / standalone demo path — write to the legacy
                     // Recording:Song (Album)/Rabbithole subpage.
-                    const { WikiSync, trackDataToWikiFormat } = await import('./src/editor/wiki-sync.js');
+                    const { WikiSync, trackDataToWikiFormat } = await import('./src/editor/wiki-sync.js?v=a7675e7');
                     const wikiSync = new WikiSync();
                     const recordingTitle = `${currentSong.title} (${currentSong.album})`;
                     const wikiData = trackDataToWikiFormat(editableData.workingData);

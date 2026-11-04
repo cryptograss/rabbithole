@@ -130,6 +130,25 @@ export class EditableTrackData {
     }
 
     /**
+     * Move several markers at once, as one undo step. Every marker is
+     * lifted before any is put down, so two moves that swap places do not
+     * overwrite each other.
+     * @param {Array<{from: number, to: number}>} moves
+     */
+    moveMarkers(moves) {
+        if (!moves.length) return;
+        this._saveUndoState();
+        const tl = this.workingData.timeline;
+        const held = moves.map(m => [m, tl[this._timeToKey(m.from)]]);
+        held.forEach(([m]) => { delete tl[this._timeToKey(m.from)]; });
+        held.forEach(([m, body]) => {
+            if (body !== undefined) tl[this._timeToKey(m.to)] = body;
+            if (this.selectedMarkerTime === m.from) this.selectedMarkerTime = m.to;
+        });
+        this._notifyChange();
+    }
+
+    /**
      * Update a timeline marker's data
      * @param {number} time - Marker time
      * @param {Object} updates - Partial data to merge
