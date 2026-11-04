@@ -610,8 +610,11 @@ class RabbitholeWebampPlayer {
 
         // Set initial state at time 0 (before playback starts)
         // Wait for musician cards to be in the DOM
+        // A track with no ensemble yet (nobody's charted who plays) has no cards to wait for.
+        let tries = 0;
         const waitForCardsAndUpdate = () => {
-            const firstMusician = Object.keys(this.trackData.ensemble)[0];
+            const firstMusician = Object.keys(this.trackData.ensemble || {})[0];
+            if (!firstMusician || ++tries > 100) return;
             const cardId = `musician-${firstMusician.replace(/\s+/g, '-').toLowerCase()}`;
             const card = document.getElementById(cardId);
             if (card) {
