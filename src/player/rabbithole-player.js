@@ -1045,6 +1045,19 @@ class RabbitholeWebampPlayer {
                 return weightA - weightB;
             });
 
+            // Nothing to move, nothing to lay out. During a pickup this runs
+            // on every 100ms tick, and each layout() rewrites the cards'
+            // transforms -- dropping the lead card's scale(1.05) until the
+            // next frame puts it back. Ten times a second, that read as the
+            // pickup player's name pulsing (Justin, Swords to Ploughshares,
+            // 5 Nov 2026).
+            const domOrder = Array.from(this.packery.element.children);
+            if (sortedItems.every((item, i) => item === domOrder[i])) {
+                // The lead class may still have changed without the order.
+                requestAnimationFrame(() => this.fixLeadMusicianTransforms());
+                return;
+            }
+
             trace('Sorting ensemble - weights:',
                 sortedItems.map(el => `${el.dataset.musician}: ${el.dataset.sortOrder}`)
             );
