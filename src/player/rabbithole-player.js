@@ -54,6 +54,11 @@ class RabbitholeWebampPlayer {
 
         trace('DEBUG: Found container, proceeding with initialization');
         this.webamp = null;
+        // The ensemble's container and its Packery grid are made once, the
+        // first time Webamp's window exists, and never again: every later
+        // song is rendered into the same element. See renderSong().
+        this.ensembleEl = null;
+        this.packery = null;
         this.currentSolo = null;
         this.lastAutoShownSoloist = null; // Track which soloist we last auto-showed
         this.timeUpdateInterval = null;
@@ -291,7 +296,7 @@ class RabbitholeWebampPlayer {
         }
 
         // Create ensemble display
-        this.populateEnsembleContainer(ensembleContainer);
+        this.renderEnsembleCards(ensembleContainer);
 
         // Create parts chart
         this.populatePartsContainer(partsContainer);
@@ -299,31 +304,90 @@ class RabbitholeWebampPlayer {
         trace('DEBUG: Embed ensemble and parts created successfully');
     }
 
-    populateEnsembleContainer(container) {
-        // Clear existing content
+    /**
+     * The one place cards are made.
+     *
+     * Whatever the container held is replaced by a card per musician in the
+     * current track data, so there is never more than one set of cards and
+     * never a stale one: two song loads in a row simply render twice into
+     * the same element, and the second wins. (Justin, 5 Nov 2026: "why do
+     * we not simply replace the entire contents of whatever is containing
+     * the ensemble? That way, two things can't both occupy it.")
+     *
+     * @param {HTMLElement} container The ensemble element, either mode's.
+     */
+    renderEnsembleCards(container) {
         container.innerHTML = '';
 
-        // Create musician cards for each ensemble member
-        Object.entries(this.trackData.ensemble).forEach(([musicianName, instruments]) => {
+        Object.entries(this.trackData.ensemble || {}).forEach(([musicianName, instruments]) => {
             const musicianDiv = document.createElement('div');
             musicianDiv.id = `musician-${musicianName.replace(/\s+/g, '-').toLowerCase()}`;
             musicianDiv.className = 'musician-item musician-card';
             musicianDiv.dataset.musician = musicianName;
+            musicianDiv.dataset.sortOrder = '100'; // Default sort order
 
+            // Handle instrument display - instruments is an array in YAML
             const primaryInstrument = Array.isArray(instruments) ? instruments[0] : instruments;
 
             musicianDiv.innerHTML = `
                 <div class="musician-name">${musicianName}${primaryInstrument ? ` (${primaryInstrument})` : ''}</div>
                 <div class="chartifact-line">Chartifact "0x1234ff" owned by cryptograss.eth</div>
             `;
-
             container.appendChild(musicianDiv);
         });
 
-        // Make musician names clickable if the function exists (embed mode)
+        // Add engineer card if present (gray styling, instrument = "console")
+        if (this.trackData.engineer) {
+            const engineerDiv = document.createElement('div');
+            engineerDiv.id = `musician-${this.trackData.engineer.replace(/\s+/g, '-').toLowerCase()}`;
+            engineerDiv.className = 'musician-item musician-card engineer-card';
+            engineerDiv.dataset.musician = this.trackData.engineer;
+            engineerDiv.dataset.sortOrder = '200'; // Sort after musicians
+
+            engineerDiv.innerHTML = `
+                <div class="musician-name">${this.trackData.engineer} (console)</div>
+                <div class="chartifact-line">Engineer</div>
+            `;
+            container.appendChild(engineerDiv);
+        }
+
+        // index.html wires its own card clicks and asks to be told when cards exist.
         if (typeof makeMusiciansClickable === 'function') {
             makeMusiciansClickable();
         }
+    }
+
+    /**
+     * Show the current song: its cards, its parts, its state at 0:00.
+     *
+     * Called on every song change. In embed mode the page owns the
+     * containers; in full mode the container is the one made under
+     * Webamp's window. Before that element exists there is nothing to
+     * render into, and nothing to do: the build that makes it reads
+     * this.trackData when it runs, so it shows whichever song is current
+     * by then.
+     */
+    renderSong() {
+        if (this.options.embedMode) {
+            this.createEnsembleForEmbed();
+            return;
+        }
+        if (!this.ensembleEl) return;
+
+        this.renderEnsembleCards(this.ensembleEl);
+
+        const partsChart = document.getElementById('parts-chart');
+        if (partsChart) {
+            this.populatePartsContainer(partsChart);
+        }
+
+        if (this.packery) {
+            this.packery.reloadItems();
+            this.packery.layout();
+        }
+
+        // The state at time 0, before playback starts.
+        this.updateEnsembleDisplay(0);
     }
 
     populatePartsContainer(container) {
@@ -467,10 +531,11 @@ class RabbitholeWebampPlayer {
             trace('DEBUG: Override applied, new transform:', mainWindowParent.style.transform);
         }
 
-        // Create ensemble display
+        // Create the ensemble's element: once, for the life of the player.
         const ensembleDiv = document.createElement('div');
         ensembleDiv.id = 'ensemble-display-in-webamp';
         ensembleDiv.className = 'ensemble-display-in-webamp';
+        this.ensembleEl = ensembleDiv;
 
         /*
          * Position the ensemble under the player.
@@ -494,39 +559,7 @@ class RabbitholeWebampPlayer {
         // ensembleDiv.style.maxHeight = 'none'; // No height limit - show all content
         ensembleDiv.style.overflow = 'visible'; // No scrollbars
 
-        // Add musician cards directly to ensembleDiv (no wrapper needed)
-        Object.entries(this.trackData.ensemble).forEach(([musicianName, instruments]) => {
-            const musicianDiv = document.createElement('div');
-            musicianDiv.id = `musician-${musicianName.replace(/\s+/g, '-').toLowerCase()}`;
-            musicianDiv.className = 'musician-item musician-card';
-            musicianDiv.dataset.musician = musicianName;
-            musicianDiv.dataset.sortOrder = '100'; // Default sort order
-
-            // Handle instrument display - instruments is an array in YAML
-            const primaryInstrument = Array.isArray(instruments) ? instruments[0] : instruments;
-            trace(`DEBUG: Creating musician card for ${musicianName}, instruments:`, instruments, 'primary:', primaryInstrument);
-
-            musicianDiv.innerHTML = `
-                <div class="musician-name">${musicianName}${primaryInstrument ? ` (${primaryInstrument})` : ''}</div>
-                <div class="chartifact-line">Chartifact "0x1234ff" owned by cryptograss.eth</div>
-            `;
-            ensembleDiv.appendChild(musicianDiv);
-        });
-
-        // Add engineer card if present (gray styling, instrument = "console")
-        if (this.trackData.engineer) {
-            const engineerDiv = document.createElement('div');
-            engineerDiv.id = `musician-${this.trackData.engineer.replace(/\s+/g, '-').toLowerCase()}`;
-            engineerDiv.className = 'musician-item musician-card engineer-card';
-            engineerDiv.dataset.musician = this.trackData.engineer;
-            engineerDiv.dataset.sortOrder = '200'; // Sort after musicians
-
-            engineerDiv.innerHTML = `
-                <div class="musician-name">${this.trackData.engineer} (console)</div>
-                <div class="chartifact-line">Engineer</div>
-            `;
-            ensembleDiv.appendChild(engineerDiv);
-        }
+        this.renderEnsembleCards(ensembleDiv);
 
         // Populate the parts chart in place (it's already in the HTML above the player)
         const partsChart = document.getElementById('parts-chart');
@@ -554,7 +587,8 @@ class RabbitholeWebampPlayer {
             });
         }, 100);
 
-        // Watch for Webamp positioning changes and intercept them
+        // Watch for Webamp positioning changes and intercept them.
+        // One observer per player: this runs once, with the element.
         const observer = new MutationObserver((mutations) => {
             mutations.forEach((mutation) => {
                 if (mutation.type === 'attributes' && mutation.attributeName === 'style') {
@@ -603,28 +637,16 @@ class RabbitholeWebampPlayer {
             });
         }
 
+        this._pinObserver = observer;
+
         // Initialize Packery for smooth repositioning
         this.initEnsembleGrid(ensembleDiv);
 
         trace('DEBUG: Ensemble display created after #main-window');
 
-        // Set initial state at time 0 (before playback starts)
-        // Wait for musician cards to be in the DOM
-        // A track with no ensemble yet (nobody's charted who plays) has no cards to wait for.
-        let tries = 0;
-        const waitForCardsAndUpdate = () => {
-            const firstMusician = Object.keys(this.trackData.ensemble || {})[0];
-            if (!firstMusician || ++tries > 100) return;
-            const cardId = `musician-${firstMusician.replace(/\s+/g, '-').toLowerCase()}`;
-            const card = document.getElementById(cardId);
-            if (card) {
-                this.updateEnsembleDisplay(0);
-                trace('DEBUG: Initial state set at time 0');
-            } else {
-                setTimeout(waitForCardsAndUpdate, 50);
-            }
-        };
-        setTimeout(waitForCardsAndUpdate, 100);
+        // The cards were appended above, synchronously, so the state at
+        // time 0 can be set now rather than polled for.
+        this.updateEnsembleDisplay(0);
     }
 
     setupWebampListeners() {
@@ -958,9 +980,6 @@ class RabbitholeWebampPlayer {
         // Add any state classes
         classes.forEach(cls => musicianDiv.classList.add(cls));
 
-        // Check if this musician has the rabbit BEFORE any content changes
-        const hadRabbit = musicianDiv.querySelector('.rabbithole-icon') !== null;
-
         // Update name if it changed
         if (nameDiv && expectedName !== currentName) {
             nameDiv.textContent = expectedName;
@@ -974,26 +993,9 @@ class RabbitholeWebampPlayer {
 
         musicianDiv.dataset.sortOrder = dynamicWeight;
 
-        // Update content (starPrefix already calculated above for change detection)
-        musicianDiv.innerHTML = `
-            <div class="musician-name">${starPrefix}${musicianName}${instrument ? ` (${instrument})` : ''}</div>
-            <div class="chartifact-line">Chartifact "0x1234ff" owned by cryptograss.eth</div>
-        `;
-
-        // Re-add rabbit if this musician had it
-        if (hadRabbit) {
-            const rabbitIcon = document.createElement('span');
-            rabbitIcon.className = 'rabbithole-icon';
-            rabbitIcon.textContent = '🐰';
-            rabbitIcon.title = `Following ${musicianName}'s rabbithole - click for options, Shift+click others to switch`;
-            musicianDiv.appendChild(rabbitIcon);
-            musicianDiv.classList.add('has-rabbit');
-        }
-
-        // Re-attach click handlers after innerHTML update (if in embed mode)
-        if (typeof makeMusiciansClickable === 'function') {
-            makeMusiciansClickable();
-        }
+        // A card's children persist. The name and the classes are all that
+        // change; the card is never rebuilt, so the rabbit icon and any
+        // click handler stay where they were put.
 
         // Auto-show connections panel when musician becomes lead/soloist (only on soloist CHANGE)
         // DISABLED until we have proper settings/options UI
@@ -1220,7 +1222,9 @@ class RabbitholeWebampPlayer {
 
         const arrangement = this.getCurrentArrangement(currentTime);
         const currentInstruments = this.getCurrentInstruments(currentTime);
-        const currentSolo = arrangement ? (arrangement.solo || arrangement.soloist) : null;
+        // null, never undefined, so that "no solo" compared with "no solo" is
+        // not a change.
+        const currentSolo = arrangement ? (arrangement.solo || arrangement.soloist || null) : null;
         const currentPickup = arrangement ? arrangement.pickup : null;
 
         // Log major changes (only when arrangement actually changes)
@@ -1258,20 +1262,6 @@ class RabbitholeWebampPlayer {
         // Skip normal ensemble updates during flash effects
         if (this.flashInProgress) {
             return;
-        }
-
-        // Capture card positions BEFORE any DOM changes for animation
-        let oldPositions = null;
-        if (soloChanged) {
-            const ensembleContainer = document.getElementById('ensemble-display').querySelector('div');
-            if (ensembleContainer) {
-                const cards = Array.from(ensembleContainer.querySelectorAll('.musician-card'));
-                oldPositions = new Map();
-                cards.forEach(card => {
-                    const rect = card.getBoundingClientRect();
-                    oldPositions.set(card, { x: rect.left, y: rect.top });
-                });
-            }
         }
 
         // Check for flourishes - only trigger on arrangement change
@@ -1987,39 +1977,18 @@ class RabbitholeWebampPlayer {
     }
 
     resetEnsembleDisplay() {
-        // Don't reset while loading a new song
-        if (this.isLoadingNewSong) return;
-
-        Object.entries(this.trackData.ensemble).forEach(([musicianName, musicianInstruments]) => {
+        Object.entries(this.trackData.ensemble || {}).forEach(([musicianName, musicianInstruments]) => {
             const musicianDiv = document.getElementById(`musician-${musicianName.replace(/\s+/g, '-').toLowerCase()}`);
             if (!musicianDiv) return;
 
-            // Check if this musician has the rabbit before reset
-            const hadRabbit = musicianDiv.querySelector('.rabbithole-icon') !== null;
-
-            // Use helper function to reset to default state
             const primaryInstrument = Array.isArray(musicianInstruments) ? musicianInstruments[0] : musicianInstruments;
             this.updateMusicianCard(musicianDiv, musicianName, primaryInstrument);
-
-            // Re-add rabbit if this musician had it (updateMusicianCard should handle this,
-            // but double-check in case the card was fully rebuilt)
-            if (hadRabbit && !musicianDiv.querySelector('.rabbithole-icon')) {
-                const rabbitIcon = document.createElement('span');
-                rabbitIcon.className = 'rabbithole-icon';
-                rabbitIcon.textContent = '🐰';
-                rabbitIcon.title = `Following ${musicianName}'s rabbithole - click for options, Shift+click others to switch`;
-                musicianDiv.appendChild(rabbitIcon);
-                musicianDiv.classList.add('has-rabbit');
-            }
         });
     }
 
     loadNewSong(newTrackData) {
         trace('DEBUG: Loading new song:', newTrackData.title);
         trace('DEBUG: New ensemble:', Object.keys(newTrackData.ensemble));
-
-        // Set loading flag to prevent resetEnsembleDisplay from running
-        this.isLoadingNewSong = true;
 
         // Stop current tracking
         this.stopTimeTracking();
@@ -2085,21 +2054,9 @@ class RabbitholeWebampPlayer {
             }
         }
 
-        // Update ensemble display
-        if (this.options.embedMode) {
-            this.createEnsembleForEmbed();
-            this.isLoadingNewSong = false;
-        } else {
-            // For full mode, recreate the ensemble
-            const ensembleContainer = document.getElementById('ensemble-display-in-webamp');
-            if (ensembleContainer) {
-                ensembleContainer.remove();
-            }
-            setTimeout(() => {
-                this.createEnsembleInsideWebamp();
-                this.isLoadingNewSong = false;
-            }, 100);
-        }
+        // Show the new song in the ensemble that already exists. Nothing is
+        // removed and nothing is scheduled: the cards are replaced here, now.
+        this.renderSong();
 
         // Restart time tracking
         this.setupTimeTracking();
@@ -2169,6 +2126,10 @@ class RabbitholeWebampPlayer {
         this.stopTimeTracking();
         if (this.unsubscribeWebamp) {
             this.unsubscribeWebamp();
+        }
+        if (this._pinObserver) {
+            this._pinObserver.disconnect();
+            this._pinObserver = null;
         }
     }
 }
