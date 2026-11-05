@@ -190,6 +190,36 @@ describe( 'one ensemble element', () => {
 			.toEqual( [ 'Justin Holmes', 'Kyle Tuttle' ] );
 	} );
 
+	it( 'builds the ensemble under the main window at once: no timers, no observer', () => {
+		const wrapper = new FakeElement( 'div' );
+		const mainWindow = new FakeElement( 'div' );
+		mainWindow.id = 'main-window';
+		mainWindow.offsetHeight = 116;
+		wrapper.appendChild( mainWindow );
+		root.appendChild( wrapper );
+		root.querySelector = ( sel ) => ( sel === '#main-window' ? mainWindow : null );
+		globalThis.document.querySelector = root.querySelector;
+
+		const timers = { setTimeout: globalThis.setTimeout, MutationObserver: globalThis.MutationObserver };
+		globalThis.setTimeout = () => { throw new Error( 'nothing is scheduled' ); };
+		globalThis.MutationObserver = function () { throw new Error( 'nothing is watched' ); };
+		globalThis.window = { innerWidth: 1400 };
+		try {
+			const self = player( { trackData: SWORDS, ensembleEl: null, packery: null } );
+			self.initEnsembleGrid = function ( el ) { this.packery = { element: el, reloadItems() {}, layout() {} }; };
+			self.createEnsembleInsideWebamp();
+
+			expect( self.ensembleEl ).not.toBeNull();
+			expect( self.ensembleEl.parentNode ).toBe( wrapper );
+			expect( self.ensembleEl.style.top ).toBe( '126px' );
+			expect( self.ensembleEl.children ).toHaveLength( 3 );
+		} finally {
+			globalThis.setTimeout = timers.setTimeout;
+			globalThis.MutationObserver = timers.MutationObserver;
+			delete globalThis.window;
+		}
+	} );
+
 	it( 'updating a card changes its classes and name and keeps its children', () => {
 		const card = new FakeElement( 'div' );
 		card.id = 'musician-maddie-denton';
