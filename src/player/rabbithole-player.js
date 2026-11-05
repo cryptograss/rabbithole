@@ -59,6 +59,11 @@ class RabbitholeWebampPlayer {
         // song is rendered into the same element. See renderSong().
         this.ensembleEl = null;
         this.packery = null;
+        // Every song Webamp has been handed, by the URL it knows it as.
+        // Webamp's playlist is the queue; this is how a track in it finds
+        // its chart again. See enqueue() and followWebampTrack().
+        this.songsByUrl = new Map();
+        this.songsByUrl.set(trackData.audioFile, trackData);
         this.currentSolo = null;
         this.lastAutoShownSoloist = null; // Track which soloist we last auto-showed
         this.timeUpdateInterval = null;
@@ -221,9 +226,7 @@ class RabbitholeWebampPlayer {
                     closed: true,  // Hide playlist by default
                 },
             },
-            initialTracks: [{
-                url: this.trackData.audioFile,
-            }],
+            initialTracks: [this.webampTrack(this.trackData)],
             enableHotkeys: true,
             volume: 75
         });
@@ -659,11 +662,12 @@ class RabbitholeWebampPlayer {
         // Track previous status to detect transitions
         let previousStatus = null;
         let wasPlaying = false;
+        let lastPlaylist = '';
 
         // Access Webamp's Redux store to monitor playback state
         const unsubscribe = this.webamp.store.subscribe(() => {
             const state = this.webamp.store.getState();
-            const { timeElapsed, status, length } = state.media;
+            const { status } = state.media;
 
             if (status === 'PLAYING') {
                 wasPlaying = true;
@@ -676,26 +680,105 @@ class RabbitholeWebampPlayer {
                 // (not on initial load when we want to show the initial state at time 0)
                 if (wasPlaying && previousStatus === 'PLAYING') {
                     this.resetEnsembleDisplay();
-                }
-
-                // Detect track end: was playing, now stopped, and near the end
-                if (wasPlaying && status === 'STOPPED' && previousStatus === 'PLAYING') {
-                    const nearEnd = length && timeElapsed >= length - 1;
-                    if (nearEnd) {
-                        console.log('🐰 Track ended - checking rabbithole queue');
-                        // Dispatch to window for rabbithole handling
-                        if (typeof window.playNextInRabbithole === 'function') {
-                            setTimeout(() => window.playNextInRabbithole(), 500);
-                        }
-                    }
-                    wasPlaying = false;
+                    if (status === 'STOPPED') wasPlaying = false;
                 }
             }
 
             previousStatus = status;
+
+            /*
+             * The chart follows Webamp's current track.
+             *
+             * When a song ends, Webamp plays the next one in its playlist
+             * by itself; this is where the cards and the parts strip come
+             * along. The player used to guess at the end of a track from
+             * the clock and a length field Webamp's state does not have,
+             * and so never advanced at all (audit, 5 Nov 2026, item 1).
+             */
+            this.followWebampTrack(state);
+
+            const order = (state.playlist && state.playlist.trackOrder) || [];
+            const playlist = order.join(',') + '@' + state.playlist.currentTrack;
+            if (playlist !== lastPlaylist) {
+                lastPlaylist = playlist;
+                if (this.options.onQueueChange) {
+                    this.options.onQueueChange(this.upNext(state));
+                }
+            }
         });
 
         this.unsubscribeWebamp = unsubscribe;
+    }
+
+    /**
+     * The track Webamp wants, as Webamp's own playlist wants it.
+     *
+     * The metadata is given rather than fetched: with it, Webamp does not
+     * read ID3 tags out of the file, which on IPFS meant a second fetch of
+     * the audio and the "Cannot cancel a locked stream" noise in the
+     * console; and a track whose tags never arrive never counts as
+     * loaded, which would have hidden it from the queue.
+     */
+    webampTrack(song) {
+        return {
+            url: song.audioFile,
+            defaultName: song.title,
+            metaData: {
+                artist: song.artist || '',
+                title: song.title || '',
+                album: song.albumTitle || '',
+            },
+        };
+    }
+
+    /**
+     * The song Webamp's current track belongs to, from its URL, or null for
+     * a track we never handed it (one dragged in, say).
+     */
+    songForWebampTrack(state, id) {
+        if (id === null || id === undefined) return null;
+        const track = state.tracks && state.tracks[id];
+        return (track && this.songsByUrl.get(track.url)) || null;
+    }
+
+    /** Show the song Webamp's current track belongs to, if it isn't shown. */
+    followWebampTrack(state) {
+        const current = state.playlist && state.playlist.currentTrack;
+        const song = this.songForWebampTrack(state, current);
+        if (!song || song === this.trackData) return;
+        this.showSong(song);
+        if (this.options.onSongChange) {
+            this.options.onSongChange(song);
+        }
+    }
+
+    /**
+     * Put a song at the end of Webamp's playlist. It plays when whatever is
+     * before it has finished, because that is what a playlist does.
+     *
+     * A song is lined up once: asked for again while it is still ahead,
+     * it stays where it is, and this says so by returning false.
+     */
+    enqueue(song) {
+        this.songsByUrl.set(song.audioFile, song);
+        if (!this.webamp || !this.webamp.appendTracks) return false;
+        if (this.upNext().some((s) => s.audioFile === song.audioFile)) return false;
+        this.webamp.appendTracks([this.webampTrack(song)]);
+        return true;
+    }
+
+    /** The songs after the current track, in the order they will play. */
+    upNext(state) {
+        if (!state) {
+            if (!this.webamp || !this.webamp.store) return [];
+            state = this.webamp.store.getState();
+        }
+        const order = (state.playlist && state.playlist.trackOrder) || [];
+        const current = state.playlist && state.playlist.currentTrack;
+        const at = order.indexOf(current);
+        return order.slice(at + 1)
+            .map((id) => this.songForWebampTrack(state, id))
+            .filter(Boolean);
     }
 
     setupTimeTracking() {
@@ -1986,16 +2069,23 @@ class RabbitholeWebampPlayer {
         });
     }
 
-    loadNewSong(newTrackData) {
-        trace('DEBUG: Loading new song:', newTrackData.title);
-        trace('DEBUG: New ensemble:', Object.keys(newTrackData.ensemble));
+    /**
+     * Show a song: its chart, its cards, its parts. Audio is not touched.
+     *
+     * Two things call this. loadNewSong, when a person picks a song, which
+     * then hands the same song to Webamp; and followWebampTrack, when
+     * Webamp has moved to the next track on its own and the chart has to
+     * catch up.
+     */
+    showSong(newTrackData) {
+        trace('DEBUG: Showing song:', newTrackData.title);
 
         // Stop current tracking
         this.stopTimeTracking();
 
         // Update track data
         this.trackData = newTrackData;
-        trace('DEBUG: trackData.ensemble after update:', Object.keys(this.trackData.ensemble));
+        this.songsByUrl.set(newTrackData.audioFile, newTrackData);
 
         // Reset state
         this.currentSolo = null;
@@ -2005,6 +2095,24 @@ class RabbitholeWebampPlayer {
         this.allMomentTimes = this.extractMomentTimes();
         this.upcomingMomentTimes = [...this.allMomentTimes];
         this.initializeMusicianWeights();
+
+        // Show the new song in the ensemble that already exists. Nothing is
+        // removed and nothing is scheduled: the cards are replaced here, now.
+        this.renderSong();
+
+        // Restart time tracking
+        this.setupTimeTracking();
+    }
+
+    /**
+     * A person chose this song: show it, and make it what Webamp plays.
+     *
+     * This replaces the playlist, queue and all. Picking a song is "play
+     * this instead", and whatever was lined up behind the old one was
+     * lined up behind the old one.
+     */
+    loadNewSong(newTrackData) {
+        this.showSong(newTrackData);
 
         // Update Webamp with new track.
         //
@@ -2025,10 +2133,7 @@ class RabbitholeWebampPlayer {
             // Appending instead leaves the old track current -- the data
             // switches and the audio does not, which is worse than the
             // autoplay -- so keep it, and stop the playback it begins.
-            this.webamp.setTracksToPlay([{
-                url: newTrackData.audioFile,
-                defaultName: newTrackData.title
-            }]);
+            this.webamp.setTracksToPlay([this.webampTrack(newTrackData)]);
 
             if (!wasPlaying) {
                 /*
@@ -2053,13 +2158,6 @@ class RabbitholeWebampPlayer {
                 }, 50);
             }
         }
-
-        // Show the new song in the ensemble that already exists. Nothing is
-        // removed and nothing is scheduled: the cards are replaced here, now.
-        this.renderSong();
-
-        // Restart time tracking
-        this.setupTimeTracking();
 
         trace('DEBUG: New song loaded successfully');
     }

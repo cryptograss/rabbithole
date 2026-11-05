@@ -112,3 +112,18 @@ describe( 'stylesheets', () => {
 		expect( orphans, `stylesheets no page loads: ${ orphans.join( ', ' ) }` ).toEqual( [] );
 	} );
 } );
+
+describe( 'the queue', () => {
+	// One queue: Webamp's playlist. The shell kept its own array for a
+	// while, waiting on a track-end hook the player never fired, and a
+	// queued song was never reached (audit, 5 Nov 2026, item 1).
+	it( 'is Webamp\'s playlist, with no copy in the shell and no end-of-track hook', () => {
+		const shell = read( 'pickipedia-demo.html' );
+		const player = read( 'src/player/rabbithole-player.js' );
+
+		expect( shell ).not.toMatch( /const rabbitholeQueue/ );
+		expect( player ).not.toMatch( /playNextInRabbithole/ );
+		expect( shell ).toMatch( /rabbitholePlayer\.enqueue\(/ );
+		expect( shell ).toMatch( /onSongChange:/ );
+	} );
+} );

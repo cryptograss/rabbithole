@@ -486,6 +486,14 @@
             font-style: normal;
         }
 
+        .up-next {
+            font-size: 11px;
+            color: #4a7c59;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
         .song-select {
             width: 100%;
             padding: 6px 10px;
@@ -1961,6 +1969,7 @@
                         <select id="album-track-select" class="album-track-select"></select>
                     </div>
                     <div id="recording-metadata" class="recording-metadata"></div>
+                    <div id="up-next" class="up-next" style="display:none"></div>
                 </div>
 
                 <select id="song-selector" class="song-select" onchange="loadSelectedSong()">
@@ -2860,9 +2869,13 @@
                 const root = pane.shadowRoot || pane.attachShadow({ mode: 'open' });
                 root.innerHTML = PANE_STYLES + await paneBody(title, parsed);
                 pane.dataset.wikiTitle = title;
+                // Wires the links too. They were wired a second time here
+                // after the chrome went in, so one click on a Listen button
+                // loaded its song twice, 20ms apart -- which is where
+                // Skyler's doubled cards came from -- and one click on a
+                // trail queued the trail twice.
                 wirePaneChrome(root);
                 pane.scrollTop = 0;
-                rewirePaneLinks(root);
                 if (push) history.pushState({ wikiTitle: title }, '', path);
                 else history.replaceState({ wikiTitle: title }, '', path);
             } catch (err) {
@@ -2929,11 +2942,40 @@
          * listen now, listen next, or find me a rabbithole from here to there.
          * This is the second one. The third needs the catalog and is not this.
          *
-         * The player has been calling window.playNextInRabbithole() when a
-         * track ends since before any of this, and nothing has ever defined
-         * it -- so a finished song just stopped. This defines it.
+         * The queue is Webamp's own playlist. The shell keeps no copy: a
+         * song is queued by handing it to the player, which appends it to
+         * the playlist, and Webamp plays on from one track to the next by
+         * itself, with the chart following (player, followWebampTrack).
+         *
+         * The shell used to keep its own array and wait for the player to
+         * call playNextInRabbithole() at the end of a track, which it never
+         * did: the end was guessed from a length Webamp's state does not
+         * carry, so a finished song just stopped (audit, 5 Nov 2026).
          * ------------------------------------------------------------------ */
-        const rabbitholeQueue = [];
+
+        /** The track CIDs lined up after what is playing. */
+        function queuedCids() {
+            const p = window.rabbitholePlayer;
+            return p && p.upNext ? p.upNext().map(s => s._trackCid) : [];
+        }
+
+        /** Fetch a track from the wiki and put it at the end of the playlist. */
+        async function queueCid(cid) {
+            const song = await loadTrackFromWiki(cid);
+            song.colorScheme = defaultColorScheme;
+            window.rabbitholePlayer.enqueue(song);
+            return song;
+        }
+
+        /** "Up next", under the song title, from the playlist itself. */
+        function showUpNext(songs) {
+            const el = document.getElementById('up-next');
+            if (!el) return;
+            el.textContent = songs.length
+                ? 'Up next: ' + songs.map(s => s.title).join(' · ')
+                : '';
+            el.style.display = songs.length ? '' : 'none';
+        }
 
         /* ------------------------------------------------------------------
          * Trails: how you get from what is playing to the song you are
@@ -3037,9 +3079,12 @@
             const queued = [];
             for (const song of trailSongs(from, hops).slice(1)) {
                 const cid = await trackCidForSong(song);
-                if (cid && !rabbitholeQueue.includes(cid)) {
-                    rabbitholeQueue.push(cid);
+                if (!cid || queuedCids().includes(cid)) continue;
+                try {
+                    await queueCid(cid);
                     queued.push(song);
+                } catch (err) {
+                    console.warn('Could not queue', song, err);
                 }
             }
             flashButton(button, hops.length + ' hop' + (hops.length === 1 ? '' : 's')
@@ -3070,16 +3115,24 @@
             body.insertBefore(panel, body.firstChild);
         }
 
-        function queueTrack(cid, button) {
-            if (rabbitholeQueue.includes(cid)) {
+        async function queueTrack(cid, button) {
+            if (queuedCids().includes(cid)) {
                 flashButton(button, 'already queued');
                 return;
             }
 
-            rabbitholeQueue.push(cid);
-            flashButton(button, rabbitholeQueue.length === 1
+            flashButton(button, 'queuing…');
+            try {
+                await queueCid(cid);
+            } catch (err) {
+                console.warn('Could not queue', cid, err);
+                flashButton(button, 'could not load that track');
+                return;
+            }
+            const waiting = queuedCids().length;
+            flashButton(button, waiting === 1
                 ? 'queued — plays next'
-                : 'queued — ' + rabbitholeQueue.length + ' waiting');
+                : 'queued — ' + waiting + ' waiting');
         }
 
         /**
@@ -3131,11 +3184,23 @@
             }, 2200);
         }
 
-        window.playNextInRabbithole = async function() {
-            const next = rabbitholeQueue.shift();
-            if (!next) return;
-            await playTrackInDock(next);
-        };
+        /**
+         * The rest of the page catches up with a song the player is now
+         * showing: the title, the record, the cover, the URL and the cards'
+         * clicks. The player reached it by itself, from the playlist.
+         */
+        function showSongInShell(song) {
+            window.rabbitholeSongData = song;
+            populateSongInfoHeader(song);
+            populateAlbumRow(song)
+                .catch(err => console.warn('Could not build the album row:', err));
+            setTimeout(addMusicianClickHandlers, 500);
+            if (song._trackCid) {
+                const url = new URL(location.href);
+                url.searchParams.set('track', song._trackCid);
+                history.replaceState({ ...history.state, track: song._trackCid }, '', url);
+            }
+        }
 
         async function playTrackInDock(cid) {
             // Open the dock first, so a slow fetch happens in front of the
@@ -3146,20 +3211,17 @@
 
             try {
                 const song = await loadTrackFromWiki(cid);
-                window.rabbitholeSongData = song;
+                song.colorScheme = defaultColorScheme;
 
                 if (window.rabbitholePlayer
                     && typeof window.rabbitholePlayer.loadNewSong === 'function') {
                     await window.rabbitholePlayer.loadNewSong(song);
-                    setTimeout(addMusicianClickHandlers, 500);
                 }
-
-                // The track is the shareable thing, so put it in the URL --
-                // replace, not push, so Back still means the page you came
-                // from rather than the same page minus a song.
-                const url = new URL(location.href);
-                url.searchParams.set('track', cid);
-                history.replaceState({ ...history.state, track: cid }, '', url);
+                // The same catch-up the player asks for when it moves on
+                // by itself: title, record, cover, clicks, and the track in
+                // the URL -- replace, not push, so Back still means the page
+                // you came from rather than the same page minus a song.
+                showSongInShell(song);
             } catch (err) {
                 console.warn('Could not play', cid, 'in the dock', err);
             }
@@ -3348,6 +3410,8 @@
         window.rabbitholePlayer = new RabbitholeWebampPlayer('webamp-player', window.rabbitholeSongData, {
             embedMode: isBottomBar,
             fixedPosition: false,
+            onSongChange: showSongInShell,
+            onQueueChange: showUpNext,
             onSoloChange: (musicianName) => {
                 const autoSwitch = document.getElementById('auto-switch-toggle').checked;
                 if (autoSwitch) {
