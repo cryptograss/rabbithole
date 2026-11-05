@@ -1555,6 +1555,17 @@ export class TimelineEditor {
      * Attach event listeners to the rendered UI
      */
     _attachEventListeners() {
+        // Toggle to raw YAML. Only the raw view's half of this toggle was
+        // ever wired; while the editor opened on raw (until 25 Oct) nobody
+        // missed it. Skyler, 5 Nov: "nothing happens when I click on it".
+        const toggleBtn = this.container.querySelector('.btn-toggle-mode');
+        if (toggleBtn) {
+            toggleBtn.addEventListener('click', () => {
+                this.rawMode = true;
+                this.render();
+            });
+        }
+
         // Add marker button
         const addBtn = this.container.querySelector('.btn-add-marker');
         if (addBtn) {
