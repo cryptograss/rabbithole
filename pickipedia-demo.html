@@ -3845,10 +3845,10 @@
 
         async function initializeEditor() {
             // Import editor modules
-            const { EditableTrackData } = await import('./src/editor/EditableTrackData.js?v=a7675e7');
-            const { TimelineEditor } = await import('./src/editor/TimelineEditor.js?v=a7675e7');
-            const { KeyboardShortcuts } = await import('./src/editor/keyboard-shortcuts.js?v=a7675e7');
-            const { WikiSync } = await import('./src/editor/wiki-sync.js?v=a7675e7');
+            const { EditableTrackData } = await import('./src/editor/EditableTrackData.js?v=c1a5fa8');
+            const { TimelineEditor } = await import('./src/editor/TimelineEditor.js?v=c1a5fa8');
+            const { KeyboardShortcuts } = await import('./src/editor/keyboard-shortcuts.js?v=c1a5fa8');
+            const { WikiSync } = await import('./src/editor/wiki-sync.js?v=c1a5fa8');
 
             // Get current song data
             const currentSong = window.rabbitholeSongData;
@@ -4019,7 +4019,7 @@
                 } else {
                     // Local dev / standalone demo path — write to the legacy
                     // Recording:Song (Album)/Rabbithole subpage.
-                    const { WikiSync, trackDataToWikiFormat } = await import('./src/editor/wiki-sync.js?v=a7675e7');
+                    const { WikiSync, trackDataToWikiFormat } = await import('./src/editor/wiki-sync.js?v=c1a5fa8');
                     const wikiSync = new WikiSync();
                     const recordingTitle = `${currentSong.title} (${currentSong.album})`;
                     const wikiData = trackDataToWikiFormat(editableData.workingData);
