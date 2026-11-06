@@ -138,5 +138,30 @@ describe( 'where Webamp\'s window lives', () => {
 		expect( player ).not.toMatch( /waitForMainWindow/ );
 		expect( shell ).not.toMatch( /MutationObserver/ );
 		expect( shell ).not.toMatch( /pinWebamp|holdWebampStill|wireVolume\(tries|waitForAudio\(tries/ );
+/*
+ * The save to PickiPedia reads the wiki's answer. MediaWiki says
+ * result: Success with nochange when the page already had the text, which
+ * is how an edit that never reached the wiki showed "Saved!" (5 and 6 Nov
+ * 2026). And in the raw view, Save applies what is typed first, so an
+ * unapplied textarea can't be saved around.
+ */
+describe( 'saving to PickiPedia', () => {
+	const demo = read( 'pickipedia-demo.html' );
+	const save = demo.slice( demo.indexOf( 'async function saveToWiki' ) );
+
+	it( 'reads the edit result and the nochange flag', () => {
+		expect( save ).toContain( "edit.result !== 'Success'" );
+		expect( save ).toContain( "'nochange' in edit" );
+		expect( save ).toContain( 'markSaved({ unchanged: true })' );
+		expect( save ).toContain( 'markSaved({ revisionId: edit.newrevid })' );
+	} );
+
+	it( 'applies typed raw YAML before saving', () => {
+		expect( save ).toContain( 'editorInstance.applyPendingRawYaml()' );
+	} );
+
+	it( 'never says Saved on its own authority', () => {
+		expect( save ).not.toContain( "'Saved!'" );
+		expect( demo ).not.toContain( "'Save to PickiPedia' : 'Saved'" );
 	} );
 } );
