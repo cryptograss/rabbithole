@@ -103,23 +103,28 @@ export class WebampPlayer {
 	 */
 	async mount( container ) {
 		this.container = container;
-		const Webamp = webampClass();
-		this.webamp = markRaw( new Webamp( {
-			zindex: 9999,
-			windowLayout: {
-				main: { position: { top: 0, left: 0 }, shadeMode: false, closed: false },
-				equalizer: { closed: true },
-				playlist: { closed: true },
-			},
-			initialTracks: [ this._webampTrack( this.state.song ) ],
-			enableHotkeys: true,
-			volume: this.state.volume,
-		} ) );
-
+		// Everything that can fail to produce a player is inside one try:
+		// the bundle missing (webampClass throws), the constructor, and the
+		// render. Any of them lands in state.error, which the dock shows;
+		// the alternative is "Loading player..." forever, which is how the
+		// jsDelivr failure of October 2026 went unseen.
 		try {
+			const Webamp = webampClass();
+			this.webamp = markRaw( new Webamp( {
+				zindex: 9999,
+				windowLayout: {
+					main: { position: { top: 0, left: 0 }, shadeMode: false, closed: false },
+					equalizer: { closed: true },
+					playlist: { closed: true },
+				},
+				initialTracks: [ this._webampTrack( this.state.song ) ],
+				enableHotkeys: true,
+				volume: this.state.volume,
+			} ) );
 			await this.webamp.renderWhenReady( container );
 		} catch ( err ) {
 			console.error( 'Webamp initialization failed:', err );
+			this.webamp = null;
 			this.state.error = err.message;
 			return;
 		}
