@@ -358,16 +358,33 @@
         /* The A/B switch. Deliberately plain and labelled with which layout
            you are looking at, so a screenshot says which one it is. */
         .layout-ab-wrap {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px;
+            align-items: center;
+        }
+
+        /* In the sidebar it sits at the bottom left, under the song parts,
+           inside the sticky data section, so it is there whatever the
+           song's length. Skyler, 6 Nov 2026. */
+        body:not(.bottom-bar) .layout-ab-wrap {
+            justify-content: flex-start;
+            margin-top: 6px;
+        }
+
+        .layout.minimized .layout-ab-wrap {
+            display: none;
+        }
+
+        /* In the bar layout the sidebar is the bar itself, so the switch
+           floats top right of the page, as it always has. */
+        body.bottom-bar .layout-ab-wrap {
             position: fixed;
             top: 4px;
             right: 4px;
             z-index: 2000;
-            display: flex;
-            flex-wrap: wrap;
             justify-content: flex-end;
             max-width: calc(100vw - 8px);
-            gap: 4px;
-            align-items: center;
         }
 
         .layout-ab {
@@ -1874,55 +1891,6 @@
         })();
     </script>
 
-    <div class="layout-ab-wrap">
-        <a id="layout-ab" class="layout-ab" href="#"></a>
-        <a id="layout-ab-auto" class="layout-ab layout-ab-auto" href="#" hidden
-           title="Go back to choosing by window size">auto</a>
-    </div>
-    <script>
-        (function () {
-            var other = window.__rhLayout === 'sidebar' ? 'bar' : 'sidebar';
-
-            function go(choice) {
-                try {
-                    if (choice === null) window.localStorage.removeItem(window.__rhLayoutKey);
-                    else window.localStorage.setItem(window.__rhLayoutKey, choice);
-                } catch (e) {}
-                var url = new URL(window.__rhPageUrl);
-                // The choice is stored, so it does not need to ride in the
-                // URL -- and leaving it out keeps a copied address neutral.
-                url.searchParams.delete('layout');
-                // A cache-buster: a URL the browser has seen before can come
-                // back out of a restored tab, which cost us an evening on
-                // 21 Oct.
-                url.searchParams.set('v', Date.now().toString(36));
-                window.location.href = url.toString();
-            }
-
-            var name = window.__rhLayout === 'sidebar' ? 'Sidebar' : 'Bottom bar';
-            var otherName = other === 'sidebar' ? 'sidebar' : 'bottom bar';
-            var saved = !!window.__rhLayoutSaved;
-
-            var a = document.getElementById('layout-ab');
-            a.textContent = saved
-                ? name + ' (saved) \u2014 switch to ' + otherName
-                : name + ' \u2014 switch to ' + otherName;
-            a.onclick = function (e) { e.preventDefault(); go(other); };
-            if (saved) a.classList.add('layout-ab-pinned');
-
-            // Shown whenever a stored choice exists, not only when it
-            // disagrees with the window: a setting you cannot see is a
-            // setting you cannot undo, and on a phone there is no hover to
-            // hide the explanation in.
-            var reset = document.getElementById('layout-ab-auto');
-            if (saved) {
-                reset.hidden = false;
-                reset.textContent = 'use auto';
-                reset.onclick = function (e) { e.preventDefault(); go(null); };
-            }
-        })();
-    </script>
-
     <div class="layout">
         <div id="rabbithole-sidebar">
             <div class="rabbithole-header" id="rabbithole-header">
@@ -1997,6 +1965,59 @@
                 <div class="data-section">
                     <div class="section-label">Song Parts</div>
                     <div id="parts-chart" class="parts-chart"></div>
+
+                    <!-- The layout switch: bottom left of the sidebar, under
+                         the song parts (Skyler, 6 Nov 2026). In the bar layout
+                         it floats top right, where it has always been. -->
+                    <div class="layout-ab-wrap">
+                        <a id="layout-ab" class="layout-ab" href="#"></a>
+                        <a id="layout-ab-auto" class="layout-ab layout-ab-auto" href="#" hidden
+                           title="Go back to choosing by window size">auto</a>
+                    </div>
+                    <script>
+                        (function () {
+                            var other = window.__rhLayout === 'sidebar' ? 'bar' : 'sidebar';
+
+                            function go(choice) {
+                                try {
+                                    if (choice === null) window.localStorage.removeItem(window.__rhLayoutKey);
+                                    else window.localStorage.setItem(window.__rhLayoutKey, choice);
+                                } catch (e) {}
+                                var url = new URL(window.__rhPageUrl);
+                                // The choice is stored, so it does not need to ride in the
+                                // URL -- and leaving it out keeps a copied address neutral.
+                                url.searchParams.delete('layout');
+                                // A cache-buster: a URL the browser has seen before can come
+                                // back out of a restored tab, which cost us an evening on
+                                // 21 Oct.
+                                url.searchParams.set('v', Date.now().toString(36));
+                                window.location.href = url.toString();
+                            }
+
+                            var name = window.__rhLayout === 'sidebar' ? 'Sidebar' : 'Bottom bar';
+                            var otherName = other === 'sidebar' ? 'sidebar' : 'bottom bar';
+                            var saved = !!window.__rhLayoutSaved;
+
+                            var a = document.getElementById('layout-ab');
+                            a.textContent = saved
+                                ? name + ' (saved) \u2014 switch to ' + otherName
+                                : name + ' \u2014 switch to ' + otherName;
+                            a.onclick = function (e) { e.preventDefault(); go(other); };
+                            if (saved) a.classList.add('layout-ab-pinned');
+
+                            // Shown whenever a stored choice exists, not only when it
+                            // disagrees with the window: a setting you cannot see is a
+                            // setting you cannot undo, and on a phone there is no hover to
+                            // hide the explanation in.
+                            var reset = document.getElementById('layout-ab-auto');
+                            if (saved) {
+                                reset.hidden = false;
+                                reset.textContent = 'use auto';
+                                reset.onclick = function (e) { e.preventDefault(); go(null); };
+                            }
+                        })();
+                    </script>
+
                 </div>
 
                 <!-- Ensemble cards in embed/bottom-bar mode. Hidden by CSS
