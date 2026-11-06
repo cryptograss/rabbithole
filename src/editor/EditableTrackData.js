@@ -456,10 +456,20 @@ export class EditableTrackData {
         }, BACKUP_INTERVAL);
     }
 
+    /**
+     * Write the edits to the browser now. The timer does this every ten
+     * seconds while there are edits; the shell calls it when a save fails
+     * for want of a login, so logging in costs nothing typed.
+     */
+    backupNow() {
+        this._saveBackup();
+    }
+
     _saveBackup() {
         try {
             const backup = {
                 timeline: this.workingData.timeline,
+                ensemble: this.workingData.ensemble,
                 timestamp: Date.now(),
                 recordingTitle: this.recordingTitle
             };
@@ -488,6 +498,7 @@ export class EditableTrackData {
 
             // We could prompt the user here, but for now just load it
             this.workingData.timeline = backup.timeline;
+            if (backup.ensemble) this.workingData.ensemble = backup.ensemble;
             this._notifyChange();
 
         } catch (e) {

@@ -4029,7 +4029,18 @@
                     const tokJson = await tokRes.json();
                     const csrf = tokJson.query?.tokens?.csrftoken;
                     if (!csrf || csrf === '+\\') {
-                        throw new Error('Not logged in to PickiPedia.');
+                        // The edits are kept in this browser, and the login
+                        // opens in another tab, so nothing typed is lost:
+                        // log in there, come back, press Save again.
+                        editableData.backupNow();
+                        statusSpan.innerHTML = 'Not logged in. '
+                            + '<a href="/index.php?title=Special:UserLogin" target="_blank" rel="noopener">'
+                            + 'Log in to PickiPedia</a> in a new tab, then Save again. Your edits stay here.';
+                        statusSpan.className = 'error';
+                        saveBtn.disabled = false;
+                        saveBtn.textContent = 'Save to PickiPedia';
+                        saveBtn.classList.remove('saving');
+                        return;
                     }
 
                     const editParams = new URLSearchParams({

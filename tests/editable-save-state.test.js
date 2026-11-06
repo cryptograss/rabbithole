@@ -51,6 +51,27 @@ describe('what "Saved" means', () => {
         expect(seen).toEqual([[true, 'Edited, not yet applied'], [false, 'No changes']]);
     });
 
+    it('backs up the ensemble with the timeline, and restores both', () => {
+        const store = new Map();
+        globalThis.localStorage = {
+            getItem: (k) => store.has(k) ? store.get(k) : null,
+            setItem: (k, v) => store.set(k, String(v)),
+            removeItem: (k) => store.delete(k),
+        };
+        try {
+            const d = make({ recordingTitle: 'Cicada Song (Album)' });
+            d.workingData.ensemble['Justin Holmes'] = ['flute', 'guitar'];
+            d.workingData.timeline['10'] = { part: 'verse' };
+            d.backupNow();
+            const again = make({ recordingTitle: 'Cicada Song (Album)', restoreBackup: true });
+            expect(again.workingData.ensemble['Justin Holmes']).toEqual(['flute', 'guitar']);
+            expect(again.workingData.timeline['10']).toEqual({ part: 'verse' });
+            expect(again.isDirty).toBe(true);
+        } finally {
+            delete globalThis.localStorage;
+        }
+    });
+
     it('tells the shell the words along with the flag', () => {
         const seen = [];
         const d = make({ onDirtyChange: (dirty, text) => seen.push([dirty, text]) });
