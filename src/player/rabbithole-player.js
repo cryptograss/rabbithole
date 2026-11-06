@@ -79,8 +79,58 @@ class RabbitholeWebampPlayer {
 
         // Inject dynamic styles if color scheme is provided
         this.injectDynamicStyles();
+        this.injectHomeStyle();
 
-        this.init();
+        // Resolves once Webamp has rendered and the ensemble exists.
+        // Anything that needs Webamp's window hangs off this; nothing
+        // polls for it.
+        this.ready = this.init();
+    }
+
+    /**
+     * Where Webamp's main window lives: a rule, not a correction.
+     *
+     * Webamp carries each window's position as an inline transform on the
+     * window's wrapper, written from its own state: it renders the window
+     * centred in the container, and writes a new transform on every drag,
+     * zoom reset or rotation. Five loops used to wait for that element and
+     * write our position back over it, which is why the player drew in one
+     * place and jumped to another (audit, 5 Nov 2026, item 3).
+     *
+     * A stylesheet rule with !important beats an inline style on every
+     * paint, including the first, so there is nothing to wait for and
+     * nothing to put back. This is a dock, not a desktop: the player has
+     * one place to be.
+     */
+    injectHomeStyle() {
+        const styleId = 'rabbithole-webamp-home';
+        if (document.getElementById(styleId)) return;
+
+        const home = this.options.embedMode ? 'translate(0px, 0px)' : 'translate(10px, 10px)';
+        let css = `
+            #webamp div:has(> #main-window) {
+                transform: ${home} !important;
+            }
+        `;
+        if (!this.options.embedMode) {
+            // Below the layout breakpoint the window stacks full-width
+            // instead of floating; the ensemble's width assumes the same.
+            css += `
+                @media (max-width: 1100px) {
+                    #webamp div:has(> #main-window) {
+                        transform: none !important;
+                        position: relative !important;
+                        left: 0 !important;
+                        width: 100%;
+                    }
+                }
+            `;
+        }
+
+        const styleElement = document.createElement('style');
+        styleElement.id = styleId;
+        styleElement.textContent = css;
+        document.head.appendChild(styleElement);
     }
 
     initializeMusicianWeights() {
@@ -231,59 +281,46 @@ class RabbitholeWebampPlayer {
             volume: 75
         });
 
-        // Render Webamp directly to the main container - no custom HTML
-        trace('DEBUG: Container before rendering:', {
-            exists: !!this.container,
-            id: this.container.id,
-            className: this.container.className,
-            children: this.container.children.length,
-            style: this.container.style.cssText,
-            parentExists: !!this.container.parentElement
-        });
-
-        this.webamp.renderWhenReady(this.container).then(() => {
-            trace(`DEBUG: Webamp rendered successfully in container:`, this.container.id);
-
-            trace('DEBUG: Container after rendering:', {
-                exists: !!this.container,
-                children: this.container.children.length,
-                style: this.container.style.cssText,
-                firstChild: this.container.firstChild ? this.container.firstChild.tagName : 'none',
-                webampElement: !!document.getElementById('webamp'),
-                containerInDOM: document.contains(this.container)
-            });
-
-            if (this.options.embedMode) {
-                trace('DEBUG: Embed mode - creating ensemble with simple positioning');
-                // In embed mode, create ensemble in the dedicated containers
-                this.createEnsembleForEmbed();
-                this.setupWebampListeners();
-            } else {
-                trace('DEBUG: Full mode - setting up complex positioning');
-                // Wait a moment for Webamp to fully initialize before constraining
-                setTimeout(() => {
-                    // Move the #webamp element into our container to constrain it
-                    this.constrainWebampToContainer();
-
-                    // Wait another moment for layout to settle before creating ensemble
-                    setTimeout(() => {
-                        this.createEnsembleInsideWebamp();
-                    }, 100);
-                }, 500);  // Give Webamp time to set up its dimensions
-
-                // Set up event listeners for Webamp
-                this.setupWebampListeners();
-            }
-        }).catch(error => {
-            console.error('DEBUG: Webamp initialization failed:', error);
-            // Don't alert in embed mode - just log the error
+        /*
+         * Webamp renders itself into the container, synchronously, once its
+         * skin has loaded; the promise resolves after that render. So when
+         * it resolves, #webamp and #main-window exist, in our container,
+         * and the ensemble can be built now, in the same task, before the
+         * browser paints a frame. The 500ms and 100ms waits that used to
+         * sit here were guesses at the same moment.
+         */
+        try {
+            await this.webamp.renderWhenReady(this.container);
+        } catch (error) {
+            console.error('Webamp initialization failed:', error);
             if (!this.options.embedMode) {
                 alert(error.message);
-            } else {
-                console.error('Webamp failed to initialize in embed mode:', error.message);
             }
-        });
+            return;
+        }
 
+        /*
+         * Webamp puts its #webamp node at the end of <body>; the container
+         * it was given only tells it where to centre its windows. Moving
+         * the node into the container here, in the same task as the
+         * render, puts the window inside our layout before the first
+         * frame is painted. The shell used to do this move for the bar
+         * layout, after a poll; the player did it for the sidebar layout,
+         * after a timer. It is the same move in both.
+         */
+        const webampElement = document.getElementById('webamp');
+        if (webampElement) {
+            this.container.appendChild(webampElement);
+        }
+        this.container.style.position = 'relative';
+
+        if (this.options.embedMode) {
+            // In embed mode, create ensemble in the dedicated containers
+            this.createEnsembleForEmbed();
+        } else {
+            this.createEnsembleInsideWebamp();
+        }
+        this.setupWebampListeners();
     }
 
     createEnsembleForEmbed() {
@@ -424,86 +461,21 @@ class RabbitholeWebampPlayer {
         chart.style.setProperty('--parts-per-row', twoRows ? Math.ceil(count / 2) : count);
     }
 
-    constrainWebampToContainer() {
-        const webampElement = document.getElementById('webamp');
-        trace('DEBUG: constrainWebampToContainer - webamp element:', {
-            exists: !!webampElement,
-            parentBefore: webampElement ? webampElement.parentElement.tagName + '#' + webampElement.parentElement.id : 'none',
-            containerExists: !!this.container,
-            containerInDOM: this.container ? document.contains(this.container) : false
-        });
-
-        if (!webampElement) {
-            console.error('Could not find #webamp element to constrain');
+    /**
+     * Build the ensemble under Webamp's main window. Called once Webamp
+     * has rendered, so the window is there; if it is not, that is a fault
+     * to report, not a moment to wait for.
+     */
+    createEnsembleInsideWebamp() {
+        const mainWindow = document.querySelector('#main-window');
+        if (!mainWindow) {
+            console.error('Webamp rendered without a #main-window; no ensemble');
             return;
         }
-
-        // Move the #webamp element into our container
-        trace('DEBUG: Moving webamp element into container...');
-        this.container.appendChild(webampElement);
-
-        // Ensure Webamp is visible
-        webampElement.style.display = 'block';
-        webampElement.style.visibility = 'visible';
-        webampElement.style.opacity = '1';
-
-        trace('DEBUG: After moving webamp:', {
-            webampParent: webampElement.parentElement.tagName + '#' + webampElement.parentElement.id,
-            containerChildren: this.container.children.length,
-            webampRect: webampElement.getBoundingClientRect(),
-            webampStyle: webampElement.style.cssText,
-            webampVisible: webampElement.offsetHeight > 0 && webampElement.offsetWidth > 0
-        });
-
-        // Set the container to relative positioning so Webamp can position within it
-        this.container.style.position = 'relative';
-
-        trace('Webamp constrained to container');
-    }
-
-    createEnsembleInsideWebamp() {
-        trace('DEBUG: createEnsembleInsideWebamp called');
-
-        // Wait for #main-window to exist
-        const waitForMainWindow = () => {
-            const mainWindow = document.querySelector('#main-window');
-            if (mainWindow) {
-                trace('DEBUG: Found #main-window, creating ensemble after it');
-                this.createEnsembleAfterMainWindow(mainWindow);
-            } else {
-                trace('DEBUG: #main-window not found yet, waiting...');
-                setTimeout(waitForMainWindow, 100);
-            }
-        };
-
-        waitForMainWindow();
+        this.createEnsembleAfterMainWindow(mainWindow);
     }
 
     createEnsembleAfterMainWindow(mainWindow) {
-        // Debug Webamp positioning - especially the parent with transform
-        const webampContainer = document.getElementById('webamp');
-        const mainWindowParent = mainWindow.parentElement;
-
-        trace('DEBUG: Webamp positioning analysis:', {
-            webampContainer: {
-                exists: !!webampContainer,
-                style: webampContainer ? webampContainer.style.cssText : 'N/A',
-                boundingRect: webampContainer ? webampContainer.getBoundingClientRect() : 'N/A'
-            },
-            mainWindowParent: {
-                tagName: mainWindowParent.tagName,
-                className: mainWindowParent.className,
-                style: mainWindowParent.style.cssText,
-                transform: mainWindowParent.style.transform,
-                boundingRect: mainWindowParent.getBoundingClientRect()
-            },
-            mainWindow: {
-                id: mainWindow.id,
-                style: mainWindow.style.cssText,
-                boundingRect: mainWindow.getBoundingClientRect()
-            }
-        });
-
         // Detect mobile viewport.
         //
         // 1100, not 768, and it matters: below 768 the cards flow under the
@@ -515,24 +487,8 @@ class RabbitholeWebampPlayer {
         // 1100 is the same breakpoint the stylesheet switches layouts at.
         const isMobile = window.innerWidth <= 1100;
 
-        // Try to intercept and override the transform
-        if (mainWindowParent.style.transform) {
-            trace('DEBUG: Found transform on parent:', mainWindowParent.style.transform);
-            trace('DEBUG: Attempting to override transform...');
-
-            // Override the transform to position at top-left
-            mainWindowParent.style.transform = 'translate(10px, 10px)';
-
-            // On mobile, make the parent container full width for proper stacking
-            if (isMobile) {
-                mainWindowParent.style.width = '100%';
-                mainWindowParent.style.position = 'relative';
-                mainWindowParent.style.left = '0';
-                mainWindowParent.style.transform = 'none'; // Remove transform on mobile
-            }
-
-            trace('DEBUG: Override applied, new transform:', mainWindowParent.style.transform);
-        }
+        // The window's own position is the stylesheet's business: see
+        // injectHomeStyle().
 
         // Create the ensemble's element: once, for the life of the player.
         const ensembleDiv = document.createElement('div');
@@ -575,72 +531,6 @@ class RabbitholeWebampPlayer {
 
         // Insert ensemble right after #main-window
         mainWindow.parentNode.appendChild(ensembleDiv);
-        trace('DEBUG: Appended ensemble after main-window');
-
-        // Debug where the ensemble actually ended up
-        setTimeout(() => {
-            trace('DEBUG: Final ensemble position:', {
-                ensembleRect: ensembleDiv.getBoundingClientRect(),
-                ensembleParent: ensembleDiv.parentElement.tagName + (ensembleDiv.parentElement.id ? '#' + ensembleDiv.parentElement.id : ''),
-                mainWindowRect: mainWindow.getBoundingClientRect(),
-                relativePosition: {
-                    x: ensembleDiv.getBoundingClientRect().left - mainWindow.getBoundingClientRect().left,
-                    y: ensembleDiv.getBoundingClientRect().top - mainWindow.getBoundingClientRect().top
-                }
-            });
-        }, 100);
-
-        // Watch for Webamp positioning changes and intercept them.
-        // One observer per player: this runs once, with the element.
-        const observer = new MutationObserver((mutations) => {
-            mutations.forEach((mutation) => {
-                if (mutation.type === 'attributes' && mutation.attributeName === 'style') {
-                    // Check if this is the parent element with transform
-                    if (mutation.target === mainWindowParent &&
-                        mutation.target.style.transform &&
-                        !mutation.target.style.transform.includes('translate(10px, 10px)')) {
-
-                        trace('DEBUG: Webamp trying to move parent! Old transform:', mutation.target.style.transform);
-                        // Override it back to our position
-                        mutation.target.style.transform = 'translate(10px, 10px)';
-                        trace('DEBUG: Blocked Webamp transform, keeping at translate(10px, 10px)');
-                    }
-
-                    // Also log window changes
-                    if (mutation.target.classList.contains('window')) {
-                        trace('DEBUG: Webamp window style changed:', {
-                            target: mutation.target.id,
-                            style: mutation.target.style.cssText
-                        });
-                    }
-                }
-            });
-        });
-
-        // Watch the main window
-        observer.observe(mainWindow, {
-            attributes: true,
-            attributeFilter: ['style']
-        });
-
-        // Most importantly, watch the parent element for transform changes
-        observer.observe(mainWindowParent, {
-            attributes: true,
-            attributeFilter: ['style']
-        });
-
-        // Also watch for other Webamp windows that might appear
-        if (webampContainer) {
-            const allWindows = webampContainer.querySelectorAll('.window');
-            allWindows.forEach(window => {
-                observer.observe(window, {
-                    attributes: true,
-                    attributeFilter: ['style']
-                });
-            });
-        }
-
-        this._pinObserver = observer;
 
         // Initialize Packery for smooth repositioning
         this.initEnsembleGrid(ensembleDiv);
@@ -2224,10 +2114,6 @@ class RabbitholeWebampPlayer {
         this.stopTimeTracking();
         if (this.unsubscribeWebamp) {
             this.unsubscribeWebamp();
-        }
-        if (this._pinObserver) {
-            this._pinObserver.disconnect();
-            this._pinObserver = null;
         }
     }
 }

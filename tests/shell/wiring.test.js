@@ -125,5 +125,18 @@ describe( 'the queue', () => {
 		expect( player ).not.toMatch( /playNextInRabbithole/ );
 		expect( shell ).toMatch( /rabbitholePlayer\.enqueue\(/ );
 		expect( shell ).toMatch( /onSongChange:/ );
+describe( 'where Webamp\'s window lives', () => {
+	// A rule, not a correction. Five loops used to poll for the window and
+	// write our position back over Webamp's, so the player drew in one
+	// place and jumped to another (audit, 5 Nov 2026, item 3).
+	it( 'is a stylesheet rule the player writes, with no observer and no poll', () => {
+		const player = read( 'src/player/rabbithole-player.js' );
+		const shell = read( 'pickipedia-demo.html' );
+
+		expect( player ).toMatch( /div:has\(> #main-window\)/ );
+		expect( player ).not.toMatch( /MutationObserver/ );
+		expect( player ).not.toMatch( /waitForMainWindow/ );
+		expect( shell ).not.toMatch( /MutationObserver/ );
+		expect( shell ).not.toMatch( /pinWebamp|holdWebampStill|wireVolume\(tries|waitForAudio\(tries/ );
 	} );
 } );
