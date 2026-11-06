@@ -1159,6 +1159,24 @@ body.bottom-bar .auto-switch {
     align-self: center;
 }
 
+/* On the wide bar the switch, the Edit button and the carrot all meet
+   in one corner, and at the bar's 8px gap they read as one clump
+   (Skyler, 6 Nov 2026). Each gets its own room there. The phone bar
+   lays these out on a grid of its own and keeps its tighter spacing. */
+@media (min-width: 1101px) {
+    body.bottom-bar .auto-switch {
+        margin: 0 14px;
+    }
+
+    body.bottom-bar .toggle-row {
+        margin: 0 6px;
+    }
+
+    body.bottom-bar .inline-carrot-btn {
+        margin-left: 6px;
+    }
+}
+
 /* Order 90: past Song Parts (82), short of the rabbithole header (99),
    which puts it against the rabbit. */
 body.bottom-bar .inline-carrot-btn {
