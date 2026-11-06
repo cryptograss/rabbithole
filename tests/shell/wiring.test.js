@@ -112,3 +112,24 @@ describe( 'stylesheets', () => {
 		expect( orphans, `stylesheets no page loads: ${ orphans.join( ', ' ) }` ).toEqual( [] );
 	} );
 } );
+
+/*
+ * The pane shows the page most recently asked for. Two solo changes in a
+ * row fetched two pages and the slower one won (audit item 2): the newest
+ * request aborts the one before, and a response checks it is still the
+ * newest before it touches the pane.
+ */
+describe( 'the wiki pane', () => {
+	const demo = read( 'pickipedia-demo.html' );
+	const open = demo.slice( demo.indexOf( 'async function openWikiPage' ), demo.indexOf( '// Links inside the pane stay inside the pane' ) );
+
+	it( 'aborts the previous request and drops a superseded response', () => {
+		expect( open ).toContain( 'paneRequest.abort()' );
+		expect( open ).toContain( 'signal: mine.signal' );
+		expect( open.match( /if \(!latest\(\)\) return;/g ) ).toHaveLength( 2 );
+	} );
+
+	it( 'treats a page on its way as already asked for', () => {
+		expect( open ).toContain( "pane.dataset.wikiWanted === title" );
+	} );
+} );
