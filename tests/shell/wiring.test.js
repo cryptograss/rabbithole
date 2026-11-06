@@ -125,6 +125,9 @@ describe( 'the queue', () => {
 		expect( player ).not.toMatch( /playNextInRabbithole/ );
 		expect( shell ).toMatch( /rabbitholePlayer\.enqueue\(/ );
 		expect( shell ).toMatch( /onSongChange:/ );
+	} );
+} );
+
 describe( 'where Webamp\'s window lives', () => {
 	// A rule, not a correction. Five loops used to poll for the window and
 	// write our position back over Webamp's, so the player drew in one
@@ -138,6 +141,9 @@ describe( 'where Webamp\'s window lives', () => {
 		expect( player ).not.toMatch( /waitForMainWindow/ );
 		expect( shell ).not.toMatch( /MutationObserver/ );
 		expect( shell ).not.toMatch( /pinWebamp|holdWebampStill|wireVolume\(tries|waitForAudio\(tries/ );
+	} );
+} );
+
 /*
  * The save to PickiPedia reads the wiki's answer. MediaWiki says
  * result: Success with nochange when the page already had the text, which
@@ -163,6 +169,9 @@ describe( 'saving to PickiPedia', () => {
 	it( 'never says Saved on its own authority', () => {
 		expect( save ).not.toContain( "'Saved!'" );
 		expect( demo ).not.toContain( "'Save to PickiPedia' : 'Saved'" );
+	} );
+} );
+
 /*
  * The pane shows the page most recently asked for. Two solo changes in a
  * row fetched two pages and the slower one won (audit item 2): the newest
@@ -183,6 +192,9 @@ describe( 'the wiki pane', () => {
 
 	it( 'treats a page on its way as already asked for', () => {
 		expect( open ).toContain( "pane.dataset.wikiWanted === title" );
+	} );
+} );
+
 /*
  * A card is clickable whenever it exists. Clicks used to be wired per card
  * by three setTimeouts racing the player's build (audit item 6); now one
