@@ -3186,6 +3186,23 @@
             }
         }
 
+        /*
+         * You steered, so the music stops steering.
+         *
+         * With auto-switch on, a person who clicked through to read about
+         * somebody was carried off at the next solo, mid-sentence (Justin,
+         * 4 Nov 2026). Any navigation a person does -- a link in the pane,
+         * a musician card, Back -- turns following off. The toggle shows
+         * it, and one tap turns it back on. Agreed by Skyler, 5 Nov.
+         */
+        function stopFollowing() {
+            const toggle = document.getElementById('auto-switch-toggle');
+            if (!toggle || !toggle.checked) return;
+            toggle.checked = false;
+            toggle.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+        window.stopFollowing = stopFollowing;
+
         function rewirePaneLinks(pane) {
             rewireListenButtons(pane);
             pane.querySelectorAll('a[href^="/wiki/"]').forEach(a => {
@@ -3194,6 +3211,7 @@
                 if (/^(Special|File|Category):/.test(title)) return;
                 a.addEventListener('click', e => {
                     e.preventDefault();
+                    stopFollowing();
                     openWikiPage(title);
                 });
             });
@@ -3201,7 +3219,10 @@
 
         window.addEventListener('popstate', (e) => {
             const title = e.state && e.state.wikiTitle;
-            if (title) openWikiPage(title, { push: false });
+            if (title) {
+                stopFollowing();
+                openWikiPage(title, { push: false });
+            }
         });
 
         // Navigate to musician's PickiPedia page
@@ -3346,7 +3367,10 @@
             document.querySelectorAll('.musician-card').forEach(card => {
                 card.onclick = () => {
                     const name = card.dataset.musician;
-                    if (name) navigateToMusician(name);
+                    if (name) {
+                        stopFollowing();
+                        navigateToMusician(name);
+                    }
                 };
             });
         }
@@ -3696,7 +3720,10 @@
                     <span class="icon">${getInstrumentIcon(instruments)}</span>
                     <span class="name">${getInitials(name)}</span>
                 `;
-                div.onclick = () => navigateToMusician(name);
+                div.onclick = () => {
+                    stopFollowing();
+                    navigateToMusician(name);
+                };
                 container.appendChild(div);
             });
         }
