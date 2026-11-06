@@ -2748,7 +2748,7 @@
                 + '</select>';
         }
 
-        async function paneBody(title, parsed) {
+        async function paneBody(title, parsed, signal) {
             const path = '/wiki/' + title.replace(/ /g, '_');
             const mode = paneMode();
 
@@ -2757,7 +2757,7 @@
                 // page rather than rebuilding it. action=parse gives only the
                 // article body, which is why this is a second fetch.
                 try {
-                    const html = await (await fetch(path)).text();
+                    const html = await (await fetch(path, { signal })).text();
                     const doc = new DOMParser().parseFromString(html, 'text/html');
                     const wrapper = doc.getElementById('globalWrapper');
                     if (wrapper) {
@@ -2889,7 +2889,7 @@
                 const data = await (await fetch('/api.php?' + params, { signal: mine.signal })).json();
                 const parsed = data.parse;
                 if (!parsed) throw new Error(data.error?.info || 'no such page');
-                const body = await paneBody(title, parsed);
+                const body = await paneBody(title, parsed, mine.signal);
                 if (!latest()) return;
 
                 const root = pane.shadowRoot || pane.attachShadow({ mode: 'open' });

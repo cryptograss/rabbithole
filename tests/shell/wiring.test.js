@@ -126,6 +126,8 @@ describe( 'the wiki pane', () => {
 	it( 'aborts the previous request and drops a superseded response', () => {
 		expect( open ).toContain( 'paneRequest.abort()' );
 		expect( open ).toContain( 'signal: mine.signal' );
+		expect( open ).toContain( 'paneBody(title, parsed, mine.signal)' );
+		expect( demo ).toContain( 'fetch(path, { signal })' );
 		expect( open.match( /if \(!latest\(\)\) return;/g ) ).toHaveLength( 2 );
 	} );
 
