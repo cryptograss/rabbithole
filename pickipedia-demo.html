@@ -3172,7 +3172,6 @@
                 if (window.rabbitholePlayer
                     && typeof window.rabbitholePlayer.loadNewSong === 'function') {
                     await window.rabbitholePlayer.loadNewSong(song);
-                    setTimeout(addMusicianClickHandlers, 500);
                 }
 
                 // The track is the shareable thing, so put it in the URL --
@@ -3338,18 +3337,18 @@
 
             if (window.rabbitholePlayer && typeof window.rabbitholePlayer.loadNewSong === 'function') {
                 await window.rabbitholePlayer.loadNewSong(newSong);
-                setTimeout(addMusicianClickHandlers, 500);
             }
         };
 
-        function addMusicianClickHandlers() {
-            document.querySelectorAll('.musician-card').forEach(card => {
-                card.onclick = () => {
-                    const name = card.dataset.musician;
-                    if (name) navigateToMusician(name);
-                };
-            });
-        }
+        // A card is clickable whenever it exists. One listener on the
+        // document finds the card under the click, so there is nothing to
+        // wire per card and no timer guessing when the player has built
+        // them (audit item 6: three setTimeouts used to race the build).
+        document.addEventListener('click', (e) => {
+            const card = e.target.closest && e.target.closest('.musician-card');
+            if (!card || !card.dataset.musician) return;
+            navigateToMusician(card.dataset.musician);
+        });
 
         // Initialize player
         const { buildGraph, findTrail, trailSongs } = await import('./src/trail.js');
@@ -3643,9 +3642,6 @@
                 }
             }
         });
-
-        // Add click handlers after player loads
-        setTimeout(addMusicianClickHandlers, 2000);
 
         // Instrument icons mapping
         const instrumentIcons = {
