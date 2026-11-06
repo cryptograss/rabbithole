@@ -3866,10 +3866,10 @@
 
         async function initializeEditor() {
             // Import editor modules
-            const { EditableTrackData } = await import('./src/editor/EditableTrackData.js?v=c1a5fa8');
-            const { TimelineEditor } = await import('./src/editor/TimelineEditor.js?v=c1a5fa8');
-            const { KeyboardShortcuts } = await import('./src/editor/keyboard-shortcuts.js?v=c1a5fa8');
-            const { WikiSync } = await import('./src/editor/wiki-sync.js?v=c1a5fa8');
+            const { EditableTrackData } = await import('./src/editor/EditableTrackData.js?v=26354200');
+            const { TimelineEditor } = await import('./src/editor/TimelineEditor.js?v=26354200');
+            const { KeyboardShortcuts } = await import('./src/editor/keyboard-shortcuts.js?v=26354200');
+            const { WikiSync } = await import('./src/editor/wiki-sync.js?v=26354200');
 
             // Get current song data
             const currentSong = window.rabbitholeSongData;
@@ -3878,10 +3878,14 @@
             // Create editable data state
             editableData = new EditableTrackData(currentSong, {
                 recordingTitle: recordingTitle,
-                onDirtyChange: (isDirty) => {
+                onDirtyChange: (hasUnsaved, stateText) => {
+                    // Live whenever there is anything to send, raw text
+                    // typed but not applied included. Says "Saved" only
+                    // after a save made a revision; "No changes" before
+                    // that. One source for the words: saveStateText().
                     const saveBtn = document.getElementById('save-to-wiki-btn');
-                    saveBtn.disabled = !isDirty;
-                    saveBtn.textContent = isDirty ? 'Save to PickiPedia' : 'Saved';
+                    saveBtn.disabled = !hasUnsaved;
+                    saveBtn.textContent = hasUnsaved ? 'Save to PickiPedia' : stateText;
                 }
             });
 
@@ -3973,12 +3977,26 @@
         }
 
         async function saveToWiki() {
-            if (!editableData || !editableData.isDirty) {
-                return;
-            }
+            if (!editableData) return;
 
             const saveBtn = document.getElementById('save-to-wiki-btn');
             const statusSpan = document.getElementById('save-status');
+
+            // In the raw view, what's typed is what gets saved. If it
+            // doesn't parse, say so and save nothing.
+            try {
+                if (editorInstance) editorInstance.applyPendingRawYaml();
+            } catch (error) {
+                statusSpan.textContent = error.message;
+                statusSpan.className = 'error';
+                return;
+            }
+
+            if (!editableData.isDirty) {
+                statusSpan.textContent = 'No changes to save';
+                statusSpan.className = '';
+                return;
+            }
 
             saveBtn.disabled = true;
             saveBtn.classList.add('saving');
@@ -4032,15 +4050,27 @@
                     if (j.error) {
                         throw new Error(j.error.info || j.error.code);
                     }
-                    editableData.markSaved();
-                    statusSpan.textContent = 'Saved!';
-                    statusSpan.className = 'success';
-                    saveBtn.textContent = 'Saved';
+                    // "Saved" means the wiki made a revision. MediaWiki
+                    // answers Success with nochange when the page already
+                    // had this exact text, and that is not a save.
+                    const edit = j.edit || {};
+                    if (edit.result !== 'Success') {
+                        throw new Error('PickiPedia did not save: ' + JSON.stringify(j).slice(0, 200));
+                    }
+                    if ('nochange' in edit) {
+                        editableData.markSaved({ unchanged: true });
+                        statusSpan.textContent = 'PickiPedia already had exactly this. No new revision.';
+                        statusSpan.className = '';
+                    } else {
+                        editableData.markSaved({ revisionId: edit.newrevid });
+                        statusSpan.textContent = `Saved, revision ${edit.newrevid}`;
+                        statusSpan.className = 'success';
+                    }
 
                 } else {
                     // Local dev / standalone demo path — write to the legacy
                     // Recording:Song (Album)/Rabbithole subpage.
-                    const { WikiSync, trackDataToWikiFormat } = await import('./src/editor/wiki-sync.js?v=c1a5fa8');
+                    const { WikiSync, trackDataToWikiFormat } = await import('./src/editor/wiki-sync.js?v=26354200');
                     const wikiSync = new WikiSync();
                     const recordingTitle = `${currentSong.title} (${currentSong.album})`;
                     const wikiData = trackDataToWikiFormat(editableData.workingData);
@@ -4048,10 +4078,9 @@
                         summary: 'Update timeline data via Rabbithole Editor'
                     });
                     if (result.success) {
-                        editableData.markSaved();
-                        statusSpan.textContent = 'Saved!';
+                        editableData.markSaved({ revisionId: result.revisionId });
+                        statusSpan.textContent = `Saved, revision ${result.revisionId}`;
                         statusSpan.className = 'success';
-                        saveBtn.textContent = 'Saved';
                     } else {
                         throw new Error(result.error || 'Save failed');
                     }

@@ -33,6 +33,26 @@ export class EditableTrackData {
         // Selection state for the editor
         this.selectedMarkerTime = null;
 
+        /*
+         * What the last save to PickiPedia came back with: null before any
+         * save, { revisionId } when a revision was made, { unchanged: true }
+         * when the wiki already had this exact text. "Saved" is said only
+         * when this holds a revision. Before that, a clean editor is
+         * "No changes", because nothing has been saved yet: the footer and
+         * the Save button used to read "Saved" on open, and twice in one
+         * night an edit that never reached the wiki looked saved (Skyler,
+         * Swords 5 Nov and Cicada 6 Nov 2026).
+         */
+        this.lastSave = null;
+
+        /*
+         * Raw YAML typed into the editor's textarea but not yet applied to
+         * the timeline. It counts as unsaved: the Save button stays live
+         * and the footer says so, instead of a disabled button reading
+         * "Saved" over text that was going nowhere.
+         */
+        this.pendingRaw = false;
+
         // Auto-backup
         this.backupInterval = null;
         if (options.enableBackup !== false) {
@@ -315,13 +335,41 @@ export class EditableTrackData {
         this._notifyChange();
     }
 
+    /** Anything a save would send that the wiki doesn't have yet. */
+    get hasUnsaved() {
+        return this.pendingRaw || this.isDirty;
+    }
+
+    /** The editor says whether raw text is typed and not yet applied. */
+    setPendingRaw(pending) {
+        pending = Boolean(pending);
+        if (pending === this.pendingRaw) return;
+        this.pendingRaw = pending;
+        this._notifyDirtyChange();
+    }
+
     /**
-     * Mark current working state as the new original (after successful save)
+     * Mark current working state as the new original, after the wiki
+     * answered. Pass what it answered: { revisionId } for a new revision,
+     * { unchanged: true } when it already had this text.
      */
-    markSaved() {
+    markSaved(outcome = {}) {
+        this.lastSave = outcome;
         this.originalData = this._deepClone(this.workingData);
         this._clearBackup();
         this._notifyDirtyChange();
+    }
+
+    /**
+     * One sentence on where the edits stand, for the footer and the Save
+     * button. The one place that decides what "Saved" means.
+     */
+    saveStateText() {
+        if (this.pendingRaw) return 'Edited, not yet applied';
+        if (this.isDirty) return 'Unsaved changes';
+        if (this.lastSave?.revisionId) return `Saved, revision ${this.lastSave.revisionId}`;
+        if (this.lastSave?.unchanged) return 'PickiPedia already had this';
+        return 'No changes';
     }
 
     /**
@@ -389,7 +437,7 @@ export class EditableTrackData {
 
     _notifyDirtyChange() {
         if (this.onDirtyChange) {
-            this.onDirtyChange(this.isDirty);
+            this.onDirtyChange(this.hasUnsaved, this.saveStateText());
         }
     }
 
