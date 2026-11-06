@@ -110,6 +110,7 @@ function player( fields ) {
 	return Object.assign( Object.create( RabbitholeWebampPlayer.prototype ), {
 		options: { embedMode: false },
 		webamp: null,
+		songsByUrl: new Map(),
 		currentSolo: null,
 		currentEra: null,
 		recentSoloists: [],
