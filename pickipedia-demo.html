@@ -3440,21 +3440,20 @@
 
             if (window.rabbitholePlayer && typeof window.rabbitholePlayer.loadNewSong === 'function') {
                 await window.rabbitholePlayer.loadNewSong(newSong);
-                setTimeout(addMusicianClickHandlers, 500);
             }
         };
 
-        function addMusicianClickHandlers() {
-            document.querySelectorAll('.musician-card').forEach(card => {
-                card.onclick = () => {
-                    const name = card.dataset.musician;
-                    if (name) {
-                        stopFollowing();
-                        navigateToMusician(name);
-                    }
-                };
-            });
-        }
+        // A card is clickable whenever it exists. One listener on the
+        // document finds the card under the click, so there is nothing to
+        // wire per card and no timer guessing when the player has built
+        // them (audit item 6: three setTimeouts used to race the build).
+        // Tapping a card is navigating yourself, so the follow stops (#10).
+        document.addEventListener('click', (e) => {
+            const card = e.target.closest && e.target.closest('.musician-card');
+            if (!card || !card.dataset.musician) return;
+            stopFollowing();
+            navigateToMusician(card.dataset.musician);
+        });
 
         // Initialize player
         const { buildGraph, findTrail, trailSongs } = await import('./src/trail.js');
@@ -3664,9 +3663,6 @@
                 }
             }
         });
-
-        // Add click handlers after player loads
-        setTimeout(addMusicianClickHandlers, 2000);
 
         // Instrument icons mapping
         const instrumentIcons = {

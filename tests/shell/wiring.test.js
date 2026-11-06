@@ -183,5 +183,16 @@ describe( 'the wiki pane', () => {
 
 	it( 'treats a page on its way as already asked for', () => {
 		expect( open ).toContain( "pane.dataset.wikiWanted === title" );
+/*
+ * A card is clickable whenever it exists. Clicks used to be wired per card
+ * by three setTimeouts racing the player's build (audit item 6); now one
+ * listener on the document finds the card under the click.
+ */
+describe( 'musician cards', () => {
+	const demo = read( 'pickipedia-demo.html' );
+
+	it( 'are clickable by delegation, not by a timer', () => {
+		expect( demo ).toContain( "e.target.closest('.musician-card')" );
+		expect( demo ).not.toContain( 'addMusicianClickHandlers' );
 	} );
 } );
