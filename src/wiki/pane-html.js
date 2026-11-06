@@ -14,15 +14,37 @@
 
 export const PANE_MODES = [ 'content', 'header', 'skin' ];
 
+/*
+ * The same modules a real article page loads, in the same skin. The one
+ * that matters most is ext.pickipediaContent.styles, the extension's own
+ * stylesheet: it draws the proposal markers and the studio blocks.
+ */
+export const WIKI_STYLESHEETS = [
+	'/load.php?lang=en&modules=ext.pickipediaContent.styles%7Cskins.monobook.styles&only=styles&skin=monobook',
+	'/load.php?lang=en&modules=site.styles&only=styles&skin=monobook',
+];
+
+/** The element that stands in for <body> inside the shadow root, in skin mode. */
+export const SHADOW_BODY = 'mw-shadow-body';
+const SHADOW_HTML = 'mw-shadow-html';
+
+/**
+ * MonoBook's layout is written against the document: `body .portlet`,
+ * `body:not(.skin--responsive) #column-content`, `html { font-size }`.
+ * A shadow root has no body and no html, so those rules never match, and
+ * the chrome arrived unpositioned, piled under the article (Justin, 6 Nov
+ * 2026). This rewrites the selectors to the stand-in elements skin mode
+ * wraps the page in. Only a selector's own `body`/`html` token moves: one
+ * at the start of a selector, or after a comma, or after the brace that
+ * opens an @media block. `tbody`, `.body` and the like are untouched.
+ */
+export function skinStyles( css ) {
+	return css.replace( /(^|[,{}])(\s*)(body|html)(?![-\w])/g, ( m, before, space, tag ) =>
+		before + space + '.' + ( tag === 'body' ? SHADOW_BODY : SHADOW_HTML ) );
+}
+
 export const PANE_STYLES = [
-	// The same modules a real article page loads, in the same skin. The one
-	// that matters most is ext.pickipediaContent.styles, the extension's own
-	// stylesheet: it draws the proposal markers and the studio blocks.
-	'<link rel="stylesheet" href="/load.php?lang=en&modules=',
-	'ext.pickipediaContent.styles%7Cskins.monobook.styles',
-	'&only=styles&skin=monobook">',
-	'<link rel="stylesheet" href="/load.php?lang=en&modules=',
-	'site.styles&only=styles&skin=monobook">',
+	...WIKI_STYLESHEETS.map( ( href ) => '<link rel="stylesheet" href="' + href + '">' ),
 	'<style>',
 	':host { display: block; font-size: 14px; line-height: 1.5;',
 	'  color: #202122; font-family: -apple-system, BlinkMacSystemFont,',
@@ -86,8 +108,10 @@ function article( title, parsed ) {
  * @param {{text: string, displaytitle?: string}} parsed From action=parse.
  * @param {string} mode One of PANE_MODES.
  * @param {string|null} fullPageHtml The real page's HTML, for `skin`, or null.
+ * @param {string} skinCss The wiki's stylesheets as text, for `skin`: they go
+ *   in rewritten (skinStyles) so MonoBook's body-scoped layout applies.
  */
-export function paneBody( title, parsed, mode, fullPageHtml = null ) {
+export function paneBody( title, parsed, mode, fullPageHtml = null, skinCss = '' ) {
 	const path = wikiPath( title );
 
 	if ( mode === 'skin' && fullPageHtml ) {
@@ -95,12 +119,18 @@ export function paneBody( title, parsed, mode, fullPageHtml = null ) {
 		const wrapper = doc.getElementById( 'globalWrapper' );
 		if ( wrapper ) {
 			wrapper.querySelectorAll( 'script, #siteNotice' ).forEach( ( el ) => el.remove() );
-			return '<div class="pane-chrome">' + modeSwitcher( mode )
+			// The real page's body classes (skin-monobook, skin--responsive,
+			// ns-3008, action-view...) are what MonoBook's rules key off.
+			const bodyClasses = ( doc.body && doc.body.className ) || 'mediawiki skin-monobook';
+			return '<style>' + skinStyles( skinCss ) + '</style>'
+				+ '<div class="pane-chrome">' + modeSwitcher( mode )
 				+ '<span>MonoBook, as the wiki renders it</span></div>'
 				+ '<div class="pane-fake-note">The search box below is furniture: injected '
 				+ 'HTML cannot run scripts, so it accepts typing and does nothing. The '
 				+ 'sidebar and tab links are real.</div>'
-				+ wrapper.outerHTML;
+				+ '<div class="' + SHADOW_HTML + '"><div class="' + SHADOW_BODY + ' ' + escapeHtml( bodyClasses ) + '">'
+				+ wrapper.outerHTML
+				+ '</div></div>';
 		}
 	}
 
