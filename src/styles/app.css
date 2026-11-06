@@ -1,0 +1,1987 @@
+/*
+ * Rabbithole's shell: the dock in both its layouts, the pane and the editor
+ * panel. Ported from the single-file shell on 6 November 2026, with the
+ * layout keyed off body.bottom-bar / .layout.minimized / .with-editor as
+ * before; App.vue is the one place those classes are set.
+ */
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: #f5f5f5;
+}
+
+.layout {
+    display: grid;
+    grid-template-columns: 320px 1fr;
+    height: 100vh;
+    gap: 0;
+    transition: grid-template-columns 0.3s ease;
+}
+
+.layout.minimized {
+    grid-template-columns: 56px 1fr;
+}
+
+.layout.with-editor {
+    grid-template-columns: 320px 1fr 470px;
+}
+
+.layout.minimized.with-editor {
+    grid-template-columns: 56px 1fr 470px;
+}
+
+#rabbithole-sidebar {
+    background: white;
+    border-right: 2px solid #4a7c59;
+    overflow-y: auto;
+    overflow-x: hidden;
+    box-shadow: 2px 0 10px rgba(0,0,0,0.1);
+    padding: 0;
+    transition: all 0.3s ease;
+}
+
+.layout.minimized #rabbithole-sidebar {
+    overflow: hidden;
+}
+
+.rabbithole-header {
+    background: linear-gradient(135deg, #9db89a 0%, #87a96b 100%);
+    padding: 4px 12px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+}
+
+.rabbithole-header img {
+    width: 28px;
+    height: 28px;
+}
+
+.rabbithole-header h1 {
+    color: white;
+    font-size: 16px;
+    font-weight: 600;
+}
+
+.rabbithole-header .alpha {
+    background: rgba(255,255,255,0.2);
+    color: white;
+    font-size: 10px;
+    padding: 2px 6px;
+    border-radius: 3px;
+}
+
+.minimize-btn {
+    margin-left: auto;
+    background: rgba(255,255,255,0.2);
+    border: none;
+    color: white;
+    width: 24px;
+    height: 24px;
+    border-radius: 4px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    transition: background 0.2s;
+}
+
+.minimize-btn:hover {
+    background: rgba(255,255,255,0.3);
+}
+
+.layout.minimized .rabbithole-header {
+    padding: 10px;
+    justify-content: center;
+    cursor: pointer;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.layout.minimized .rabbithole-header img {
+    width: 32px;
+    height: 32px;
+}
+
+.layout.minimized .rabbithole-header h1,
+.layout.minimized .rabbithole-header .alpha {
+    display: none;
+}
+
+.layout.minimized .minimize-btn {
+    margin-left: 0;
+    width: 28px;
+    height: 28px;
+}
+
+.layout.minimized .player-container {
+    display: none;
+}
+
+.mini-player {
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    padding: 25px 5px 10px 5px;
+}
+
+.layout.minimized .mini-player {
+    display: flex;
+}
+
+.mini-player-btn {
+    width: 34px;
+    height: 60px;
+    border: none;
+    background:
+        repeating-linear-gradient(
+            0deg,
+            transparent,
+            transparent 7px,
+            rgba(180, 70, 20, 0.25) 7px,
+            rgba(180, 70, 20, 0.25) 9px
+        ),
+        linear-gradient(to right, #ff9a56 0%, #ff6b35 25%, #ff8142 50%, #ff6b35 75%, #ff9a56 100%);
+    color: white;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    transition: all 0.2s;
+    border-radius: 5px 5px 50% 50%;
+    position: relative;
+    box-shadow:
+        0 3px 10px rgba(255, 107, 53, 0.35),
+        inset 3px 0 6px rgba(255, 200, 150, 0.25),
+        inset -3px 0 6px rgba(180, 60, 20, 0.2);
+    text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+}
+
+.carrot-leaves-external {
+    display: flex;
+    gap: 2px;
+    align-items: flex-end;
+    justify-content: center;
+    margin-bottom: -4px;
+    z-index: 10;
+}
+
+.carrot-leaves-external span {
+    display: block;
+    width: 10px;
+    background: linear-gradient(135deg, #5a9c6a 0%, #4a7c59 50%, #3a6847 100%);
+    border-radius: 50% 50% 2px 2px;
+    box-shadow: 0 2px 3px rgba(0,0,0,0.2);
+}
+
+.carrot-leaves-external span:nth-child(1) {
+    height: 16px;
+    transform: rotate(-25deg);
+}
+
+.carrot-leaves-external span:nth-child(2) {
+    height: 22px;
+    width: 12px;
+}
+
+.carrot-leaves-external span:nth-child(3) {
+    height: 16px;
+    transform: rotate(25deg);
+}
+
+.mini-player-btn:hover {
+    transform: scale(1.08);
+    box-shadow: 0 5px 15px rgba(255, 107, 53, 0.45);
+}
+
+.mini-player-btn.playing {
+    background:
+        repeating-linear-gradient(
+            0deg,
+            transparent,
+            transparent 7px,
+            rgba(160, 50, 10, 0.3) 7px,
+            rgba(160, 50, 10, 0.3) 9px
+        ),
+        linear-gradient(to right, #ff8142 0%, #e55a2b 25%, #ff6b35 50%, #e55a2b 75%, #ff8142 100%);
+}
+
+.mini-progress-ring {
+    width: 44px;
+    height: 44px;
+    position: relative;
+}
+
+.mini-progress-ring svg {
+    transform: rotate(-90deg);
+}
+
+.mini-progress-ring circle {
+    fill: none;
+    stroke-width: 3;
+}
+
+.mini-progress-ring .bg {
+    stroke: #e0e0e0;
+}
+
+.mini-progress-ring .progress {
+    stroke: #4a7c59;
+    stroke-linecap: round;
+    transition: stroke-dashoffset 0.2s;
+}
+
+.mini-time {
+    font-size: 9px;
+    color: #666;
+    text-align: center;
+    margin-top: 4px;
+    font-weight: 500;
+}
+
+.mini-musicians {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-top: 8px;
+    width: 100%;
+    padding: 0 2px;
+}
+
+.mini-musician {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    font-size: 9px;
+    color: #666;
+    padding: 2px 4px;
+    border-radius: 3px;
+    transition: all 0.2s;
+    cursor: pointer;
+}
+
+.mini-musician:hover {
+    background: rgba(74, 124, 89, 0.1);
+}
+
+.mini-musician.lead {
+    background: rgba(74, 124, 89, 0.15);
+    color: #4a7c59;
+    font-weight: 600;
+}
+
+.mini-musician.out {
+    opacity: 0.4;
+}
+
+.mini-musician .icon {
+    font-size: 10px;
+    width: 14px;
+    text-align: center;
+}
+
+.mini-musician .name {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.player-container {
+    padding: 6px 10px;
+    position: relative;
+}
+
+/* In the sidebar the player fills what the header leaves, not the
+   whole sidebar: at height 100% it started 36px down and so always
+   ended 36px past the bottom, and the last row of song parts sat
+   under the edge of the window. Skyler, 2026-11-01: "outro is still
+   cut off". A taller song still scrolls the sidebar. */
+body:not(.bottom-bar) #rabbithole-sidebar {
+    display: flex;
+    flex-direction: column;
+}
+
+body:not(.bottom-bar) .player-container {
+    height: auto;
+    flex: 1 0 auto;
+}
+
+/* And the strip stays in sight when the sidebar is taller than the
+   window and scrolls -- on a 720px screen it is, by 36px. */
+body:not(.bottom-bar) .data-section {
+    position: sticky;
+    bottom: 0;
+    z-index: 5;
+    background: #fff;
+    padding-bottom: 6px;
+}
+
+/* The A/B switch. Deliberately plain and labelled with which layout
+   you are looking at, so a screenshot says which one it is. */
+.layout-ab-wrap {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    align-items: center;
+}
+
+/* In the sidebar it sits at the bottom left, under the song parts,
+   inside the sticky data section, so it is there whatever the
+   song's length. Skyler, 6 Nov 2026. */
+body:not(.bottom-bar) .layout-ab-wrap {
+    justify-content: flex-start;
+    margin-top: 6px;
+}
+
+.layout.minimized .layout-ab-wrap {
+    display: none;
+}
+
+/* In the bar layout the sidebar is the bar itself, so the switch
+   floats top right of the page, as it always has. */
+body.bottom-bar .layout-ab-wrap {
+    position: fixed;
+    top: 4px;
+    right: 4px;
+    z-index: 2000;
+    justify-content: flex-end;
+    max-width: calc(100vw - 8px);
+}
+
+.layout-ab {
+    font: 600 11px/1 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    padding: 5px 9px;
+    border: 1px solid #c3cbbb;
+    border-radius: 11px;
+    background: #fffdf5;
+    color: #2d5016;
+    text-decoration: none;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+}
+
+.layout-ab:hover {
+    background: #4a7c59;
+    color: #fff;
+    border-color: #3c6749;
+}
+
+/* Only shown once a person has overruled the window, so there is
+   always a way back to "decide for me". */
+.layout-ab-auto {
+    font-weight: 500;
+}
+
+/* A stored choice is overriding the window. Amber so it reads as a
+   state somebody set, rather than as the normal furniture. */
+.layout-ab-pinned,
+.layout-ab-pinned + .layout-ab-auto {
+    background: #fff6d8;
+    border-color: #e3d08a;
+}
+
+/* The YAML export, shown when the clipboard is refused or just so a
+   person can see what they are pasting before they paste it. */
+.yaml-export-box {
+    margin: 8px 0;
+    padding: 8px;
+    border: 1px solid #c3cbbb;
+    border-radius: 4px;
+    background: #fffdf5;
+    font-size: 12px;
+}
+
+.yaml-export-box textarea {
+    width: 100%;
+    min-height: 160px;
+    font-family: ui-monospace, Menlo, Consolas, monospace;
+    font-size: 11px;
+    white-space: pre;
+}
+
+/* Track title + recording info, shown when loaded via ?track=. */
+.song-info-header {
+    text-align: center;
+    padding: 6px 4px 4px;
+    margin-bottom: 6px;
+    border-bottom: 1px solid #e5e7e1;
+}
+
+.song-title-display {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-size: 18px;
+    line-height: 1.1;
+    margin: 0 0 3px;
+    color: #2d5016;
+    font-weight: 700;
+    letter-spacing: -0.015em;
+}
+
+/* Cover and the rest of the record, under the title. */
+.album-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin: 4px 0 3px;
+}
+
+.album-art {
+    width: 34px;
+    height: 34px;
+    flex-shrink: 0;
+    object-fit: cover;
+    border-radius: 2px;
+    border: 1px solid #d4d8d2;
+}
+
+/* A cover that did not arrive still occupies its square, dashed and
+   marked, so "no cover" and "no room for a cover" look different. */
+.album-art.album-art-missing {
+    border: 1px dashed #b05a3c;
+    background: repeating-linear-gradient(
+        45deg, #f6ece8, #f6ece8 5px, #efe0da 5px, #efe0da 10px );
+}
+
+.album-track-select {
+    flex: 1 1 auto;
+    min-width: 0;
+    padding: 3px 6px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 12px;
+    background: white;
+    cursor: pointer;
+}
+
+.recording-metadata {
+    font-size: 11px;
+    color: #666;
+    font-style: italic;
+}
+
+.recording-metadata span + span::before {
+    content: " · ";
+    color: #bbb;
+    font-style: normal;
+}
+
+.up-next {
+    font-size: 11px;
+    color: #4a7c59;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.song-select {
+    width: 100%;
+    padding: 6px 10px;
+    margin-bottom: 6px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    font-size: 14px;
+}
+
+.toggle-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 6px;
+    font-size: 13px;
+    color: #555;
+}
+
+.inline-carrot-btn {
+    width: 30px;
+    height: 42px;
+    border: none;
+    background:
+        repeating-linear-gradient(
+            0deg,
+            transparent,
+            transparent 5px,
+            rgba(180, 70, 20, 0.25) 5px,
+            rgba(180, 70, 20, 0.25) 6px
+        ),
+        linear-gradient(to right, #ff9a56 0%, #ff6b35 25%, #ff8142 50%, #ff6b35 75%, #ff9a56 100%);
+    color: white;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    transition: all 0.2s;
+    border-radius: 4px 4px 50% 50%;
+    position: relative;
+    box-shadow: 0 2px 6px rgba(255, 107, 53, 0.3);
+    margin-left: auto;
+    margin-top: 8px;
+    align-self: flex-start;
+}
+
+.inline-carrot-btn:hover {
+    transform: scale(1.1);
+}
+
+.inline-carrot-btn.playing {
+    background:
+        repeating-linear-gradient(
+            0deg,
+            transparent,
+            transparent 5px,
+            rgba(160, 50, 10, 0.3) 5px,
+            rgba(160, 50, 10, 0.3) 6px
+        ),
+        linear-gradient(to right, #ff8142 0%, #e55a2b 25%, #ff6b35 50%, #e55a2b 75%, #ff8142 100%);
+}
+
+.inline-carrot-leaves {
+    position: absolute;
+    top: -10px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 1px;
+    align-items: flex-end;
+}
+
+.inline-carrot-leaves span {
+    display: block;
+    width: 6px;
+    background: linear-gradient(135deg, #5a9c6a 0%, #4a7c59 50%, #3a6847 100%);
+    border-radius: 50% 50% 1px 1px;
+}
+
+.inline-carrot-leaves span:nth-child(1) {
+    height: 8px;
+    transform: rotate(-25deg);
+}
+
+.inline-carrot-leaves span:nth-child(2) {
+    height: 12px;
+    width: 7px;
+}
+
+.inline-carrot-leaves span:nth-child(3) {
+    height: 8px;
+    transform: rotate(25deg);
+}
+
+/* The slider and its knob are absolutely positioned against this box,
+   so the box has to keep its size. As a flex item it would otherwise
+   shrink when the bar runs out of room — and the knob, which slides
+   20px right when the switch is ON, would travel straight out of the
+   shrunken box and sit on top of the caption. Hence flex-shrink: 0. */
+.toggle-switch {
+    position: relative;
+    flex-shrink: 0;
+    width: 44px;
+    height: 24px;
+}
+
+/* Switch and caption as one label: the words become a click target,
+   and the pair can stack in the bar without the carrot button
+   stacking along with them. */
+.auto-switch {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+}
+
+.toggle-switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.toggle-slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #ccc;
+    transition: 0.3s;
+    border-radius: 24px;
+}
+
+.toggle-slider:before {
+    position: absolute;
+    content: "";
+    height: 18px;
+    width: 18px;
+    left: 3px;
+    bottom: 3px;
+    background-color: white;
+    transition: 0.3s;
+    border-radius: 50%;
+}
+
+.toggle-switch input:checked + .toggle-slider {
+    background-color: #4a7c59;
+}
+
+.toggle-switch input:checked + .toggle-slider:before {
+    transform: translateX(20px);
+}
+
+/* The box Webamp's window is drawn in. The skin is 116px tall and sits
+   10px in (see the home rule below), so the box is that and the cards
+   follow it in normal flow; they used to be absolutely positioned inside
+   this box by the player, which is why it was 410px tall. */
+.webamp-wrapper {
+    height: 126px;
+    margin-bottom: 6px;
+    position: relative;
+}
+
+.player-loading,
+.player-error {
+    display: block;
+    padding: 1em;
+    font-size: 13px;
+    color: #6b7566;
+}
+
+.player-error {
+    color: #a00;
+}
+
+.data-section {
+    margin-top: 8px;
+    padding-top: 6px;
+    border-top: 1px solid #4a7c59;
+}
+
+.section-label {
+    font-size: 10px;
+    font-weight: 600;
+    color: #4a7c59;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 3px;
+}
+
+/* Compact ensemble layout — fit all 6 cards without scrolling.
+   Cursive musician names (Caveat) match the arthel rabbithole-
+   player look. */
+.musician-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-bottom: 6px;
+}
+
+.musician-card {
+    padding: 2px 10px;
+    border: 1px solid #d4d8d2;
+    border-radius: 5px;
+    background: white;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.musician-card:hover {
+    border-color: #4a7c59;
+    background: rgba(74, 124, 89, 0.05);
+}
+
+.musician-card.lead {
+    border: 2px solid #4a7c59;
+    background: rgba(74, 124, 89, 0.1);
+    box-shadow: 0 0 12px rgba(74, 124, 89, 0.25);
+}
+
+.musician-card.out {
+    opacity: 0.4;
+}
+
+.musician-name {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-weight: 600;
+    color: #2d5016;
+    font-size: 14px;
+    line-height: 1.2;
+    letter-spacing: -0.01em;
+}
+
+/* Mock provenance line — hide in the narrow sidebar to keep all 6
+   cards in the viewport. Bring back when real NFT ownership data
+   lives there. */
+.chartifact-line {
+    display: none;
+}
+
+.musician-instrument {
+    font-size: 11px;
+    color: #888;
+}
+
+.parts-chart {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    padding: 3px 0;
+}
+
+.part-box {
+    padding: 3px 6px;
+    border: 1px solid #ddd;
+    border-radius: 3px;
+    font-size: 11px;
+    color: #666;
+}
+
+.part-box.active {
+    background: #4a7c59;
+    color: white;
+    border-color: #4a7c59;
+}
+
+/* Was an iframe. It is a div now: same box, same name, so every
+   height rule in the bottom-bar section still applies, but the wiki
+   arrives as HTML we own rather than as a nested document we cannot
+   reach into or push a URL for. */
+.pickipedia-frame {
+    width: 100%;
+    height: 100%;
+    border: none;
+    overflow-y: auto;
+    background: white;
+    padding: 1.2em 1.6em 2em;
+}
+
+/* The pane is wiki content without the wiki's document, so it does
+   not inherit MediaWiki's stylesheet the way the iframe did. Pull in
+   the content styles only — not the skin chrome — and cap images,
+   which otherwise arrive at their natural size and run off the page
+   (podcast artwork is 1400px square). */
+.pickipedia-frame .pane-loading {
+    color: #6b7566;
+    font-size: 13px;
+}
+
+.connection-hint {
+    background: #fff3cd;
+    border: 1px solid #ffc107;
+    border-radius: 6px;
+    padding: 10px;
+    margin: 10px 0;
+    font-size: 12px;
+}
+
+.connection-hint strong {
+    color: #856404;
+}
+
+/* Hide webamp extra windows */
+#webamp #equalizer-window,
+#webamp #playlist-window {
+    display: none !important;
+}
+
+/* Editor panel inline styles */
+.editor-panel {
+    background: #fff;
+    border-left: 2px solid #4a7c59;
+    overflow-y: auto;
+    padding: 0;
+}
+
+.editor-panel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 15px;
+    background: linear-gradient(135deg, #9db89a 0%, #87a96b 100%);
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+
+.editor-panel-header h3 {
+    margin: 0;
+    color: white;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.editor-close-btn {
+    background: rgba(255,255,255,0.2);
+    border: none;
+    color: white;
+    width: 24px;
+    height: 24px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+}
+
+.editor-close-btn:hover {
+    background: rgba(255,255,255,0.3);
+}
+
+.editor-save-section {
+    padding: 10px 15px;
+    border-top: 1px solid #eee;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+#save-status {
+    font-size: 12px;
+    color: #666;
+}
+
+#save-status.success {
+    color: #4a7c59;
+}
+
+#save-status.error {
+    color: #c00;
+}
+
+#keyboard-help {
+    padding: 10px 15px;
+}
+
+/* === BOTTOM-BAR LAYOUT (Option 1 spike, gated by body.bottom-bar) ===
+
+   Three zones, left → right:
+     1.  webamp-wrapper        (LEFT)
+     50. ensemble-display      (MIDDLE, flex-grows)
+     99. rabbithole-header     (RIGHT)
+   Misc demo controls (song-selector, toggles, parts chart, edit btn)
+   tuck in between the middle and the right with mid-range orders.
+*/
+
+/* === The cards, in the sidebar: a column under the player === */
+body:not(.bottom-bar) #ensemble-display {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    width: 269px;
+    margin: 0 0 6px 10px;
+}
+
+/* Sidebar leaves the grid flow (position:fixed below), so collapse
+   the layout grid to a single main column. Otherwise the iframe
+   auto-flows into the now-empty 320px sidebar column. */
+body.bottom-bar .layout,
+body.bottom-bar .layout.minimized {
+    grid-template-columns: 1fr;
+}
+body.bottom-bar .layout.with-editor,
+body.bottom-bar .layout.minimized.with-editor {
+    grid-template-columns: 1fr 470px;
+}
+
+/* The dock's height, in one place: the bar is this tall and the
+   article beside it is the rest. Two numbers would drift the moment
+   the small-screen layout made the dock taller, and the article
+   would either be cut off or leave a gap under the bar. */
+body.bottom-bar {
+    --rh-dock-height: 152px;
+}
+
+body.bottom-bar #rabbithole-sidebar {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    max-width: 100vw;
+    /* 152, not 140. The webamp skin is a fixed 116px and the bar has
+       a 2px top border, so with a 34px strip the player's bottom edge
+       lands exactly on the strip's top edge: 2 + 116 + 34 = 152. At
+       140 it overlapped the strip by twelve pixels and the strip's
+       background painted over the bottom of the player. */
+    height: calc(var(--rh-dock-height) + var(--rh-strip-extra, 0px));
+    /* Room for the song-parts strip, which is absolutely positioned
+       against this box. box-sizing is border-box globally, so the bar
+       stays 152px tall and the main row gets 116px of it — exactly
+       the height of the webamp skin. */
+    padding-bottom: 34px;
+    border-right: none;
+    border-top: 2px solid #4a7c59;
+    box-shadow: 0 -2px 10px rgba(0,0,0,0.15);
+    display: flex;
+    flex-direction: row;
+    align-items: stretch;
+    overflow-x: hidden;
+    overflow-y: hidden;
+    z-index: 50;
+    background: white;
+    gap: 8px;
+}
+
+body.bottom-bar .layout.with-editor #rabbithole-sidebar {
+    right: 470px;
+}
+
+body.bottom-bar .pickipedia-frame {
+    height: calc(100vh - calc(var(--rh-dock-height) + var(--rh-strip-extra, 0px)));
+}
+
+body.bottom-bar .editor-panel {
+    height: calc(100vh - calc(var(--rh-dock-height) + var(--rh-strip-extra, 0px)));
+}
+
+/* Pull .player-container's children up to be direct flex items of
+   the bar, so we can place each one with its own `order:`. */
+body.bottom-bar .player-container {
+    display: contents;
+}
+
+/* === Zone 1: Webamp (LEFT) — fixed size, never shrinks === */
+body.bottom-bar .webamp-wrapper {
+    order: 1;
+    flex-shrink: 0;
+    width: 290px;
+    min-height: 116px;
+    margin-bottom: 0;
+}
+
+/* === Zone 50: Ensemble (MIDDLE) === */
+body.bottom-bar #ensemble-display {
+    order: 50;
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-content: flex-start;
+    gap: 4px;
+    padding: 4px;
+    margin-bottom: 0;
+    min-width: 0;
+    overflow-y: auto;
+}
+
+body.bottom-bar #ensemble-display .musician-card {
+    flex: 0 0 auto;
+    width: 160px;
+    padding: 4px 8px;
+}
+
+/* === Zone 99: Rabbithole header (RIGHT) — fixed size, never shrinks === */
+body.bottom-bar .rabbithole-header {
+    order: 99;
+    flex-shrink: 0;
+    flex-direction: column;
+    height: 100%;
+    width: 80px;
+    padding: 8px 6px;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    position: static;
+}
+
+body.bottom-bar .rabbithole-header h1 {
+    font-size: 13px;
+}
+
+body.bottom-bar .minimize-btn {
+    margin-left: 0;
+}
+
+/* === Collapsed bottom-bar (body.bar-collapsed) === */
+body.bottom-bar.bar-collapsed #rabbithole-sidebar {
+    height: 40px;
+    padding-bottom: 0;
+}
+
+body.bottom-bar.bar-collapsed .pickipedia-frame {
+    height: calc(100vh - 40px);
+}
+
+body.bottom-bar.bar-collapsed .editor-panel {
+    height: calc(100vh - 40px);
+}
+
+/* Hide everything except webamp (shaded) and the rabbithole-header
+   (which holds the expand button). */
+body.bottom-bar.bar-collapsed #ensemble-display,
+body.bottom-bar.bar-collapsed .data-section,
+body.bottom-bar.bar-collapsed .song-info-header,
+body.bottom-bar.bar-collapsed .song-select,
+body.bottom-bar.bar-collapsed .toggle-row {
+    display: none;
+}
+
+/* Webamp's shade mode is ~14px tall — shrink the wrapper to match. */
+body.bottom-bar.bar-collapsed .webamp-wrapper {
+    min-height: 14px;
+    height: 14px;
+    flex: 1 1 auto;
+}
+
+/* Compact rabbithole-header in collapsed mode: hide the heading
+   and ALPHA badge, keep the rabbit icon and the expand button. */
+body.bottom-bar.bar-collapsed .rabbithole-header {
+    width: auto;
+    min-width: 64px;
+    flex-direction: row;
+    gap: 6px;
+    padding: 4px 8px;
+}
+
+body.bottom-bar.bar-collapsed .rabbithole-header h1,
+body.bottom-bar.bar-collapsed .rabbithole-header .alpha {
+    display: none;
+}
+
+body.bottom-bar.bar-collapsed .rabbithole-header img {
+    width: 22px;
+    height: 22px;
+}
+
+/* === Misc demo controls — between ensemble and rabbithole-header === */
+/* Skyler: the title up at the top of the bar rather than floating in
+   the middle of it. Everything else in the bar is vertically centred,
+   so this is the one thing that sits against the top edge — which is
+   what makes it read as a heading for the bar rather than one more
+   control in the row. */
+body.bottom-bar .song-info-header {
+    order: 70;
+    width: 220px;
+    padding: 6px 4px 0;
+    margin-bottom: 0;
+    align-self: flex-start;
+}
+
+/* The cover beside the title rather than under it, which is what the
+   phone layout already does. A column of its own, spanning both
+   lines, so the title and the track list begin to its right and
+   neither has to dodge it.
+
+   Fenced to the wide screen on purpose. These are descendant
+   selectors, so they outrank the narrow-screen rules further down
+   the file on specificity and would win the tie whatever the
+   viewport -- which would undo the 52px cover on the phone. */
+@media (min-width: 1101px) {
+    body.bottom-bar .song-info-header {
+        width: 250px;
+        display: grid;
+        grid-template-columns: 34px minmax(0, 1fr);
+        grid-template-areas:
+            "art title"
+            "art album"
+            "meta meta";
+        column-gap: 6px;
+        row-gap: 2px;
+        text-align: left;
+    }
+
+    /* The row stops being a box so its two children can take their
+       own cells -- the same trick .player-container uses. */
+    body.bottom-bar .song-info-header .album-row {
+        display: contents;
+    }
+
+    body.bottom-bar .song-info-header .song-title-display {
+        grid-area: title;
+        align-self: end;
+        margin: 0;
+        font-size: 16px;
+    }
+
+    body.bottom-bar .song-info-header .album-art {
+        grid-area: art;
+        align-self: center;
+    }
+
+    body.bottom-bar .song-info-header .album-track-select {
+        grid-area: album;
+        align-self: start;
+    }
+
+    body.bottom-bar .song-info-header .recording-metadata {
+        grid-area: meta;
+    }
+}
+
+body.bottom-bar .song-select {
+    order: 80;
+    width: 200px;
+    align-self: center;
+    height: 28px;
+}
+
+body.bottom-bar .toggle-row {
+    order: 81;
+    flex-direction: row;
+    align-items: center;
+    gap: 6px;
+    align-self: center;
+}
+
+/* Horizontal room is the axis the bar runs out of, so in the bar the
+   switch sits over its caption rather than beside it. Costs about
+   40px of the bar's height and gives back around 130px of width. */
+body.bottom-bar .auto-switch {
+    flex-direction: column;
+    gap: 3px;
+    text-align: center;
+}
+
+body.bottom-bar .auto-switch-caption {
+    font-size: 11px;
+    line-height: 1.15;
+    max-width: 90px;
+}
+
+/* Skyler wanted the carrot bigger and up by the rabbit. It cannot get
+   there while it is nested in the toggle row, because `order` only
+   places flex items of the bar itself — so in the bar that one row
+   stops being a box and its two children become bar items in their
+   own right. The row keeps its box in sidebar mode, where it is a
+   sensible row and the carrot belongs beside the switch. */
+body.bottom-bar .auto-switch-row {
+    display: contents;
+}
+
+body.bottom-bar .auto-switch {
+    order: 81;
+    align-self: center;
+}
+
+/* Order 90: past Song Parts (82), short of the rabbithole header (99),
+   which puts it against the rabbit. */
+body.bottom-bar .inline-carrot-btn {
+    order: 90;
+    flex-shrink: 0;
+    align-self: center;
+    margin-left: 0;
+    margin-top: 0;
+}
+
+/* The bigger carrot is not a new drawing — it is the geometry already
+   written for .mini-player-btn, which only ever shows in the minimized
+   sidebar. Same vegetable, finally visible in the bar. */
+body.bottom-bar .inline-carrot-btn {
+    width: 34px;
+    height: 60px;
+    font-size: 14px;
+    border-radius: 5px 5px 50% 50%;
+    background:
+        repeating-linear-gradient(
+            0deg,
+            transparent,
+            transparent 7px,
+            rgba(180, 70, 20, 0.25) 7px,
+            rgba(180, 70, 20, 0.25) 9px
+        ),
+        linear-gradient(to right, #ff9a56 0%, #ff6b35 25%, #ff8142 50%, #ff6b35 75%, #ff9a56 100%);
+    box-shadow:
+        0 3px 10px rgba(255, 107, 53, 0.35),
+        inset 3px 0 6px rgba(255, 200, 150, 0.25),
+        inset -3px 0 6px rgba(180, 60, 20, 0.2);
+    text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+}
+
+body.bottom-bar .inline-carrot-btn.playing {
+    background:
+        repeating-linear-gradient(
+            0deg,
+            transparent,
+            transparent 7px,
+            rgba(160, 50, 10, 0.3) 7px,
+            rgba(160, 50, 10, 0.3) 9px
+        ),
+        linear-gradient(to right, #ff8142 0%, #e55a2b 25%, #ff6b35 50%, #e55a2b 75%, #ff8142 100%);
+}
+
+/* Leaves scale with the root they sit on. */
+body.bottom-bar .inline-carrot-leaves {
+    top: -15px;
+    gap: 2px;
+}
+
+body.bottom-bar .inline-carrot-leaves span {
+    width: 10px;
+    border-radius: 50% 50% 2px 2px;
+    box-shadow: 0 2px 3px rgba(0,0,0,0.2);
+}
+
+body.bottom-bar .inline-carrot-leaves span:nth-child(1),
+body.bottom-bar .inline-carrot-leaves span:nth-child(3) {
+    height: 16px;
+}
+
+body.bottom-bar .inline-carrot-leaves span:nth-child(2) {
+    height: 22px;
+    width: 12px;
+}
+
+/* The carrot is hidden when the bar is collapsed along with everything
+   else in .toggle-row — but it is no longer inside one, so say so. */
+body.bottom-bar.bar-collapsed .inline-carrot-btn,
+body.bottom-bar.bar-collapsed .auto-switch {
+    display: none;
+}
+
+/* === Song parts: a strip along the bottom of the bar ===
+   Skyler's idea and it is the right shape for the thing — the song
+   laid out left to right the way Strum Machine does it, instead of
+   twelve chips wrapping inside a 200px column three rows deep. It is
+   absolutely positioned against the bar (which is position:fixed), so
+   nothing in the main row has to know it exists; the bar's
+   padding-bottom is what keeps them apart. */
+body.bottom-bar .data-section {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: auto;
+    height: 34px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0;
+    padding: 0 8px;
+    border-top: 1px solid #d9ded6;
+    background: #eef2eb;
+}
+
+body.bottom-bar .section-label {
+    flex-shrink: 0;
+    margin-bottom: 0;
+    font-size: 9px;
+}
+
+/* Equal widths across the whole bar, so the strip reads as the whole
+   song and your position in it means something. Proportional widths
+   would be truer, but extractSongParts() hands back part names with
+   no durations attached — that is a change in the player module, not
+   in this stylesheet. */
+body.bottom-bar .parts-chart {
+    flex: 1 1 auto;
+    flex-wrap: nowrap;
+    gap: 3px;
+    padding: 0;
+    height: 24px;
+    min-width: 0;
+}
+
+/* Taller and blockier, per Skyler. Square-ish corners and a solid
+   ground so each section reads as a block of song rather than a tag:
+   at a glance the strip should look like a bar of music, not a row
+   of labels. */
+body.bottom-bar .parts-chart .part-box {
+    flex: 1 1 0;
+    min-width: 0;
+    height: 24px;
+    padding: 0;
+    line-height: 23px;
+    text-align: center;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    color: #4a5a46;
+    background: #fff;
+    border: 1px solid #c3cbbd;
+    border-radius: 2px;
+    overflow: hidden;
+    white-space: nowrap;
+}
+
+/* The block you are in, while the song plays.
+   This rule has to exist. .part-box.active sets the green, but the
+   rule above is a class deeper, so its `background: #fff` was beating
+   it and the active block came out white — the chart was tracking the
+   song correctly and saying so invisibly. Added the ground here, at
+   matching specificity, the moment Skyler noticed the cards were not
+   changing. */
+body.bottom-bar .parts-chart .part-box.active {
+    background: #4a7c59;
+    border-color: #3c6749;
+    color: #fff;
+}
+
+/* A long song on two rows, each the same number of blocks, so the
+   second row still lines up under the first as the rest of the song. */
+body.bottom-bar .parts-chart.two-rows {
+    flex-wrap: wrap;
+    height: auto;
+    row-gap: 3px;
+}
+
+body.bottom-bar .parts-chart.two-rows .part-box {
+    flex: 0 0 calc((100% - (var(--parts-per-row) - 1) * 3px) / var(--parts-per-row));
+}
+
+/* And the bar grows by a row to hold it: 24 more pixels on the dock,
+   the strip, and the padding that keeps the player clear of it. */
+body.bottom-bar:has(.parts-chart.two-rows) {
+    --rh-strip-extra: 24px;
+}
+
+body.bottom-bar:has(.parts-chart.two-rows) #rabbithole-sidebar {
+    padding-bottom: 58px;
+}
+
+body.bottom-bar .data-section:has(.parts-chart.two-rows) {
+    height: 58px;
+}
+/* === The bar on a narrow screen ===
+
+   Last in the file on purpose. The bottom-bar rules above set `order`
+   and widths on the same selectors at the same specificity, so a
+   media query placed earlier loses every tie -- which is how the
+   first attempt at this ended up with the controls pushed off the
+   bottom of the dock while .song-info-header kept order: 70.
+
+   Skyler's layout, holding the phone upright, second pass:
+
+       ┌───────────────────────────────┐
+       │ ▣ Paint Exchange          🐰 ▼ │
+       │ [Paint Exchange ▾][Edit] ⬤ txt │
+       ├───────────────┬───────────────┤
+       │    webamp     │ cards         │
+       ├───────────────┴───────────────┤
+       │ A A B A A B A A B A           │
+       └───────────────────────────────┘
+
+   Two control rows rather than one. The first pass crammed the title,
+   the album, the selector, the switch and the collapse arrow into a
+   single row, and paid for it by hiding the logo, hiding the switch's
+   caption and squeezing the selector until "August - Vowel Sounds"
+   read as "August - Vowel Sound". A phone is short of width and long
+   on height; spending 20px of height to stop cutting words off is the
+   right way round.
+
+   .song-info-header becomes display:contents so the title and the
+   album row can be placed in different cells -- the same trick
+   .player-container already uses to put its children in the bar.
+
+   Grid, not flex: every child is placed by name, so nothing depends
+   on `order` arithmetic against the desktop rules, and a child nobody
+   thought about cannot wrap itself onto a row of its own. */
+/* Up to 1100px, not 720.
+
+   The desktop bar is a row of fixed widths: the header 80, the skin
+   290, the title block 220, the selector 200, the switch 44, the
+   carrot 34, the editor 77. That is 945px before a single musician
+   card, and the cards are the only flexible item -- so anywhere
+   under about 1100px they are what gives. Measured at 844x390: the
+   ensemble collapses to 8px wide and the header hangs 15px off the
+   right edge, with nothing to say anything is missing.
+
+   That is two reports at once. It is a phone held sideways, and it
+   is also what Justin hit in Firefox: zooming in shrinks the
+   viewport in CSS pixels, so most of the ensemble vanished and
+   there was no indication of it. The grid layout below handles a
+   short row properly, so it should be in charge wherever the flex
+   row cannot fit, not only on a phone held upright. */
+@media ( max-width: 1100px ) {
+    body.bottom-bar {
+        --rh-dock-height: 226px;
+    }
+
+    body.bottom-bar #rabbithole-sidebar {
+        display: grid;
+        /* 236px is the painted width of the skin at 0.85 -- see
+           .webamp-wrapper below. The cards begin where the skin
+           actually ends rather than where its wrapper does. */
+        /* The player used to own column 1 at 236px, so every control
+           above it had to fit in what was left -- which is what kept
+           squeezing the track selector however it was arranged. The
+           player and the cards share one full-width cell instead: the
+           skin sits at its start, the cards are pushed past it by a
+           margin. Column 1 is then free to be the cover, and the
+           selector can have everything to the right of it. */
+        /* Column one is sized by the track list, not by a number:
+           the cover sits at its left edge on the first line and the
+           list fills it on the second, so the editor button starts
+           exactly where the list ends and the words fit. */
+        /* The cover holds the left edge of both control rows and
+           everything else begins to the right of it. Column two is
+           sized by the track list, so the editor button starts where
+           the list ends whatever the phone does to the text. */
+        grid-template-columns: 60px auto minmax( 0, 1fr ) auto;
+        /* 116px because that is how tall the skin is. It was 100
+           while the skin was scaled to 0.85; at full size the skin
+           overflowed its row and painted over the song parts. */
+        grid-template-rows: auto auto 116px;
+        grid-template-areas:
+            "art title title  header"
+            "art sel   edit   switch"
+            "row row   row    row";
+        /* Whatever the phone thinks about text size, the dock is
+           laid out in the sizes written here. iOS inflates text in
+           some layouts, which would push a control past the width
+           measured for it. */
+        -webkit-text-size-adjust: 100%;
+        text-size-adjust: 100%;
+        align-items: start;
+        overflow-x: hidden;
+        padding-bottom: 32px;
+        gap: 0;
+    }
+
+    /* --- Row 1: what is playing, and the way out --- */
+    /* The header carries the logo and the collapse arrow together,
+       as it does everywhere else; it just moves to the top right. */
+    body.bottom-bar .song-info-header {
+        display: contents;
+    }
+
+    body.bottom-bar .song-title-display {
+        grid-area: title;
+        font-size: 15px;
+        margin: 3px 0 0 2px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    body.bottom-bar .rabbithole-header {
+        grid-area: header;
+        justify-self: end;
+        flex-direction: row;
+        align-items: center;
+        gap: 4px;
+        width: auto;
+        height: auto;
+        padding: 2px 4px 0 0;
+        position: static;
+    }
+
+    body.bottom-bar .rabbithole-header img {
+        display: block;
+        width: 20px;
+        height: 20px;
+    }
+
+    body.bottom-bar .rabbithole-header h1,
+    body.bottom-bar .rabbithole-header .alpha {
+        display: none;
+    }
+
+    /* The cover goes up into the corner beside the logo, per
+       Skyler, which leaves the whole of the next row for the track
+       list. A select is as wide as its widest option needs to be,
+       not its selected one -- "8. Swords to Ploughshares" is half
+       again as long as "2. Paint Exchange" -- so measuring the
+       selected text and calling it a fit was the wrong check, and
+       giving it the row is the only answer that holds for every
+       record. */
+    body.bottom-bar .album-row {
+        display: contents;
+    }
+
+    /* The cover tucked into the top left corner, with the track
+       list on its own line underneath. */
+    /* The cover and the title share the first line's cell, the
+       cover at its left edge and the title padded past it. Giving
+       the cover a column of its own would tie it to whatever sizes
+       that column -- which is the track list below -- and the title
+       would start 150px in, adrift of the cover it belongs to. */
+    /* The cover holds the left of the whole control block, and the
+       track list and the editor button begin to the right of it. */
+    body.bottom-bar .album-art {
+        grid-area: art;
+        justify-self: start;
+        align-self: start;
+        width: 52px;
+        height: 52px;
+        margin: 4px 2px 0 4px;
+    }
+
+    /* --- Row 2: the track list, the whole width of the screen --- */
+    /* As wide as its longest track name, and not a pixel wider.
+       Stretching it across the row stopped most of the cutting but
+       left a selector the width of the screen holding four words,
+       and it still clipped a little -- because a fixed width is a
+       guess about how wide the text will render, and the phone gets
+       the last word on that. `max-content` asks the browser to size
+       the box to the widest option it actually has, in whatever font
+       it is actually using, so there is nothing left to guess and
+       nothing left over. max-width keeps it inside the row when a
+       record turns up with a very long title. */
+    body.bottom-bar .album-track-select,
+    body.bottom-bar .song-select {
+        grid-area: sel;
+        justify-self: start;
+        width: max-content;
+        max-width: calc( 100% - 10px );
+        height: 26px;
+        font-size: 11px;
+        margin: 2px 4px 3px 2px;
+        /* Room for the arrow, said out loud. A native select draws
+           its own arrow and decides for itself how much space to
+           keep clear for it; on iOS that reserve is narrower than
+           the arrow, so the last letter or two sat underneath it.
+           max-content measures the text plus this padding, so
+           asking for the gap also widens the box to hold it. */
+        padding-right: 30px;
+        padding-left: 8px;
+    }
+
+    /* Studio, date and engineer are a desktop line; at 390px they
+       cost a row and say nothing the article does not. */
+    body.bottom-bar .recording-metadata {
+        display: none;
+    }
+
+    /* The switch keeps its words -- it is the one control in the
+       dock whose name is not obvious from its shape -- and it sits
+       over the cards it acts on: turning it on is what makes the
+       pane follow whoever is soloing, and the cards are where you
+       watch that happen. */
+    body.bottom-bar .auto-switch {
+        grid-area: switch;
+        justify-self: end;
+        align-self: center;
+        flex-direction: row;
+        align-items: center;
+        gap: 4px;
+        margin: 0 2px 2px 4px;
+    }
+
+    /* "Follow artist", not "Auto-switch artist profiles".
+    
+       The cover's column grew to 60px to hold a cover worth looking
+       at, and that comes out of a 390px row -- the editor button was
+       what paid, landing under the switch. The caption is where the
+       slack is: three words of jargon wrapped over three lines, for
+       a control whose full name is in its tooltip and on every
+       screen wider than this. Say if the short wording reads wrong;
+       it is one string. */
+    body.bottom-bar .auto-switch-caption {
+        display: block;
+        font-size: 9px;
+        line-height: 1.2;
+        max-width: 58px;
+        text-align: left;
+    }
+
+    /* --- Row 3: the player, and who is playing --- */
+    /* Full size, because the buttons are the point.
+       
+       This was 0.85 for a while: 290px of skin leaves only 100px
+       beside it, and 100px is not a card, so shrinking the skin
+       bought the names some room. Skyler put a thumb on it and said
+       it wants to be bigger, which settles it -- a play button you
+       have to aim at is worse than a name that ends in an ellipsis.
+       At full size the skin's own window ends at 275px and the cards
+       get the 113px left over. */
+    body.bottom-bar .webamp-wrapper {
+        grid-area: row;
+        justify-self: start;
+        width: 290px;
+        height: 116px;
+    }
+
+    /* Same cell as the player, pushed past the skin's painted edge.
+       The wrapper is 290px but the window Webamp draws inside it is
+       275, so the cards start there rather than at the wrapper's
+       edge -- otherwise there is a 15px strip of nothing between
+       the player and the names. */
+    body.bottom-bar #ensemble-display {
+        grid-area: row;
+        margin-left: 277px;
+        flex-direction: column;
+        flex-wrap: nowrap;
+        gap: 1px;
+        padding: 1px 2px;
+        min-width: 0;
+        max-height: 116px;
+        overflow-y: auto;
+    }
+
+    /* One column, one line each: six of them fit the 100px row. */
+    body.bottom-bar #ensemble-display .musician-card {
+        flex: 0 0 auto;
+        width: auto;
+        max-width: 100%;
+        min-width: 0;
+        padding: 0 4px;
+        font-size: 9.5px;
+        line-height: 1.6;
+        overflow: hidden;
+    }
+
+    /* The name is in a child, so clipping the card is not enough --
+       the text has to be told to end in an ellipsis where it sits.
+       Without this the cards ran past the right edge of the screen. */
+    body.bottom-bar #ensemble-display .musician-card .musician-name {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 100%;
+    }
+
+    /* The editor is a desktop job -- a timeline is edited with a
+       keyboard -- and the button costs a row here. */
+    /* Editing a timeline wants a keyboard, but the way in should
+       still be there. It shares the track list's row and sits at the
+       far end of it, which puts it between the list and the switch.
+       "Edit Timeline" does not fit in that gap; a pencil and "Edit"
+       do, and the full words stay in its tooltip. */
+    body.bottom-bar .editor-toggle-btn {
+        grid-area: edit;
+        justify-self: start;
+        align-self: center;
+        width: auto;
+        min-width: 0;
+        height: 24px;
+        padding: 0 8px;
+        margin: 0 4px 2px 6px;
+        font-size: 11px;
+        line-height: 22px;
+        white-space: nowrap;
+    }
+
+    body.bottom-bar .inline-carrot-btn {
+        display: none;
+    }
+
+    /* Neither toggle row is a box here: one holds the switch, the
+       other holds the editor button, and both of those are placed by
+       name in the grid. Hiding a row to get rid of it has now taken
+       the switch with it once and the editor button twice -- the
+       wrapper was never the thing that wanted hiding. */
+    body.bottom-bar .toggle-row {
+        display: contents;
+    }
+
+    /* --- Row 4: the whole song, readable --- */
+    /* The label was eating 64px of a 390px strip and the part names
+       were cut to two letters. The strip says what it is by being a
+       row of song sections; it does not need to be told. */
+    body.bottom-bar .data-section .section-label {
+        display: none;
+    }
+
+    body.bottom-bar .data-section {
+        height: 32px;
+        padding: 0 4px;
+        gap: 0;
+    }
+
+    body.bottom-bar .parts-chart {
+        height: 28px;
+        gap: 2px;
+    }
+
+    body.bottom-bar .parts-chart .part-box {
+        height: 28px;
+        line-height: 27px;
+        font-size: 9px;
+        letter-spacing: 0;
+    }
+}
+
+/* === A screen with no height ===
+
+   A phone held sideways is 844 wide and 390 tall. The grid above
+   gives it a 226px dock, which is 58% of the screen, and the wiki
+   gets the rest -- about four lines of an article under a player.
+
+   Height is the scarce thing here, so the two control rows become
+   one. The cover and the title go: at 844px wide the track list
+   already names the song, and Webamp's own title bar is scrolling
+   it. What is left is the player, who is playing, and the song
+   parts -- the three things the dock is for.
+
+   Last in the file, after the width query, so it wins where both
+   apply. */
+@media ( max-height: 520px ) and ( max-width: 1100px ) {
+    body.bottom-bar {
+        --rh-dock-height: 182px;
+    }
+
+    body.bottom-bar #rabbithole-sidebar {
+        grid-template-columns: auto auto auto minmax( 0, 1fr ) auto;
+        grid-template-rows: auto 116px;
+        grid-template-areas:
+            "art  sel  edit  switch header"
+            "row  row  row   row    row";
+    }
+
+    /* The cover stays, smaller, at the head of the one control row.
+    
+       It used to be hidden here along with the title, on the
+       reasoning that height is scarce in landscape -- and that is
+       true of the title, which needs a line of its own. The cover
+       does not: it fits beside the track list at 28px. Hiding it
+       cost four rounds of this, because Skyler was testing sideways
+       and I was measuring upright, and neither of us said so. */
+    body.bottom-bar .album-art {
+        grid-area: art;
+        width: 28px;
+        height: 28px;
+        align-self: center;
+        margin: 0 2px 2px 4px;
+    }
+
+    body.bottom-bar .song-title-display {
+        display: none;
+    }
+
+    body.bottom-bar .rabbithole-header {
+        align-self: center;
+    }
+
+    body.bottom-bar .auto-switch {
+        align-self: center;
+    }
+
+    /* The cards get the width the landscape screen has, so they can
+       stand in columns again rather than one tall list. */
+    body.bottom-bar #ensemble-display {
+        flex-direction: row;
+        flex-wrap: wrap;
+        align-content: flex-start;
+        max-height: 116px;
+    }
+
+    /* 567px of width for six names: let them breathe rather than
+       keep a width inherited from the portrait layout. */
+    body.bottom-bar #ensemble-display .musician-card {
+        flex: 0 0 auto;
+        width: 180px;
+        max-width: 100%;
+        padding: 2px 8px;
+        font-size: 11px;
+        line-height: 1.7;
+    }
+
+    body.bottom-bar #ensemble-display {
+        gap: 3px 8px;
+        padding: 4px 6px;
+    }
+}
+
+/* === The sidebar on a narrow screen ===
+
+   Until now every narrow-screen rule in this file was scoped to
+   body.bottom-bar, so a phone in sidebar mode got the desktop
+   stylesheet and nothing else: a fixed 320px column out of 390,
+   leaving the wiki 70px and rendering an article one letter per
+   line. Skyler, 2026-10-24: scoot the column back and put the cards
+   next to each other.
+
+   Scoped to :not(.bottom-bar) so none of it can reach the bar. */
+@media (max-width: 1100px) {
+    /* 292, not narrower, and this is the hard floor: the Winamp skin
+       is 275px of fixed bitmap and does not scale. A column narrower
+       than that pushes the player out through the side of the
+       sidebar and the cards pile up under it. So "scoot it back" can
+       only buy the 28px between here and the old 320. */
+    body:not(.bottom-bar) .layout {
+        grid-template-columns: 292px 1fr;
+    }
+
+    body:not(.bottom-bar) .layout.minimized {
+        grid-template-columns: 44px 1fr;
+    }
+
+    /* Two across rather than a stack of six. The column count is
+       set in Packery (see initEnsembleGrid) because it positions
+       every card absolutely; all this does is give a card the width
+       of the column it is being put in. A little under half, not
+       exactly half: Packery measures a card's outer width, so a
+       border that takes it one pixel over the column drops it onto
+       a row of its own -- which is what 134 did. */
+    body:not(.bottom-bar) #ensemble-display {
+        flex-direction: row;
+        flex-wrap: wrap;
+        gap: 2px;
+        width: 100%;
+        margin-left: 0;
+    }
+
+    body:not(.bottom-bar) #ensemble-display .musician-item {
+        width: 118px;
+        box-sizing: border-box;
+    }
+
+    body:not(.bottom-bar) .musician-card {
+        padding: 3px 6px;
+        min-width: 0;
+    }
+
+    body:not(.bottom-bar) .musician-card .musician-name {
+        font-size: 12px;
+        overflow-wrap: anywhere;
+    }
+
+    /* 0.4 reads as a rendering fault on a small screen rather than
+       as "not soloing" -- which is exactly how it was reported. The
+       dim still says what it said, just less drastically. */
+    body:not(.bottom-bar) .musician-card.out {
+        opacity: 0.7;
+    }
+
+    body:not(.bottom-bar) .rabbithole-header h1 {
+        font-size: 15px;
+    }
+}
+
+
+/* === Where Webamp's main window lives: a rule, not a correction ===
+
+   Webamp carries each window's position as an inline transform on the
+   window's wrapper, written from its own state, on every drag, zoom reset
+   or rotation. A stylesheet rule with !important beats an inline style on
+   every paint, including the first, so there is nothing to wait for and
+   nothing to put back. This is a dock, not a desktop: the player has one
+   place to be (audit, 5 Nov 2026, item 3). */
+body:not(.bottom-bar) #webamp div:has(> #main-window) {
+    transform: translate(10px, 10px) !important;
+}
+
+body.bottom-bar #webamp div:has(> #main-window) {
+    transform: translate(0px, 0px) !important;
+}
+
+@media (max-width: 1100px) {
+    body:not(.bottom-bar) #webamp div:has(> #main-window) {
+        transform: none !important;
+        position: relative !important;
+        left: 0 !important;
+        width: 100%;
+    }
+}
+
+/* === The cards move when their order changes: what Packery was for === */
+.cards-move {
+    transition: transform 0.4s ease;
+}
+
+.cards-enter-active,
+.cards-leave-active {
+    transition: opacity 0.2s ease;
+}
+
+.cards-enter-from,
+.cards-leave-to {
+    opacity: 0;
+}
+
+.cards-leave-active {
+    position: absolute;
+}
+
+/* === The colour scheme the cards wear for a solo and a pickup === */
+.musician-card.lead {
+    border: 2px solid #4a7c59;
+    background: rgba(74, 124, 89, 0.1);
+    color: #2d5016;
+}
+
+.musician-card.lead .musician-name {
+    color: #2d5016;
+}
+
+.musician-card.pickup {
+    border: 2px solid #87a96b;
+    background: rgba(135, 169, 107, 0.1);
+    color: #5a7a4a;
+}
+
+.musician-card.engineer-card {
+    border-style: dashed;
+    color: #777;
+}
+
+/* === Effects: a flourish or spotlight on a card, a flash on the band ===
+
+   The player model says which effect a card wears and for how long; the
+   card sets --glow-min, --glow-max and --pulse from the effect's colour and
+   intensity, and these keyframes read them. */
+@keyframes rh-pulse {
+    0%, 100% { box-shadow: none; }
+    50% { box-shadow: var(--glow-max); }
+}
+
+@keyframes rh-spot {
+    0%, 100% { box-shadow: var(--glow-min); }
+    50% { box-shadow: var(--glow-max); }
+}
+
+.musician-card.flourish-active {
+    animation: rh-pulse var(--pulse, 1.2s) ease-in-out infinite;
+}
+
+.musician-card.spotlight-active {
+    animation: rh-spot var(--pulse, 1.5s) ease-in-out infinite;
+}
+
+/* Everyone else steps back half a pace while somebody is in the spotlight. */
+.musician-card.fx-dim {
+    opacity: 0.55;
+    transition: opacity 0.4s ease;
+}
+
+/* A moment: somebody comes in or drops out, and the card says so once. */
+.musician-card.flash {
+    background: #fff3cd;
+    border-color: #e3b341;
+    transition: background 0.15s, border-color 0.15s;
+}
+
+#ensemble-display.band-flash-active {
+    overflow: visible;
+    animation: rh-pulse var(--pulse, 0.6s) ease-in-out infinite;
+}
+
+#ensemble-display.flash .musician-card {
+    background: #fff3cd;
+    border-color: #e3b341;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .cards-move,
+    .musician-card.flourish-active,
+    .musician-card.spotlight-active,
+    #ensemble-display.band-flash-active {
+        animation: none;
+        transition: none;
+    }
+}
+
+/* The editor's way in, next to the follow switch. */
+.editor-toggle-btn {
+    padding: 4px 10px;
+    border: 1px solid #c3cbbb;
+    border-radius: 4px;
+    background: #fffdf5;
+    color: #2d5016;
+    font-size: 12px;
+    cursor: pointer;
+}
+
+.editor-toggle-btn:hover,
+.editor-toggle-btn.active {
+    background: #4a7c59;
+    color: #fff;
+    border-color: #3c6749;
+}
+
+.demo-select-row {
+    display: contents;
+}
+
+.inline-flash-note {
+    margin-left: 6px;
+    font-size: 11px;
+    color: #a00;
+    white-space: nowrap;
+}

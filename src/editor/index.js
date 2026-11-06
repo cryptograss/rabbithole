@@ -4,7 +4,6 @@
  * Exports all editor components for use in pages.
  */
 
-export { WikiSync, parseRabbitholeWikitext, formatRabbitholeWikitext, getRabbitholeSubpage, trackDataToWikiFormat, wikiFormatToTrackData } from './wiki-sync.js';
 export { EditableTrackData } from './EditableTrackData.js';
 export { TimelineEditor } from './TimelineEditor.js';
 export { KeyboardShortcuts } from './keyboard-shortcuts.js';

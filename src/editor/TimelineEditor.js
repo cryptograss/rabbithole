@@ -47,6 +47,14 @@ export class TimelineEditor {
         this.player = player;
         this.options = options;
 
+        // The footer follows the data's save state, whoever changes it:
+        // an edit, an apply, or the wiki's answer to a save.
+        const shellDirtyChange = this.data.onDirtyChange;
+        this.data.onDirtyChange = (hasUnsaved, text) => {
+            if (shellDirtyChange) shellDirtyChange(hasUnsaved, text);
+            this._refreshSaveState();
+        };
+
         // State
         this.currentPlayingTime = 0;
         this.editingMarkerTime = null; // Time of marker being edited
@@ -137,6 +145,11 @@ export class TimelineEditor {
             }
         });
 
+        // What the textarea was given. Save compares against it to know
+        // whether there are edits that were typed but never applied.
+        this._rawYamlShown = yamlStr;
+        this.data.setPendingRaw(false);
+
         this.container.innerHTML = `
             <div class="timeline-editor raw-mode">
                 <div class="editor-header">
@@ -161,7 +174,7 @@ export class TimelineEditor {
 
                 <div class="editor-footer">
                     <div class="dirty-indicator ${this.data.isDirty ? 'dirty' : ''}">
-                        ${this.data.isDirty ? 'Unsaved changes' : 'Saved'}
+                        ${this.data.saveStateText()}
                     </div>
                     <div class="editor-controls">
                         <button class="btn-undo" ${this.data.undoStack.length === 0 ? 'disabled' : ''} title="Undo (Ctrl+Z)">
@@ -190,9 +203,11 @@ export class TimelineEditor {
         const applyBtn = this.container.querySelector('.btn-apply-raw-yaml');
         const toggleBtn = this.container.querySelector('.btn-toggle-mode');
 
-        // Toggle to list mode
+        // Toggle to list mode. Unapplied text goes with the textarea, so
+        // it is no longer pending.
         if (toggleBtn) {
             toggleBtn.addEventListener('click', () => {
+                this.data.setPendingRaw(false);
                 this.rawMode = false;
                 this.render();
             });
@@ -216,9 +231,12 @@ export class TimelineEditor {
                 e.stopPropagation();
             });
 
-            // Clear error on input
+            // Clear error on input, and tell the data that what's typed
+            // isn't in the timeline yet: the footer and the Save button
+            // follow from that. Save applies it; Apply shows it.
             textarea.addEventListener('input', () => {
                 if (errorDiv) errorDiv.textContent = '';
+                this.data.setPendingRaw(textarea.value !== this._rawYamlShown);
             });
         }
 
@@ -226,8 +244,33 @@ export class TimelineEditor {
         this._attachUndoRedoListeners();
     }
 
+    /** Repaint the footer's save state from the data, without a render. */
+    _refreshSaveState() {
+        const indicator = this.container.querySelector('.dirty-indicator');
+        if (!indicator) return;
+        indicator.textContent = this.data.saveStateText();
+        indicator.classList.toggle('dirty', this.data.hasUnsaved);
+    }
+
     /**
-     * Apply raw YAML to the entire timeline
+     * In raw mode, the textarea is the document. Before a save, whatever is
+     * typed there goes into the timeline, so what you see is what the wiki
+     * gets. Throws with the YAML error if it doesn't parse; the caller
+     * shows that and doesn't save. Returns true when something was applied.
+     */
+    applyPendingRawYaml() {
+        if (!this.rawMode) return false;
+        const textarea = this.container.querySelector('.raw-yaml-input');
+        if (!textarea || textarea.value === this._rawYamlShown) return false;
+        const errorDiv = this.container.querySelector('.raw-yaml-error');
+        if (!this._applyRawYaml(textarea.value, errorDiv)) {
+            throw new Error(errorDiv?.textContent || 'YAML error');
+        }
+        return true;
+    }
+
+    /**
+     * Apply raw YAML to the entire timeline. Returns true on success.
      */
     _applyRawYaml(yamlStr, errorDiv) {
         try {
@@ -263,6 +306,10 @@ export class TimelineEditor {
                 this.data.workingData.standardSectionLength = parsed.standardSectionLength;
             }
 
+            // The textarea now matches the timeline
+            this._rawYamlShown = yamlStr;
+            this.data.setPendingRaw(false);
+
             // Notify changes
             this.data._notifyChange();
             this._notifyTimelineChange();
@@ -275,12 +322,14 @@ export class TimelineEditor {
                     if (errorDiv) errorDiv.textContent = '';
                 }, 1500);
             }
+            return true;
 
         } catch (e) {
             if (errorDiv) {
                 errorDiv.style.color = '#c00';
                 errorDiv.textContent = `YAML error: ${e.message}`;
             }
+            return false;
         }
     }
 
@@ -329,7 +378,7 @@ export class TimelineEditor {
 
                 <div class="editor-footer">
                     <div class="dirty-indicator ${this.data.isDirty ? 'dirty' : ''}">
-                        ${this.data.isDirty ? 'Unsaved changes' : 'Saved'}
+                        ${this.data.saveStateText()}
                     </div>
                     <div class="editor-controls">
                         <button class="btn-undo" ${this.data.undoStack.length === 0 ? 'disabled' : ''} title="Undo (Ctrl+Z)">

@@ -14,7 +14,7 @@
  *
  * In the browser, the audio is fetched and decoded on its own, never through the element
  * that is playing: routing the playing element through Web Audio is what
- * warped the sound on iPhones (see rabbithole-player.js). Decoding a copy
+ * warped the sound on iPhones (see player/ios-web-audio.js). Decoding a copy
  * touches nothing that is audible.
  */
 
