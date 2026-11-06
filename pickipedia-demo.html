@@ -3234,7 +3234,6 @@
             populateSongInfoHeader(song);
             populateAlbumRow(song)
                 .catch(err => console.warn('Could not build the album row:', err));
-            setTimeout(addMusicianClickHandlers, 500);
             if (song._trackCid) {
                 const url = new URL(location.href);
                 url.searchParams.set('track', song._trackCid);
