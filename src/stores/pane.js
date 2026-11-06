@@ -17,7 +17,7 @@ import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
 
 import * as wiki from '../wiki/api.js';
-import { PANE_MODES, paneBody, searchResults, loadingBody, failedBody, wikiPath } from '../wiki/pane-html.js';
+import { PANE_MODES, WIKI_STYLESHEETS, paneBody, searchResults, loadingBody, failedBody, wikiPath } from '../wiki/pane-html.js';
 
 const MODE_KEY = 'rabbitholePaneMode';
 
@@ -81,20 +81,25 @@ export const usePaneStore = defineStore( 'pane', () => {
 		try {
 			const parsed = await wiki.parsePage( title, { signal: mine.signal } );
 			let fullPage = null;
+			let skinCss = '';
 			if ( mode.value === 'skin' ) {
 				try {
-					fullPage = await ( await fetch( path, { signal: mine.signal } ) ).text();
+					[ fullPage, skinCss ] = await Promise.all( [
+						fetch( path, { signal: mine.signal } ).then( ( r ) => r.text() ),
+						wiki.wikiStylesheets( WIKI_STYLESHEETS, { signal: mine.signal } ),
+					] );
 				} catch ( err ) {
 					if ( ! latest() ) {
 						return;
 					}
 					console.warn( 'Could not fetch the full page for skin mode', err );
+					fullPage = null;
 				}
 			}
 			if ( ! latest() ) {
 				return;
 			}
-			setHtml( paneBody( title, parsed, mode.value, fullPage ) );
+			setHtml( paneBody( title, parsed, mode.value, fullPage, skinCss ) );
 			shown.value = title;
 			loading.value = false;
 			if ( push ) {
