@@ -85,9 +85,7 @@ export const useSongStore = defineStore( 'song', () => {
 	}
 
 	async function demoSong( key ) {
-		const song = await wiki.resolveDemoSong( demoSongs[ key ], { forcedEncoding } );
-		song.colorScheme = defaultColorScheme;
-		return song;
+		return fetchTrack( demoSongs[ key ].trackCid );
 	}
 
 	/** The demo selector: load (not play) one of the four built-in songs. */
