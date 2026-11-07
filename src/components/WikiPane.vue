@@ -14,22 +14,12 @@ import { usePaneStore } from '../stores/pane.js';
 import { useLayoutStore } from '../stores/layout.js';
 import { PANE_STYLES, escapeHtml } from '../wiki/pane-html.js';
 import { listenRequest, playTrackInDock, queueTrack, trailToHere } from '../wiki/queue.js';
+import { titleFromHref, leavesTheApp } from '../wiki/pane-links.js';
 
 const pane = usePaneStore();
 const layout = useLayoutStore();
 const host = ref( null );
 let shadow = null;
-
-function titleFromHref( href ) {
-	if ( ! href || ! href.startsWith( '/wiki/' ) ) {
-		return null;
-	}
-	const title = decodeURIComponent( href.slice( '/wiki/'.length ) ).replace( /_/g, ' ' );
-	if ( /^(Special|File|Category):/.test( title ) ) {
-		return null;
-	}
-	return title;
-}
 
 async function onClick( e ) {
 	const a = e.composedPath().find( ( el ) => el.tagName === 'A' );
@@ -48,11 +38,21 @@ async function onClick( e ) {
 		}
 		return;
 	}
-	const title = titleFromHref( a.getAttribute( 'href' ) );
+	const href = a.getAttribute( 'href' );
+	const title = titleFromHref( href );
 	if ( title ) {
 		e.preventDefault();
 		layout.stopFollowing();
 		pane.open( title );
+		return;
+	}
+	if ( leavesTheApp( href ) ) {
+		// An edit form, a history page, a Special page: the wiki's own
+		// pages, which the pane cannot hold (injected HTML runs no
+		// scripts). They open in a new tab, so the song and an open
+		// timeline editor stay where they are (Skyler, 6 Nov 2026).
+		e.preventDefault();
+		window.open( new URL( href, window.location.origin ).href, '_blank', 'noopener' );
 	}
 }
 
