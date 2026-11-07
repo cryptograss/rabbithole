@@ -10,12 +10,14 @@ import { usePlayerStore } from '../stores/player.js';
 const layout = useLayoutStore();
 const player = usePlayerStore();
 
-const LONG = 'Auto-switch artist profiles';
-const SHORT = 'Follow artist';
+// "Follow the solo" says what moves the page; "artist profiles" read like
+// a social-media follow (Skyler and magent, #rabbithole, 7 Nov 2026).
+const LONG = 'Follow the solo';
+const SHORT = 'Follow solo';
 </script>
 
 <template>
-	<label class="auto-switch" :title="LONG + ': follow the solo into each player\'s page'">
+	<label class="auto-switch" :title="LONG + ': each player\'s page opens as they take the solo'">
 		<span class="toggle-switch">
 			<input id="auto-switch-toggle" v-model="layout.follow" type="checkbox">
 			<span class="toggle-slider"></span>
