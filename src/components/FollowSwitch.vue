@@ -6,6 +6,7 @@
  */
 import { useLayoutStore } from '../stores/layout.js';
 import { usePlayerStore } from '../stores/player.js';
+import CarrotButton from './CarrotButton.vue';
 
 const layout = useLayoutStore();
 const player = usePlayerStore();
@@ -22,7 +23,6 @@ const SHORT = 'Follow artist';
 		</span>
 		<span class="auto-switch-caption">{{ layout.narrow ? SHORT : LONG }}</span>
 	</label>
-	<button id="inline-play-btn" class="inline-carrot-btn" :class="{ playing: player.playing }" title="Play/Pause" @click="player.togglePlay()">
-		<span class="inline-carrot-leaves"><span></span><span></span><span></span></span>{{ player.playing ? '❚❚' : '▶' }}
-	</button>
+	<CarrotButton id="inline-play-btn" class="inline-carrot" :playing="player.playing" :size="40"
+		@toggle="player.togglePlay()" />
 </template>
