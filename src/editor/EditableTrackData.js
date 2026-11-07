@@ -9,14 +9,42 @@
  * - Undo/redo support
  */
 
+import { processTimeline } from '../player/timeline.js';
+
 const BACKUP_INTERVAL = 10000; // Auto-backup every 10 seconds
 const STORAGE_KEY_PREFIX = 'rabbithole-editor-';
+
+/** Whether a timeline is written in sections (section1, section2...) rather than seconds. */
+export function hasSections(timeline) {
+    return Object.keys(timeline || {}).some(key => key.startsWith('section'));
+}
+
+/*
+ * The editor works in seconds. The older charts (Paint Exchange, August)
+ * are written in sections, laid out by standardSectionLength, and every
+ * one of those markers parsed as NaN: the play button beside it seeked
+ * nowhere and the song started from the top (Skyler, 6 Nov 2026). The
+ * player already resolves sections to seconds (processTimeline); the
+ * editor opens on that resolution, and the next save writes seconds.
+ * Same chart, one representation.
+ */
+export function flattenSections(trackData) {
+    if (!trackData || !hasSections(trackData.timeline)) {
+        return trackData;
+    }
+    const flat = {};
+    for (const [time, arrangement] of Object.entries(processTimeline(trackData))) {
+        const { _isSectionStart, _isSubMoment, ...data } = arrangement;
+        flat[time] = data;
+    }
+    return { ...trackData, timeline: flat };
+}
 
 export class EditableTrackData {
     constructor(trackData, options = {}) {
         // Store deep copies to prevent mutation
-        this.originalData = this._deepClone(trackData);
-        this.workingData = this._deepClone(trackData);
+        this.originalData = this._deepClone(flattenSections(trackData));
+        this.workingData = this._deepClone(this.originalData);
 
         // Track the recording title for storage keys
         this.recordingTitle = options.recordingTitle || trackData.title || 'untitled';
@@ -496,8 +524,9 @@ export class EditableTrackData {
             // (This is a simple heuristic - in production you'd compare revisions)
             console.info(`Found backup from ${new Date(backup.timestamp).toLocaleString()}`);
 
-            // We could prompt the user here, but for now just load it
-            this.workingData.timeline = backup.timeline;
+            // We could prompt the user here, but for now just load it.
+            // A backup made of a sectioned chart is resolved the same way.
+            this.workingData.timeline = flattenSections({ ...this.workingData, timeline: backup.timeline }).timeline;
             if (backup.ensemble) this.workingData.ensemble = backup.ensemble;
             this._notifyChange();
 
