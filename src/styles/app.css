@@ -1049,14 +1049,16 @@ body.bottom-bar.bar-collapsed .rabbithole-header img {
     height: 22px;
 }
 
-/* === Misc demo controls — between ensemble and rabbithole-header === */
-/* Skyler: the title up at the top of the bar rather than floating in
+/* === Zone 10: the song, beside Webamp ===
+   Skyler: the title up at the top of the bar rather than floating in
    the middle of it. Everything else in the bar is vertically centred,
    so this is the one thing that sits against the top edge — which is
    what makes it read as a heading for the bar rather than one more
-   control in the row. */
+   control in the row. It sits next to Webamp, the player it names:
+   at the right end it crowded the switch, the editor and the carrot
+   (Skyler, 7 Nov 2026). */
 body.bottom-bar .song-info-header {
-    order: 70;
+    order: 10;
     width: 220px;
     padding: 6px 4px 0;
     margin-bottom: 0;
