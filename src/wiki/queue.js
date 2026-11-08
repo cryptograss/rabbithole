@@ -35,7 +35,7 @@ export function performerGraph() {
 
 const cidForSong = {};
 
-async function songCid( songTitle ) {
+export async function songCid( songTitle ) {
 	if ( cidForSong[ songTitle ] === undefined ) {
 		cidForSong[ songTitle ] = await wiki.trackCidForSong( songTitle );
 	}
