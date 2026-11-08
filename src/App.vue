@@ -37,9 +37,24 @@ watchEffect( () => {
 	document.body.classList.toggle( 'bar-collapsed', layout.isBar && layout.collapsed );
 } );
 
-// Follow the solo into each player's page, while following is on.
-watch( () => player.currentSolo, ( solo ) => {
-	if ( solo && layout.follow ) {
+/*
+ * Each song starts on its own page, and the pane follows the solo from
+ * there as the song plays (Skyler, 17 and 30 Oct, 8 Nov 2026). So a new
+ * song opens its page, and a change of soloist opens theirs only while the
+ * music is playing: loading a song sets its first soloist, and that used
+ * to carry the pane off the song page before a note had played. Both wait
+ * on following being on; a person reading something keeps reading.
+ */
+watch( () => [ player.song && player.song._trackCid, player.currentSolo ], ( [ cid, solo ], [ oldCid ] ) => {
+	if ( ! layout.follow ) {
+		return;
+	}
+	if ( cid !== oldCid ) {
+		// The first song is openPaneForStart's; this is the next one.
+		if ( oldCid && player.song ) {
+			openSongPage( player.song );
+		}
+	} else if ( solo && player.playing ) {
 		pane.open( solo );
 	}
 } );
@@ -61,28 +76,32 @@ function onPopState( e ) {
 }
 
 /*
- * Where the pane opens: the song's own page when there is one, else the
- * track's metadata page; with no track, where the iframe used to start.
- * A song should open on the song, not on the YAML somebody edits it with
- * (Skyler).
+ * A song's page: Song:<title> when there is one, else the track's metadata
+ * page. A song should open on the song, not on the YAML somebody edits it
+ * with (Skyler).
  */
-async function openPaneForStart() {
-	const song = songs.initial;
-	if ( ! songs.lockedToTrack || ! song ) {
-		pane.open( 'Justin Holmes', { push: false } );
-		return;
-	}
+async function openSongPage( song, { push = true } = {} ) {
 	const fallback = song._metadataTitle;
 	if ( ! song.title ) {
-		pane.open( fallback, { push: false } );
+		pane.open( fallback, { push } );
 		return;
 	}
 	const songPage = 'Song:' + song.title;
 	try {
-		pane.open( ( await wiki.pageExists( songPage ) ) ? songPage : fallback, { push: false } );
+		pane.open( ( await wiki.pageExists( songPage ) ) ? songPage : fallback, { push } );
 	} catch ( err ) {
 		console.warn( 'Could not check for a song page:', err );
-		pane.open( fallback, { push: false } );
+		pane.open( fallback, { push } );
+	}
+}
+
+/** Where the pane opens: the first song's page, linked to or not. */
+function openPaneForStart() {
+	const song = songs.initial;
+	if ( song ) {
+		openSongPage( song, { push: false } );
+	} else {
+		pane.open( 'Justin Holmes', { push: false } );
 	}
 }
 
