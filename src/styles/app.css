@@ -1066,6 +1066,7 @@ body.bottom-bar.bar-collapsed .rabbithole-header img {
    against Webamp (Skyler, 7 and 8 Nov 2026). */
 body.bottom-bar .song-info-header {
     order: 80;
+    flex-shrink: 0;
     width: 220px;
     padding: 6px 4px 0;
     margin-bottom: 0;
