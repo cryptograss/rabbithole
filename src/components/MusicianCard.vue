@@ -36,10 +36,7 @@ const style = computed( () => {
 	return { '--glow-min': glow.min, '--glow-max': glow.max, '--pulse': fx.pulse + 's' };
 } );
 
-const label = computed( () => {
-	const c = props.card;
-	return ( c.star ? '⭐ ' : '' ) + c.name + ( c.instrument ? ` (${ c.instrument })` : '' );
-} );
+const label = computed( () => ( props.card.star ? '⭐ ' : '' ) + props.card.name );
 </script>
 
 <template>
@@ -51,7 +48,9 @@ const label = computed( () => {
 		:data-musician="card.name"
 		@click="$emit( 'select' )"
 	>
-		<div class="musician-name">{{ label }}</div>
+		<!-- The instrument never breaks across lines: "(5-string banjo)" is one
+			thing, and split it reads as two (Justin, 7 Nov 2026). -->
+		<div class="musician-name">{{ label + ( card.instrument ? ' ' : '' ) }}<span v-if="card.instrument" class="musician-instrument">({{ card.instrument }})</span></div>
 		<div class="chartifact-line">{{ card.engineer ? 'Engineer' : 'Chartifact "0x1234ff" owned by cryptograss.eth' }}</div>
 	</div>
 </template>

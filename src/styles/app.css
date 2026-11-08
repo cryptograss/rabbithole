@@ -1711,6 +1711,11 @@ body.bottom-bar #webamp div:has(> #main-window) {
     color: #777;
 }
 
+/* An instrument stays whole on its card (Justin, 7 Nov 2026). */
+.musician-instrument {
+    white-space: nowrap;
+}
+
 /* === Effects: a flourish or spotlight on a card, a flash on the band ===
 
    The player model says which effect a card wears and for how long; the
