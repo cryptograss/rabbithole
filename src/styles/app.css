@@ -1978,6 +1978,17 @@ body.bottom-bar #webamp div:has(> #main-window) {
     cursor: pointer;
 }
 
+/* Small print, in px so a title's size (or the bar's font-size: 0 on
+   the title) doesn't decide it. */
+.editor-pencil-label {
+    margin-left: 3px;
+    font-size: 10px;
+    font-weight: normal;
+    letter-spacing: 0.02em;
+    vertical-align: 0.15em;
+    white-space: nowrap;
+}
+
 .editor-pencil:hover,
 .editor-pencil.active {
     color: #fff;

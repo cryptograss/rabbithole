@@ -33,7 +33,8 @@ function onArtError() {
 	<div v-if="song" id="song-info-header" class="song-info-header">
 		<!-- The way into the timeline editor is a pencil on the title of what
 			it edits, not a button with its own space in the player (Justin,
-			7 Nov 2026). -->
+			7 Nov 2026), named in small print so it reads as more than a
+			doodle (Skyler, 8 Nov). -->
 		<h2 id="song-title-display" class="song-title-display">{{ song.title || 'Untitled' }}<button
 			id="editor-toggle-btn"
 			class="editor-pencil"
@@ -41,7 +42,7 @@ function onArtError() {
 			:title="layout.editorOpen ? 'Close the timeline editor' : 'Edit this song\'s timeline'"
 			:aria-label="layout.editorOpen ? 'Close the timeline editor' : 'Edit this song\'s timeline'"
 			@click="layout.editorOpen = !layout.editorOpen"
-		>✎</button></h2>
+		>✎<span class="editor-pencil-label">edit timeline</span></button></h2>
 		<div v-if="songs.album" id="album-row" class="album-row">
 			<img
 				v-if="songs.artUrl"
