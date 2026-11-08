@@ -105,6 +105,15 @@ song's chart on the wiki, through `src/player/timeline.js`. It needs
 Playwright's Chromium (`npx playwright install chromium`), or a path in
 `RH_CHROMIUM`.
 
+Saving needs a person signed in to PickiPedia, so the save test is theirs. On
+the live site, pick a song, open ✎ edit timeline, add a marker and Save,
+delete it and Save again, then run
+`npm run check:save -- <your wiki name> <when you started>`. It lists every
+chart page (`Release:<cid>/Metadata`) you edited since then and whether each
+ended where it started. Expect one page, the song you picked, back where it
+started. (On 8 Nov two saves meant for Silver 44 wrote August's page, and
+nobody knew until someone read its history.)
+
 ## Deployment
 
 `maybelle-config`'s `rabbithole-shell` role builds `dist/` and Caddy serves

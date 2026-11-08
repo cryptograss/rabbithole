@@ -10,7 +10,8 @@
     "lint": "eslint src/",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:e2e": "node tests/e2e/playthrough.mjs"
+    "test:e2e": "node tests/e2e/playthrough.mjs",
+    "check:save": "node tests/e2e/check-save.mjs"
   },
   "keywords": [
     "music",
