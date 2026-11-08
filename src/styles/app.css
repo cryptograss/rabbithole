@@ -1644,27 +1644,6 @@ body.bottom-bar .data-section:has(.parts-chart.two-rows) {
         max-width: 100%;
     }
 
-    /* The editor is a desktop job -- a timeline is edited with a
-       keyboard -- and the button costs a row here. */
-    /* Editing a timeline wants a keyboard, but the way in should
-       still be there. It shares the track list's row and sits at the
-       far end of it, which puts it between the list and the switch.
-       "Edit Timeline" does not fit in that gap; a pencil and "Edit"
-       do, and the full words stay in its tooltip. */
-    body.bottom-bar .editor-toggle-btn {
-        grid-area: edit;
-        justify-self: start;
-        align-self: center;
-        width: auto;
-        min-width: 0;
-        height: 24px;
-        padding: 0 8px;
-        margin: 0 4px 2px 6px;
-        font-size: 11px;
-        line-height: 22px;
-        white-space: nowrap;
-    }
-
     body.bottom-bar .inline-carrot-btn {
         display: none;
     }
@@ -1748,8 +1727,18 @@ body.bottom-bar .data-section:has(.parts-chart.two-rows) {
         margin: 0 2px 2px 4px;
     }
 
+    /* The title gives up its line here, but not the pencil on it:
+       that is the only way into the editor. The heading shrinks to
+       its button and takes the cell the editor button used to. */
     body.bottom-bar .song-title-display {
-        display: none;
+        grid-area: edit;
+        align-self: center;
+        margin: 0;
+        font-size: 0;
+    }
+
+    body.bottom-bar .song-title-display .editor-pencil {
+        font-size: 14px;
     }
 
     body.bottom-bar .rabbithole-header {
@@ -1975,21 +1964,24 @@ body.bottom-bar #webamp div:has(> #main-window) {
     }
 }
 
-/* The editor's way in, next to the follow switch. */
-.editor-toggle-btn {
-    padding: 4px 10px;
-    border: 1px solid #c3cbbb;
+/* The editor's way in: a pencil on the song's title (Justin, 7 Nov 2026). */
+.editor-pencil {
+    margin-left: 6px;
+    padding: 0 4px;
+    border: 1px solid transparent;
     border-radius: 4px;
-    background: #fffdf5;
-    color: #2d5016;
-    font-size: 12px;
+    background: none;
+    color: #87a96b;
+    font-size: 0.8em;
+    line-height: 1.3;
+    vertical-align: 0.1em;
     cursor: pointer;
 }
 
-.editor-toggle-btn:hover,
-.editor-toggle-btn.active {
-    background: #4a7c59;
+.editor-pencil:hover,
+.editor-pencil.active {
     color: #fff;
+    background: #4a7c59;
     border-color: #3c6749;
 }
 
