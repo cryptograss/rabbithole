@@ -140,109 +140,6 @@ body {
     display: flex;
 }
 
-.mini-player-btn {
-    width: 34px;
-    height: 60px;
-    border: none;
-    background:
-        repeating-linear-gradient(
-            0deg,
-            transparent,
-            transparent 7px,
-            rgba(180, 70, 20, 0.25) 7px,
-            rgba(180, 70, 20, 0.25) 9px
-        ),
-        linear-gradient(to right, #ff9a56 0%, #ff6b35 25%, #ff8142 50%, #ff6b35 75%, #ff9a56 100%);
-    color: white;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 14px;
-    transition: all 0.2s;
-    border-radius: 5px 5px 50% 50%;
-    position: relative;
-    box-shadow:
-        0 3px 10px rgba(255, 107, 53, 0.35),
-        inset 3px 0 6px rgba(255, 200, 150, 0.25),
-        inset -3px 0 6px rgba(180, 60, 20, 0.2);
-    text-shadow: 0 1px 2px rgba(0,0,0,0.3);
-}
-
-.carrot-leaves-external {
-    display: flex;
-    gap: 2px;
-    align-items: flex-end;
-    justify-content: center;
-    margin-bottom: -4px;
-    z-index: 10;
-}
-
-.carrot-leaves-external span {
-    display: block;
-    width: 10px;
-    background: linear-gradient(135deg, #5a9c6a 0%, #4a7c59 50%, #3a6847 100%);
-    border-radius: 50% 50% 2px 2px;
-    box-shadow: 0 2px 3px rgba(0,0,0,0.2);
-}
-
-.carrot-leaves-external span:nth-child(1) {
-    height: 16px;
-    transform: rotate(-25deg);
-}
-
-.carrot-leaves-external span:nth-child(2) {
-    height: 22px;
-    width: 12px;
-}
-
-.carrot-leaves-external span:nth-child(3) {
-    height: 16px;
-    transform: rotate(25deg);
-}
-
-.mini-player-btn:hover {
-    transform: scale(1.08);
-    box-shadow: 0 5px 15px rgba(255, 107, 53, 0.45);
-}
-
-.mini-player-btn.playing {
-    background:
-        repeating-linear-gradient(
-            0deg,
-            transparent,
-            transparent 7px,
-            rgba(160, 50, 10, 0.3) 7px,
-            rgba(160, 50, 10, 0.3) 9px
-        ),
-        linear-gradient(to right, #ff8142 0%, #e55a2b 25%, #ff6b35 50%, #e55a2b 75%, #ff8142 100%);
-}
-
-.mini-progress-ring {
-    width: 44px;
-    height: 44px;
-    position: relative;
-}
-
-.mini-progress-ring svg {
-    transform: rotate(-90deg);
-}
-
-.mini-progress-ring circle {
-    fill: none;
-    stroke-width: 3;
-}
-
-.mini-progress-ring .bg {
-    stroke: #e0e0e0;
-}
-
-.mini-progress-ring .progress {
-    stroke: #4a7c59;
-    stroke-linecap: round;
-    transition: stroke-dashoffset 0.2s;
-}
-
 .mini-time {
     font-size: 9px;
     color: #666;
@@ -493,6 +390,13 @@ body.bottom-bar .layout-ab-wrap {
     font-size: 14px;
 }
 
+/* Beside the cover, under the title, it takes the rest of the row. */
+.album-row .song-select {
+    flex: 1 1 auto;
+    min-width: 0;
+    margin-bottom: 0;
+}
+
 .toggle-row {
     display: flex;
     align-items: center;
@@ -502,80 +406,10 @@ body.bottom-bar .layout-ab-wrap {
     color: #555;
 }
 
-.inline-carrot-btn {
-    width: 30px;
-    height: 42px;
-    border: none;
-    background:
-        repeating-linear-gradient(
-            0deg,
-            transparent,
-            transparent 5px,
-            rgba(180, 70, 20, 0.25) 5px,
-            rgba(180, 70, 20, 0.25) 6px
-        ),
-        linear-gradient(to right, #ff9a56 0%, #ff6b35 25%, #ff8142 50%, #ff6b35 75%, #ff9a56 100%);
-    color: white;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 11px;
-    transition: all 0.2s;
-    border-radius: 4px 4px 50% 50%;
-    position: relative;
-    box-shadow: 0 2px 6px rgba(255, 107, 53, 0.3);
+.inline-carrot {
     margin-left: auto;
     margin-top: 8px;
     align-self: flex-start;
-}
-
-.inline-carrot-btn:hover {
-    transform: scale(1.1);
-}
-
-.inline-carrot-btn.playing {
-    background:
-        repeating-linear-gradient(
-            0deg,
-            transparent,
-            transparent 5px,
-            rgba(160, 50, 10, 0.3) 5px,
-            rgba(160, 50, 10, 0.3) 6px
-        ),
-        linear-gradient(to right, #ff8142 0%, #e55a2b 25%, #ff6b35 50%, #e55a2b 75%, #ff8142 100%);
-}
-
-.inline-carrot-leaves {
-    position: absolute;
-    top: -10px;
-    left: 50%;
-    transform: translateX(-50%);
-    display: flex;
-    gap: 1px;
-    align-items: flex-end;
-}
-
-.inline-carrot-leaves span {
-    display: block;
-    width: 6px;
-    background: linear-gradient(135deg, #5a9c6a 0%, #4a7c59 50%, #3a6847 100%);
-    border-radius: 50% 50% 1px 1px;
-}
-
-.inline-carrot-leaves span:nth-child(1) {
-    height: 8px;
-    transform: rotate(-25deg);
-}
-
-.inline-carrot-leaves span:nth-child(2) {
-    height: 12px;
-    width: 7px;
-}
-
-.inline-carrot-leaves span:nth-child(3) {
-    height: 8px;
-    transform: rotate(25deg);
 }
 
 /* The slider and its knob are absolutely positioned against this box,
@@ -1049,14 +883,17 @@ body.bottom-bar.bar-collapsed .rabbithole-header img {
     height: 22px;
 }
 
-/* === Misc demo controls — between ensemble and rabbithole-header === */
-/* Skyler: the title up at the top of the bar rather than floating in
+/* === Zone 10: the song, beside Webamp ===
+   Skyler: the title up at the top of the bar rather than floating in
    the middle of it. Everything else in the bar is vertically centred,
    so this is the one thing that sits against the top edge — which is
    what makes it read as a heading for the bar rather than one more
-   control in the row. */
+   control in the row. The cover and title sit over the song selector
+   on the right, where the selector stood alone, so the cards can sit
+   against Webamp (Skyler, 7 and 8 Nov 2026). */
 body.bottom-bar .song-info-header {
-    order: 70;
+    order: 80;
+    flex-shrink: 0;
     width: 220px;
     padding: 6px 4px 0;
     margin-bottom: 0;
@@ -1104,9 +941,15 @@ body.bottom-bar .song-info-header {
         align-self: center;
     }
 
+    body.bottom-bar .song-info-header .song-select,
     body.bottom-bar .song-info-header .album-track-select {
         grid-area: album;
         align-self: start;
+        width: 100%;
+        height: 26px;
+        margin: 0;
+        padding: 2px 6px;
+        font-size: 12px;
     }
 
     body.bottom-bar .song-info-header .recording-metadata {
@@ -1172,14 +1015,14 @@ body.bottom-bar .auto-switch {
         margin: 0 6px;
     }
 
-    body.bottom-bar .inline-carrot-btn {
+    body.bottom-bar .inline-carrot {
         margin-left: 6px;
     }
 }
 
 /* Order 90: past Song Parts (82), short of the rabbithole header (99),
    which puts it against the rabbit. */
-body.bottom-bar .inline-carrot-btn {
+body.bottom-bar .inline-carrot {
     order: 90;
     flex-shrink: 0;
     align-self: center;
@@ -1187,67 +1030,16 @@ body.bottom-bar .inline-carrot-btn {
     margin-top: 0;
 }
 
-/* The bigger carrot is not a new drawing — it is the geometry already
-   written for .mini-player-btn, which only ever shows in the minimized
-   sidebar. Same vegetable, finally visible in the bar. */
-body.bottom-bar .inline-carrot-btn {
-    width: 34px;
-    height: 60px;
-    font-size: 14px;
-    border-radius: 5px 5px 50% 50%;
-    background:
-        repeating-linear-gradient(
-            0deg,
-            transparent,
-            transparent 7px,
-            rgba(180, 70, 20, 0.25) 7px,
-            rgba(180, 70, 20, 0.25) 9px
-        ),
-        linear-gradient(to right, #ff9a56 0%, #ff6b35 25%, #ff8142 50%, #ff6b35 75%, #ff9a56 100%);
-    box-shadow:
-        0 3px 10px rgba(255, 107, 53, 0.35),
-        inset 3px 0 6px rgba(255, 200, 150, 0.25),
-        inset -3px 0 6px rgba(180, 60, 20, 0.2);
-    text-shadow: 0 1px 2px rgba(0,0,0,0.3);
-}
-
-body.bottom-bar .inline-carrot-btn.playing {
-    background:
-        repeating-linear-gradient(
-            0deg,
-            transparent,
-            transparent 7px,
-            rgba(160, 50, 10, 0.3) 7px,
-            rgba(160, 50, 10, 0.3) 9px
-        ),
-        linear-gradient(to right, #ff8142 0%, #e55a2b 25%, #ff6b35 50%, #e55a2b 75%, #ff8142 100%);
-}
-
-/* Leaves scale with the root they sit on. */
-body.bottom-bar .inline-carrot-leaves {
-    top: -15px;
-    gap: 2px;
-}
-
-body.bottom-bar .inline-carrot-leaves span {
-    width: 10px;
-    border-radius: 50% 50% 2px 2px;
-    box-shadow: 0 2px 3px rgba(0,0,0,0.2);
-}
-
-body.bottom-bar .inline-carrot-leaves span:nth-child(1),
-body.bottom-bar .inline-carrot-leaves span:nth-child(3) {
-    height: 16px;
-}
-
-body.bottom-bar .inline-carrot-leaves span:nth-child(2) {
-    height: 22px;
-    width: 12px;
+/* The bar has the room for a bigger carrot (Skyler wanted it bigger
+   and up by the rabbit). */
+body.bottom-bar .inline-carrot svg {
+    width: 56px;
+    height: 56px;
 }
 
 /* The carrot is hidden when the bar is collapsed along with everything
    else in .toggle-row — but it is no longer inside one, so say so. */
-body.bottom-bar.bar-collapsed .inline-carrot-btn,
+body.bottom-bar.bar-collapsed .inline-carrot,
 body.bottom-bar.bar-collapsed .auto-switch {
     display: none;
 }
@@ -1644,7 +1436,7 @@ body.bottom-bar .data-section:has(.parts-chart.two-rows) {
         max-width: 100%;
     }
 
-    body.bottom-bar .inline-carrot-btn {
+    body.bottom-bar .inline-carrot {
         display: none;
     }
 
@@ -1906,6 +1698,11 @@ body.bottom-bar #webamp div:has(> #main-window) {
 .musician-card.engineer-card {
     border-style: dashed;
     color: #777;
+}
+
+/* An instrument stays whole on its card (Justin, 7 Nov 2026). */
+.musician-instrument {
+    white-space: nowrap;
 }
 
 /* === Effects: a flourish or spotlight on a card, a flash on the band ===

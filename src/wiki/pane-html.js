@@ -7,9 +7,9 @@
  * parsed wikitext inherits nothing. Three ways to wear it, switchable from
  * the pane itself: `content` (the article and nothing else), `header` (a
  * small header we own: title, a search that works, a way out), `skin`
- * (MonoBook's full chrome, fetched and injected). On `skin`, the honest
- * caveat: injected HTML does not run scripts, so its search box is
- * furniture, and it is labelled as such where it sits.
+ * (MonoBook's full chrome, fetched and injected). Injected HTML runs no
+ * scripts, so on `skin` the pane itself answers MonoBook's search form
+ * (WikiPane's submit listener), and the search box is a real one.
  */
 
 export const PANE_MODES = [ 'content', 'header', 'skin' ];
@@ -73,8 +73,6 @@ export const PANE_STYLES = [
 	'.pane-results li { padding: 5px 0; border-bottom: 1px solid #eceee8; }',
 	'.pane-results a { font-weight: 600; }',
 	'.pane-results .snippet { color: #5a6354; font-size: 12px; }',
-	'.pane-fake-note { background: #fff6d8; border: 1px solid #e3d08a;',
-	'  padding: 5px 8px; font-size: 12px; margin: 0 0 8px; }',
 	'</style>',
 ].join( '' );
 
@@ -125,9 +123,6 @@ export function paneBody( title, parsed, mode, fullPageHtml = null, skinCss = ''
 			return '<style>' + skinStyles( skinCss ) + '</style>'
 				+ '<div class="pane-chrome">' + modeSwitcher( mode )
 				+ '<span>MonoBook, as the wiki renders it</span></div>'
-				+ '<div class="pane-fake-note">The search box below is furniture: injected '
-				+ 'HTML cannot run scripts, so it accepts typing and does nothing. The '
-				+ 'sidebar and tab links are real.</div>'
 				+ '<div class="' + SHADOW_HTML + '"><div class="' + SHADOW_BODY + ' ' + escapeHtml( bodyClasses ) + '">'
 				+ wrapper.outerHTML
 				+ '</div></div>';

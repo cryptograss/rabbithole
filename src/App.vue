@@ -19,7 +19,6 @@ import * as wiki from './wiki/api.js';
 import RabbitholeHeader from './components/RabbitholeHeader.vue';
 import MiniPlayer from './components/MiniPlayer.vue';
 import SongInfo from './components/SongInfo.vue';
-import DemoSongSelect from './components/DemoSongSelect.vue';
 import FollowSwitch from './components/FollowSwitch.vue';
 import WebampDock from './components/WebampDock.vue';
 import Ensemble from './components/Ensemble.vue';
@@ -108,8 +107,6 @@ onBeforeUnmount( () => {
 
 			<div class="player-container">
 				<SongInfo />
-
-				<DemoSongSelect v-if="!songs.lockedToTrack" />
 
 				<div class="toggle-row auto-switch-row">
 					<FollowSwitch />
