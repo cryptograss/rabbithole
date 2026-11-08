@@ -178,31 +178,6 @@ export async function loadTrack( cid, { forcedEncoding = null, signal } = {} ) {
 	};
 }
 
-/**
- * A built-in demo song names a trackCid, not a file: the audio was always
- * on IPFS. Resolve the file from its Release page, once, and take the
- * album and the title while the page is open. The editor writes to the
- * same /Metadata page the player reads, or the save is theatre.
- */
-export async function resolveDemoSong( song, { forcedEncoding = null } = {} ) {
-	if ( ! song || song.audioFile || ! song.trackCid ) {
-		return song;
-	}
-	const release = await fetchYamlPage( 'Release:' + song.trackCid );
-	const encoding = pickEncoding( release && release.encodings, { forced: forcedEncoding } );
-	if ( ! encoding ) {
-		throw new Error( 'No playable encoding on Release:' + song.trackCid + ' -- nothing to play.' );
-	}
-	return {
-		...song,
-		audioFile: IPFS_GATEWAY + '/ipfs/' + encoding.cid,
-		album: release.parent_release || song.album,
-		title: release.title || song.title,
-		_trackCid: song.trackCid,
-		_metadataTitle: 'Release:' + song.trackCid + '/Metadata',
-	};
-}
-
 /** The record a track belongs to: title and running order, from the parent Release. */
 export async function loadAlbum( parentCid ) {
 	if ( ! parentCid ) {
