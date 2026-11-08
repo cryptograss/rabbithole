@@ -61,7 +61,7 @@ src/
 │   ├── api.js              PickiPedia, read and written
 │   ├── pane-html.js        the article as HTML the pane can wear
 │   ├── queue.js            what a Listen button means: now, next, or a trail
-│   └── demo-songs.js       the four built-in songs
+│   └── demo-songs.js       the song it opens on, and the cards' colours
 ├── editor/                 the timeline editor (renders itself; next to convert)
 ├── trail.js                trails through the performer graph
 └── musician-status.js      who is in and who is out, as a rule
@@ -79,12 +79,31 @@ of work.
 npm install
 npm run dev       # http://127.0.0.1:5173/rabbithole/ with the wiki's API proxied
 npm run build     # dist/, the thing that is deployed
-npm test          # vitest
+npm test          # vitest: the parts, in a fake DOM
+npm run test:e2e  # a playthrough in headless Chromium, with sound (needs npm run dev)
 ```
 
 Open `/rabbithole/?track=<cid>` for a track from the wiki, or `/rabbithole/`
-for the demo songs. `?layout=bar|sidebar|auto` picks a layout for one visit;
+for August, the song it opens on; the dropdown lists every song with a chart
+on the wiki. `?layout=bar|sidebar|auto` picks a layout for one visit;
 `?enc=flac|ogg` forces an encoding; `?webaudio=off|on` forces the iOS bypass.
+
+## Testing
+
+`npm test` runs vitest: the chart's functions, the stores and the components,
+in happy-dom, with no audio.
+
+`npm run test:e2e` plays a song in headless Chromium, against the dev server
+or any URL you give it (`npm run test:e2e -- https://pickipedia.xyz/rabbithole/`).
+It presses the carrot, then checks that the audio decodes and plays (the Web
+Audio analyser hears it), that Webamp's clock moves, after a seek too, and that
+what the song's chart says happens when the song gets there: the pane follows
+the solo, the carrot loses a bite per part, a flourish fires. It also checks
+following a picker, the dropdown, the phone layout, and the editor's save
+target, through Copy YAML; it never saves. Its expectations come from the
+song's chart on the wiki, through `src/player/timeline.js`. It needs
+Playwright's Chromium (`npx playwright install chromium`), or a path in
+`RH_CHROMIUM`.
 
 ## Deployment
 
