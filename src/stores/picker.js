@@ -100,7 +100,6 @@ export const usePickerStore = defineStore( 'picker', () => {
 
 	async function follow( name ) {
 		following.value = name;
-		played.clear();
 		await queueNext();
 	}
 
@@ -109,13 +108,16 @@ export const usePickerStore = defineStore( 'picker', () => {
 		next.value = null;
 	}
 
-	// The song changed. If it is the one following queued, line up the
-	// picker's next one behind it; everything played counts as played.
-	watch( () => player.song && player.song._trackCid, ( cid ) => {
-		const song = currentSong();
+	// Every song that has been on counts as played, the first one too, so
+	// following never lines up something you just heard.
+	watch( currentSong, ( song ) => {
 		if ( song ) {
 			played.add( song );
 		}
+	}, { immediate: true } );
+
+	// The song following queued has started: line up the picker's next one.
+	watch( () => player.song && player.song._trackCid, ( cid ) => {
 		if ( following.value && next.value && cid === next.value.cid ) {
 			queueNext();
 		}
