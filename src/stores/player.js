@@ -39,6 +39,22 @@ export const usePlayerStore = defineStore( 'player', () => {
 	const parts = computed( () => ( model.value ? model.value.parts.value : [] ) );
 	const partIndex = computed( () => ( model.value ? model.value.partIndex.value : -1 ) );
 
+	/*
+	 * How much of the carrot the rabbit has eaten, 0 to 1: one bite per part
+	 * of the song behind you, so the carrot says where you are in the song,
+	 * not only how long it has played (Skyler and magent, #rabbithole, 8 Nov
+	 * 2026). A song with no chart is eaten in tenths of its length.
+	 */
+	const eaten = computed( () => {
+		if ( parts.value.length > 1 ) {
+			return Math.max( 0, partIndex.value ) / parts.value.length;
+		}
+		if ( duration.value > 0 ) {
+			return Math.floor( 10 * time.value / duration.value ) / 10;
+		}
+		return 0;
+	} );
+
 	function togglePlay() {
 		if ( model.value ) {
 			model.value.togglePlay();
@@ -60,7 +76,7 @@ export const usePlayerStore = defineStore( 'player', () => {
 	return {
 		model, create,
 		song, status, playing, time, duration, upNext, currentSolo, effects, ready, error,
-		cards, parts, partIndex,
+		cards, parts, partIndex, eaten,
 		togglePlay, seekToPart, seekToFraction,
 	};
 } );

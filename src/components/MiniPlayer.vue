@@ -37,7 +37,7 @@ function go( name ) {
 
 <template>
 	<div class="mini-player">
-		<CarrotButton id="mini-play-btn" :playing="player.playing" :progress="progress" :size="52"
+		<CarrotButton id="mini-play-btn" :playing="player.playing" :progress="progress" :eaten="player.eaten" :size="52"
 			@toggle="player.togglePlay()" />
 		<div id="mini-time" class="mini-time">{{ formatTime( player.time ) }}</div>
 		<div id="mini-musicians" class="mini-musicians">
