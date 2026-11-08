@@ -5,7 +5,8 @@
  * which one it is. A stored choice is amber, and "use auto" is shown
  * whenever one exists: a setting you cannot see is a setting you cannot
  * undo. Bottom left of the sidebar, under the song parts (Skyler, 6 Nov
- * 2026); top right of the page in the bar.
+ * 2026); top right of the page in the bar. Not on a phone, which always
+ * gets the bar.
  */
 import { computed } from 'vue';
 import { useLayoutStore } from '../stores/layout.js';
@@ -21,7 +22,7 @@ const label = computed( () => {
 </script>
 
 <template>
-	<div class="layout-ab-wrap">
+	<div v-if="! layout.phone" class="layout-ab-wrap">
 		<a id="layout-ab" class="layout-ab" :class="{ 'layout-ab-pinned': layout.pinned }" href="#" @click.prevent="layout.setLayout( other )">{{ label }}</a>
 		<a v-if="layout.pinned" id="layout-ab-auto" class="layout-ab layout-ab-auto" href="#" title="Go back to choosing by window size" @click.prevent="layout.setLayout( null )">use auto</a>
 	</div>

@@ -21,6 +21,12 @@ import { INITIAL_PARAMS } from '../initial-params.js';
 import { useMediaQuery } from '../composables/media-query.js';
 
 export const AUTO_AT = 1100;
+/*
+ * A phone, either way up: there the sidebar leaves the wiki no room at all,
+ * so a phone always gets the bar and is not offered the switch (Skyler,
+ * #rabbithole, 8 Nov 2026). Sideways, a phone is wide but short.
+ */
+export const PHONE = '(max-width: 760px), (max-height: 520px)';
 const KEY = 'rabbitholeLayout';
 
 function readStored() {
@@ -54,7 +60,8 @@ export const useLayoutStore = defineStore( 'layout', () => {
 
 	const narrow = useMediaQuery( `(max-width: ${ AUTO_AT }px)` );
 	const auto = computed( () => ( narrow.value ? 'bar' : 'sidebar' ) );
-	const layout = computed( () => fromUrl.value || saved.value || auto.value );
+	const phone = useMediaQuery( PHONE );
+	const layout = computed( () => ( phone.value ? 'bar' : fromUrl.value || saved.value || auto.value ) );
 	const isBar = computed( () => layout.value === 'bar' );
 
 	/** A stored choice is in force, as against the window deciding. */
@@ -100,7 +107,7 @@ export const useLayoutStore = defineStore( 'layout', () => {
 	}
 
 	return {
-		layout, isBar, narrow, auto, pinned, saved,
+		layout, isBar, narrow, phone, auto, pinned, saved,
 		minimized, collapsed, editorOpen, follow,
 		setLayout, toggleDock, openDock, stopFollowing,
 	};
