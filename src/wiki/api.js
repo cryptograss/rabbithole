@@ -178,6 +178,79 @@ export async function loadTrack( cid, { forcedEncoding = null, signal } = {} ) {
 	};
 }
 
+/** Every page named, as {title: wikitext}, fifty titles to a request (the API's limit). */
+async function pageTexts( titles ) {
+	const texts = {};
+	for ( let i = 0; i < titles.length; i += 50 ) {
+		const j = await api( {
+			action: 'query', titles: titles.slice( i, i + 50 ).join( '|' ),
+			prop: 'revisions', rvprop: 'content', rvslots: 'main',
+		} );
+		for ( const page of Object.values( j.query?.pages || {} ) ) {
+			const text = page.revisions?.[ 0 ]?.slots?.main?.[ '*' ];
+			if ( text !== undefined ) {
+				texts[ page.title ] = text;
+			}
+		}
+	}
+	return texts;
+}
+
+/** Whether a metadata page has a chart: a timeline with more than one entry. */
+export function isCharted( metadataText ) {
+	let data;
+	try {
+		data = jsYaml.load( metadataText );
+	} catch {
+		return false;
+	}
+	const timeline = extractMetadata( data ).timeline;
+	return !! timeline && typeof timeline === 'object' && Object.keys( timeline ).length > 1;
+}
+
+/**
+ * Every track with a chart on the wiki, as {cid, title, album}, by album
+ * then title: the song selector's list. A song is on it once its
+ * /Metadata page has a timeline, so charting a song is what puts it there.
+ */
+export async function chartedTracks() {
+	const metadataTitles = [];
+	let from;
+	do {
+		const j = await api( {
+			action: 'query', list: 'allpages', apnamespace: 3004, aplimit: 500, ...( from ? { apcontinue: from } : {} ),
+		} );
+		for ( const p of j.query?.allpages || [] ) {
+			if ( p.title.endsWith( '/Metadata' ) ) {
+				metadataTitles.push( p.title );
+			}
+		}
+		from = j.continue?.apcontinue;
+	} while ( from );
+
+	const metadata = await pageTexts( metadataTitles );
+	const cids = metadataTitles.filter( ( t ) => metadata[ t ] && isCharted( metadata[ t ] ) )
+		.map( ( t ) => t.slice( 'Release:'.length, -'/Metadata'.length ) );
+
+	const load = ( text ) => {
+		try {
+			return jsYaml.load( text ) || {};
+		} catch {
+			return {};
+		}
+	};
+	const releases = await pageTexts( cids.map( ( cid ) => 'Release:' + cid ) );
+	const tracks = cids.map( ( cid ) => ( { cid, release: load( releases[ 'Release:' + cid ] || '' ) } ) );
+	const parents = [ ...new Set( tracks.map( ( t ) => t.release.parent_release ).filter( Boolean ) ) ];
+	const albums = await pageTexts( parents.map( ( cid ) => 'Release:' + cid ) );
+
+	return tracks.map( ( { cid, release } ) => ( {
+		cid,
+		title: release.title || cid,
+		album: ( release.parent_release && load( albums[ 'Release:' + release.parent_release ] || '' ).title ) || '',
+	} ) ).sort( ( a, b ) => a.album.localeCompare( b.album ) || a.title.localeCompare( b.title ) );
+}
+
 /** The record a track belongs to: title and running order, from the parent Release. */
 export async function loadAlbum( parentCid ) {
 	if ( ! parentCid ) {

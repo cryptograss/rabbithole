@@ -2,7 +2,7 @@
  * What the wiki says, read right.
  */
 import { describe, it, expect } from 'vitest';
-import { interpretEditResponse, extractMetadata, pickEncoding, metadataYaml, sameOrigin } from '../../src/wiki/api.js';
+import { interpretEditResponse, extractMetadata, pickEncoding, metadataYaml, sameOrigin, isCharted } from '../../src/wiki/api.js';
 
 /*
  * "Saved" means the wiki made a revision. MediaWiki answers result: Success
@@ -88,5 +88,17 @@ describe( 'sameOrigin', () => {
 	it( 'keeps the path and drops the wiki\'s own host and port', () => {
 		expect( sameOrigin( 'http://pickipedia:4009/images/thumb/a.png?x=1' ) ).toBe( '/images/thumb/a.png?x=1' );
 		expect( sameOrigin( null ) ).toBeNull();
+	} );
+} );
+
+describe( 'isCharted', () => {
+	it( 'is true for a timeline with more than one entry', () => {
+		expect( isCharted( "timeline:\n  '0':\n    part: intro\n  '10':\n    part: A\n" ) ).toBe( true );
+	} );
+	it( 'is false for the stub the editor leaves (Silver 44, 8 Nov 2026)', () => {
+		expect( isCharted( '# Recording metadata for Silver 44.\n\ntimeline: {}\nensemble: {}\n' ) ).toBe( false );
+	} );
+	it( 'is false for YAML it cannot read', () => {
+		expect( isCharted( 'timeline: [unclosed' ) ).toBe( false );
 	} );
 } );
