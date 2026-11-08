@@ -1442,8 +1442,10 @@ body.bottom-bar .data-section:has(.parts-chart.two-rows) {
         font-size: 11px;
     }
 
+    /* 113px holds a name or a name and its instrument, not both; the
+       instrument is on the musician's page, the name is the card. */
     body.bottom-bar #ensemble-display .musician-card .musician-instrument {
-        font-size: 9px;
+        display: none;
     }
 
     body.bottom-bar .inline-carrot {
