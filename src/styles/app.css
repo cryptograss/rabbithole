@@ -493,6 +493,13 @@ body.bottom-bar .layout-ab-wrap {
     font-size: 14px;
 }
 
+/* Beside the cover, under the title, it takes the rest of the row. */
+.album-row .song-select {
+    flex: 1 1 auto;
+    min-width: 0;
+    margin-bottom: 0;
+}
+
 .toggle-row {
     display: flex;
     align-items: center;
@@ -1054,11 +1061,12 @@ body.bottom-bar.bar-collapsed .rabbithole-header img {
    the middle of it. Everything else in the bar is vertically centred,
    so this is the one thing that sits against the top edge — which is
    what makes it read as a heading for the bar rather than one more
-   control in the row. It sits next to Webamp, the player it names:
+   control in the row. It holds the left end of the bar, the cover and
+   title over the song selector, so the cards can sit against Webamp:
    at the right end it crowded the switch, the editor and the carrot
-   (Skyler, 7 Nov 2026). */
+   (Skyler, 7 and 8 Nov 2026). */
 body.bottom-bar .song-info-header {
-    order: 10;
+    order: 0;
     width: 220px;
     padding: 6px 4px 0;
     margin-bottom: 0;
@@ -1106,9 +1114,15 @@ body.bottom-bar .song-info-header {
         align-self: center;
     }
 
+    body.bottom-bar .song-info-header .song-select,
     body.bottom-bar .song-info-header .album-track-select {
         grid-area: album;
         align-self: start;
+        width: 100%;
+        height: 26px;
+        margin: 0;
+        padding: 2px 6px;
+        font-size: 12px;
     }
 
     body.bottom-bar .song-info-header .recording-metadata {

@@ -1,13 +1,15 @@
 <script setup>
 /*
  * Title, record and cover for what is loaded, and what is lined up after
- * it. The album's track list is shown only when the app is locked to a
- * track: for the four demo songs the demo selector is the way around, and
- * two selectors in one row are two ways to do one thing.
+ * it, with the one selector under the title: the album's track list when
+ * the app is locked to a track, the demo songs otherwise. Two selectors
+ * would be two ways to do one thing, and one apart from the title was a
+ * song chooser stranded at the far end of the bar (Skyler, 8 Nov 2026).
  */
 import { computed } from 'vue';
 import { useSongStore } from '../stores/song.js';
 import { usePlayerStore } from '../stores/player.js';
+import DemoSongSelect from './DemoSongSelect.vue';
 
 const songs = useSongStore();
 const player = usePlayerStore();
@@ -30,9 +32,9 @@ function onArtError() {
 <template>
 	<div v-if="song" id="song-info-header" class="song-info-header">
 		<h2 id="song-title-display" class="song-title-display">{{ song.title || 'Untitled' }}</h2>
-		<div v-if="songs.album" id="album-row" class="album-row">
+		<div v-if="songs.album || !songs.lockedToTrack" id="album-row" class="album-row">
 			<img
-				v-if="songs.artUrl"
+				v-if="songs.album && songs.artUrl"
 				id="album-art"
 				class="album-art"
 				:class="{ 'album-art-missing': songs.artFailed }"
@@ -42,7 +44,7 @@ function onArtError() {
 				@error="onArtError"
 			>
 			<select
-				v-if="songs.lockedToTrack"
+				v-if="songs.lockedToTrack && songs.album"
 				id="album-track-select"
 				class="album-track-select"
 				:title="songs.album.title"
@@ -51,6 +53,7 @@ function onArtError() {
 			>
 				<option v-for="t in tracks" :key="t.cid" :value="t.cid">{{ t.track_number ? t.track_number + '. ' : '' }}{{ t.title || t.cid }}</option>
 			</select>
+			<DemoSongSelect v-else-if="!songs.lockedToTrack" />
 		</div>
 		<div id="recording-metadata" class="recording-metadata">
 			<span v-for="p in songs.metadataParts" :key="p">{{ p }}</span>
