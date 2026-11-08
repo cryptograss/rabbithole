@@ -23,6 +23,6 @@ const SHORT = 'Follow artist';
 		</span>
 		<span class="auto-switch-caption">{{ layout.narrow ? SHORT : LONG }}</span>
 	</label>
-	<CarrotButton id="inline-play-btn" class="inline-carrot" :playing="player.playing" :size="40"
+	<CarrotButton id="inline-play-btn" class="inline-carrot" :playing="player.playing" :eaten="player.eaten" :size="40"
 		@toggle="player.togglePlay()" />
 </template>
