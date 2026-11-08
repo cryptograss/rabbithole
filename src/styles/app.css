@@ -1584,7 +1584,9 @@ body.bottom-bar .data-section:has(.parts-chart.two-rows) {
         flex-direction: row;
         align-items: center;
         gap: 4px;
-        margin: 0 2px 2px 4px;
+        /* Off the screen's edge, where a thumb and a rounded corner
+           both get in the way (Skyler, 8 Nov 2026). */
+        margin: 0 14px 2px 4px;
     }
 
     /* "Follow artist", not "Auto-switch artist profiles".
@@ -1658,6 +1660,14 @@ body.bottom-bar .data-section:has(.parts-chart.two-rows) {
         overflow: hidden;
         text-overflow: ellipsis;
         max-width: 100%;
+        /* The card is 9.5px but the name kept its desktop 14px, so in
+           113px it showed four letters and an ellipsis (Skyler, 8 Nov
+           2026: "the player card text is too big"). */
+        font-size: 11px;
+    }
+
+    body.bottom-bar #ensemble-display .musician-card .musician-instrument {
+        font-size: 9px;
     }
 
     /* The editor is a desktop job -- a timeline is edited with a
