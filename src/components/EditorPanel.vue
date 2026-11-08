@@ -109,7 +109,8 @@ async function save() {
 	saving.value = true;
 	status.value = { kind: '', html: '' };
 	try {
-		const result = await saveMetadata( current._metadataTitle, metadataYaml( data.workingData, current ) );
+		const result = await saveMetadata( current._metadataTitle, metadataYaml( data.workingData, current ),
+			{ baseRevision: current._metadataRevision ?? null } );
 		if ( result.kind === 'login' ) {
 			// The edits are kept in this browser, and the login opens in
 			// another tab, so nothing typed is lost: log in there, come
@@ -120,11 +121,22 @@ async function save() {
 				html: 'Not logged in. <a href="/index.php?title=Special:UserLogin" target="_blank" rel="noopener">'
 					+ 'Log in to PickiPedia</a> in a new tab, then Save again. Your edits stay here.',
 			};
+		} else if ( result.kind === 'conflict' ) {
+			// Nothing was written. The edits stay in this browser.
+			data.backupNow();
+			status.value = {
+				kind: 'error',
+				html: 'Not saved: this page changed since this chart was loaded'
+					+ ( result.user ? ` (revision ${ escape( String( result.revisionId ) ) }, by ${ escape( result.user ) })` : '' )
+					+ '. Saving would write over it. <a href="/index.php?title=' + encodeURIComponent( current._metadataTitle )
+					+ '&action=history" target="_blank" rel="noopener">See its history</a>, then reload the song.',
+			};
 		} else if ( result.kind === 'unchanged' ) {
 			data.markSaved( { unchanged: true } );
 			status.value = { kind: '', html: 'PickiPedia already had exactly this. No new revision.' };
 		} else if ( result.kind === 'saved' ) {
 			data.markSaved( { revisionId: result.revisionId } );
+			current._metadataRevision = result.revisionId;
 			status.value = { kind: 'success', html: `Saved, revision ${ result.revisionId }` };
 		} else {
 			status.value = { kind: 'error', html: escape( result.message ) };

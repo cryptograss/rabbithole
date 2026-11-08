@@ -1,8 +1,8 @@
 /**
  * What the wiki says, read right.
  */
-import { describe, it, expect } from 'vitest';
-import { interpretEditResponse, extractMetadata, pickEncoding, metadataYaml, sameOrigin } from '../../src/wiki/api.js';
+import { describe, it, expect, afterEach } from 'vitest';
+import { interpretEditResponse, extractMetadata, pickEncoding, metadataYaml, sameOrigin, saveMetadata } from '../../src/wiki/api.js';
 
 /*
  * "Saved" means the wiki made a revision. MediaWiki answers result: Success
@@ -88,5 +88,59 @@ describe( 'sameOrigin', () => {
 	it( 'keeps the path and drops the wiki\'s own host and port', () => {
 		expect( sameOrigin( 'http://pickipedia:4009/images/thumb/a.png?x=1' ) ).toBe( '/images/thumb/a.png?x=1' );
 		expect( sameOrigin( null ) ).toBeNull();
+	} );
+} );
+
+/*
+ * Save writes over the revision the chart was read from and no other. On
+ * 8 Nov 2026 a stale copy of August's chart was saved over Justin's,
+ * flourishes and all, because the save never asked what the page held.
+ */
+describe( 'saveMetadata', () => {
+	const realFetch = globalThis.fetch;
+	let posted;
+	function wiki( latest ) {
+		posted = null;
+		globalThis.fetch = async ( url, init ) => {
+			if ( init && init.method === 'POST' ) {
+				posted = Object.fromEntries( init.body );
+				return { ok: true, json: async () => ( { edit: { result: 'Success', newrevid: 99 } } ) };
+			}
+			const u = String( url );
+			if ( u.includes( 'meta=tokens' ) ) {
+				return { ok: true, json: async () => ( { query: { tokens: { csrftoken: 'abc+\\' } } } ) };
+			}
+			const pages = latest ? { 1: { revisions: [ { revid: latest, user: 'JMyles' } ] } } : { '-1': { missing: '' } };
+			return { ok: true, json: async () => ( { query: { pages } } ) };
+		};
+	}
+	afterEach( () => {
+		globalThis.fetch = realFetch;
+	} );
+
+	it( 'saves over the revision it was read from', async () => {
+		wiki( 5132 );
+		expect( await saveMetadata( 'Release:X/Metadata', 'timeline: {}', { baseRevision: 5132 } ) )
+			.toEqual( { kind: 'saved', revisionId: 99 } );
+		expect( posted.baserevid ).toBe( '5132' );
+	} );
+
+	it( 'writes nothing when the page has moved on', async () => {
+		wiki( 15130 );
+		expect( await saveMetadata( 'Release:X/Metadata', 'timeline: {}', { baseRevision: 5132 } ) )
+			.toEqual( { kind: 'conflict', revisionId: 15130, user: 'JMyles' } );
+		expect( posted ).toBe( null );
+	} );
+
+	it( 'writes nothing over a page that exists when the chart came from none', async () => {
+		wiki( 5132 );
+		expect( ( await saveMetadata( 'Release:X/Metadata', 'timeline: {}' ) ).kind ).toBe( 'conflict' );
+		expect( posted ).toBe( null );
+	} );
+
+	it( 'creates a missing page only if it is still missing', async () => {
+		wiki( null );
+		expect( ( await saveMetadata( 'Release:X/Metadata', 'timeline: {}' ) ).kind ).toBe( 'saved' );
+		expect( posted.createonly ).toBe( '1' );
 	} );
 } );

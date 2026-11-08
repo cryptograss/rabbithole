@@ -19,17 +19,37 @@ const api = ( params, init ) => fetch( '/api.php?' + new URLSearchParams( { form
 		return r.json();
 	} );
 
-/** The YAML on a page, parsed, or null when there is no such page. */
-export async function fetchYamlPage( title, { signal } = {} ) {
+/**
+ * The YAML on a page, parsed, and the revision it was read from:
+ * {data, revisionId}, or {data: null, revisionId: null} when there is no
+ * such page.
+ */
+export async function fetchYamlRevision( title, { signal } = {} ) {
 	const j = await api( {
-		action: 'query', titles: title, prop: 'revisions', rvprop: 'content', rvslots: 'main',
+		action: 'query', titles: title, prop: 'revisions', rvprop: 'ids|content', rvslots: 'main',
 	}, { signal } );
+	const page = Object.values( j.query?.pages || {} )[ 0 ];
+	if ( ! page || page.missing !== undefined ) {
+		return { data: null, revisionId: null };
+	}
+	const revision = page.revisions?.[ 0 ] || {};
+	return { data: jsYaml.load( revision.slots?.main?.[ '*' ] || '' ) || {}, revisionId: revision.revid || null };
+}
+
+/** The YAML on a page, parsed, or null when there is no such page. */
+export async function fetchYamlPage( title, options ) {
+	return ( await fetchYamlRevision( title, options ) ).data;
+}
+
+/** A page's latest revision: {revisionId, user}, or null when there is no such page. */
+export async function latestRevision( title ) {
+	const j = await api( { action: 'query', titles: title, prop: 'revisions', rvprop: 'ids|user' } );
 	const page = Object.values( j.query?.pages || {} )[ 0 ];
 	if ( ! page || page.missing !== undefined ) {
 		return null;
 	}
-	const text = page.revisions?.[ 0 ]?.slots?.main?.[ '*' ] || '';
-	return jsYaml.load( text ) || {};
+	const revision = page.revisions?.[ 0 ] || {};
+	return { revisionId: revision.revid, user: revision.user };
 }
 
 let stylesheetText = null;
@@ -155,7 +175,8 @@ export async function loadTrack( cid, { forcedEncoding = null, signal } = {} ) {
 	if ( ! release ) {
 		throw new Error( 'Track Release page not found: ' + cid );
 	}
-	const metadata = extractMetadata( await fetchYamlPage( 'Release:' + cid + '/Metadata', { signal } ) || {} );
+	const metadataPage = await fetchYamlRevision( 'Release:' + cid + '/Metadata', { signal } );
+	const metadata = extractMetadata( metadataPage.data || {} );
 	const encoding = pickEncoding( release.encodings, { forced: forcedEncoding } );
 	if ( ! encoding ) {
 		throw new Error( 'Track has no encoding this browser can play' );
@@ -171,6 +192,8 @@ export async function loadTrack( cid, { forcedEncoding = null, signal } = {} ) {
 		engineer: metadata.engineer,
 		_trackCid: cid,
 		_metadataTitle: 'Release:' + cid + '/Metadata',
+		// The revision the chart was read from: Save writes over this one and no other.
+		_metadataRevision: metadataPage.revisionId,
 		_record: metadata.record,
 		_studio: metadata.studio,
 		_sessionType: metadata.sessionType,
@@ -300,22 +323,34 @@ export function interpretEditResponse( j ) {
 }
 
 /**
- * Write a track's metadata page. Resolves to interpretEditResponse's
- * answer, or {kind: 'login'} when there is no session to write with.
+ * Write a track's metadata page, over the revision the chart was read from
+ * and no other. If the page has a newer revision than baseRevision (null:
+ * the page did not exist), nothing is written and the answer is
+ * {kind: 'conflict', revisionId, user}: someone saved in between, or the
+ * chart on screen never came from the page at all. On 8 Nov 2026 a save
+ * wrote a stale copy of August's chart over Justin's, flourishes and all.
+ * Otherwise resolves to interpretEditResponse's answer, or {kind: 'login'}
+ * when there is no session to write with.
  */
-export async function saveMetadata( title, yamlText, { summary = 'Update timeline data via Rabbithole Editor' } = {} ) {
+export async function saveMetadata( title, yamlText, { baseRevision = null, summary = 'Update timeline data via Rabbithole Editor' } = {} ) {
+	const latest = await latestRevision( title );
+	if ( ( latest ? latest.revisionId : null ) !== baseRevision ) {
+		return { kind: 'conflict', revisionId: latest && latest.revisionId, user: latest && latest.user };
+	}
 	const token = await csrfToken();
 	if ( ! token ) {
 		return { kind: 'login' };
 	}
-	const r = await fetch( '/api.php', {
-		method: 'POST',
-		credentials: 'include',
-		body: new URLSearchParams( {
-			action: 'edit', title, text: yamlText, summary, token,
-			contentmodel: 'recording-metadata-yaml', format: 'json',
-		} ),
-	} );
+	const params = {
+		action: 'edit', title, text: yamlText, summary, token,
+		contentmodel: 'recording-metadata-yaml', format: 'json',
+	};
+	if ( baseRevision ) {
+		params.baserevid = baseRevision;
+	} else {
+		params.createonly = '1';
+	}
+	const r = await fetch( '/api.php', { method: 'POST', credentials: 'include', body: new URLSearchParams( params ) } );
 	return interpretEditResponse( await r.json() );
 }
 
