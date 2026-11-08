@@ -96,12 +96,6 @@ onBeforeUnmount( () => {
 	window.removeEventListener( 'popstate', onPopState );
 } );
 
-const editorLabel = () => {
-	if ( layout.editorOpen ) {
-		return 'Close Editor';
-	}
-	return layout.isBar && layout.narrow ? '✎ Edit' : 'Edit Timeline';
-};
 </script>
 
 <template>
@@ -118,15 +112,6 @@ const editorLabel = () => {
 					<FollowSwitch />
 				</div>
 
-				<div class="toggle-row">
-					<button
-						id="editor-toggle-btn"
-						class="editor-toggle-btn"
-						:class="{ active: layout.editorOpen }"
-						:title="layout.editorOpen ? 'Close Editor' : 'Edit Timeline'"
-						@click="layout.editorOpen = !layout.editorOpen"
-					>{{ editorLabel() }}</button>
-				</div>
 
 				<WebampDock />
 

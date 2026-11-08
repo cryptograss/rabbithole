@@ -9,10 +9,12 @@
 import { computed } from 'vue';
 import { useSongStore } from '../stores/song.js';
 import { usePlayerStore } from '../stores/player.js';
+import { useLayoutStore } from '../stores/layout.js';
 import DemoSongSelect from './DemoSongSelect.vue';
 
 const songs = useSongStore();
 const player = usePlayerStore();
+const layout = useLayoutStore();
 
 const song = computed( () => songs.current );
 const tracks = computed( () => ( songs.album ? songs.album.tracks.slice().sort( ( a, b ) => ( a.track_number || 0 ) - ( b.track_number || 0 ) ) : [] ) );
@@ -31,7 +33,18 @@ function onArtError() {
 
 <template>
 	<div v-if="song" id="song-info-header" class="song-info-header">
-		<h2 id="song-title-display" class="song-title-display">{{ song.title || 'Untitled' }}</h2>
+		<!-- The way into the timeline editor is a pencil on the title of what
+			it edits, not a button with its own space in the player (Justin,
+			7 Nov 2026), named in small print so it reads as more than a
+			doodle (Skyler, 8 Nov). -->
+		<h2 id="song-title-display" class="song-title-display">{{ song.title || 'Untitled' }}<button
+			id="editor-toggle-btn"
+			class="editor-pencil"
+			:class="{ active: layout.editorOpen }"
+			:title="layout.editorOpen ? 'Close the timeline editor' : 'Edit this song\'s timeline'"
+			:aria-label="layout.editorOpen ? 'Close the timeline editor' : 'Edit this song\'s timeline'"
+			@click="layout.editorOpen = !layout.editorOpen"
+		>✎<span class="editor-pencil-label">edit timeline</span></button></h2>
 		<div v-if="songs.album || !songs.lockedToTrack" id="album-row" class="album-row">
 			<img
 				v-if="songs.album && songs.artUrl"
