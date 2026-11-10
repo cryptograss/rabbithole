@@ -13,7 +13,7 @@ import { ref, computed, watch } from 'vue';
 
 import { INITIAL_PARAMS } from '../initial-params.js';
 import * as wiki from '../wiki/api.js';
-import { demoSongs, defaultColorScheme } from '../wiki/demo-songs.js';
+import { DEFAULT_TRACK, defaultColorScheme } from '../wiki/demo-songs.js';
 import { usePlayerStore } from './player.js';
 
 export const useSongStore = defineStore( 'song', () => {
@@ -25,8 +25,9 @@ export const useSongStore = defineStore( 'song', () => {
 	const initial = ref( null );
 	const loading = ref( true );
 	const loadError = ref( null );
-	const demoKey = ref( 'august' );
-	/** Locked to one track by ?track=: the demo selector stays hidden. */
+	/** Every track with a chart on the wiki: the song selector's list. */
+	const charted = ref( [] );
+	/** Locked to one track by ?track=: the song selector stays hidden. */
 	const lockedToTrack = computed( () => !! trackParam );
 
 	const current = computed( () => player.song || initial.value );
@@ -58,9 +59,14 @@ export const useSongStore = defineStore( 'song', () => {
 		return parts;
 	} );
 
-	/** Load the track named in the URL, or the first demo song. */
+	/** Load the track named in the URL, or the default song. */
 	async function boot() {
 		loading.value = true;
+		if ( ! trackParam ) {
+			wiki.chartedTracks().then( ( list ) => {
+				charted.value = list;
+			} ).catch( ( err ) => console.warn( 'Could not list the charted songs:', err ) );
+		}
 		loadError.value = null;
 		try {
 			if ( trackParam ) {
@@ -68,14 +74,14 @@ export const useSongStore = defineStore( 'song', () => {
 				song.colorScheme = defaultColorScheme;
 				initial.value = song;
 			} else {
-				initial.value = await demoSong( demoKey.value );
+				initial.value = await fetchTrack( DEFAULT_TRACK );
 			}
 		} catch ( err ) {
 			console.error( 'Failed to load the track:', err );
 			loadError.value = err.message;
-			// The demo still plays, so the page is not empty.
+			// The default song still plays, so the page is not empty.
 			try {
-				initial.value = await demoSong( 'august' );
+				initial.value = await fetchTrack( DEFAULT_TRACK );
 			} catch ( inner ) {
 				console.error( 'Could not resolve the default track either:', inner );
 			}
@@ -84,26 +90,18 @@ export const useSongStore = defineStore( 'song', () => {
 		}
 	}
 
-	async function demoSong( key ) {
-		return fetchTrack( demoSongs[ key ].trackCid );
-	}
-
-	/** The demo selector: load (not play) one of the four built-in songs. */
-	async function pickDemo( key ) {
-		if ( ! demoSongs[ key ] ) {
-			return;
-		}
-		demoKey.value = key;
+	/** The song selector: load (not play) a charted track. */
+	async function pickTrack( cid ) {
 		notice.value = '';
 		try {
-			const song = await demoSong( key );
+			const song = await fetchTrack( cid );
 			if ( player.model ) {
 				player.model.loadSong( song );
 			} else {
 				initial.value = song;
 			}
 		} catch ( err ) {
-			console.error( 'Could not resolve audio for', key, err );
+			console.error( 'Could not resolve audio for', cid, err );
 			notice.value = 'no audio for this track';
 		}
 	}
@@ -179,8 +177,8 @@ export const useSongStore = defineStore( 'song', () => {
 	}, { immediate: true } );
 
 	return {
-		initial, loading, loadError, demoKey, lockedToTrack, current,
+		initial, loading, loadError, charted, lockedToTrack, current,
 		album, artUrl, artFailed, notice, metadataParts, queuedCids,
-		boot, pickDemo, fetchTrack, playCid, queueCid, goToTrack,
+		boot, pickTrack, fetchTrack, playCid, queueCid, goToTrack,
 	};
 } );
