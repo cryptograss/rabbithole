@@ -10,14 +10,34 @@ import { useSongStore } from '../stores/song.js';
 
 const songs = useSongStore();
 
-const currentCid = computed( () => songs.current && songs.current._trackCid );
-const options = computed( () => {
-	const list = songs.charted.slice();
-	const c = songs.current;
-	if ( c && c._trackCid && ! list.some( ( t ) => t.cid === c._trackCid ) ) {
-		list.unshift( { cid: c._trackCid, title: c.title, album: songs.album ? songs.album.title : '' } );
+/** The track that is loaded now, or null before anything is. */
+const loadedCid = computed( () => {
+	if ( ! songs.current ) {
+		return null;
 	}
-	return list;
+	return songs.current._trackCid || null;
+} );
+
+/**
+ * The loaded song, as an option. A track with no chart yet isn't in
+ * songs.charted, but it is still what's playing, so the selector
+ * shows it rather than going blank.
+ */
+function loadedSongAsOption() {
+	const albumTitle = songs.album ? songs.album.title : '';
+	return { cid: loadedCid.value, title: songs.current.title, album: albumTitle };
+}
+
+const options = computed( () => {
+	const charted = songs.charted;
+	if ( ! loadedCid.value ) {
+		return charted;
+	}
+	const loadedIsCharted = charted.some( ( track ) => track.cid === loadedCid.value );
+	if ( loadedIsCharted ) {
+		return charted;
+	}
+	return [ loadedSongAsOption(), ...charted ];
 } );
 const groups = computed( () => {
 	const byAlbum = new Map();
@@ -34,7 +54,7 @@ const groups = computed( () => {
 
 <template>
 	<span class="demo-select-row">
-		<select id="song-selector" class="song-select" :value="currentCid" title="Every song with a chart on PickiPedia"
+		<select id="song-selector" class="song-select" :value="loadedCid" title="Every song with a chart on PickiPedia"
 			@change="songs.pickTrack( $event.target.value )">
 			<optgroup v-for="g in groups" :key="g.album" :label="g.album">
 				<option v-for="t in g.tracks" :key="t.cid" :value="t.cid">{{ t.title }}</option>
