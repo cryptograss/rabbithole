@@ -343,6 +343,16 @@ export class TimelineEditor {
         if (oldRuler) this._rulerScroll = oldRuler.scrollTop;
         const oldList = this.container.querySelector('.marker-list');
         if (oldList) this._listScroll = oldList.scrollTop;
+        /*
+         * An open marker form is a draft: what is typed in it belongs to
+         * the person until they save or cancel, so rebuilding the editor
+         * carries the form across whole, fields and all. Skyler,
+         * 2026-11-10: picking a part blanked the soloist just chosen,
+         * because the part saves at once and the form was rebuilt from
+         * the saved marker.
+         */
+        const openForm = this.container.querySelector('.marker-form');
+        if (openForm) openForm.remove();
 
         this.container.innerHTML = `
             <div class="timeline-editor">
@@ -394,6 +404,12 @@ export class TimelineEditor {
                 </div>
             </div>
         `;
+
+        if (openForm && (this._formFor === null || this.data.getMarker(this._formFor))) {
+            this.container.querySelector('.timeline-editor').appendChild(openForm);
+        } else if (openForm) {
+            this._formFor = undefined;
+        }
 
         this._attachEventListeners();
         if (this._rulerMove) window.removeEventListener('mousemove', this._rulerMove);
@@ -1047,15 +1063,6 @@ export class TimelineEditor {
                     this.data.workingData.timeline[this.data._timeToKey(existingTime)] = marker;
                     this.data._notifyChange();
                     this._notifyTimelineChange();
-                    /*
-                     * The change re-renders the editor, which took the form
-                     * with it; a second click on the reopened form then
-                     * turned the part back off. Skyler, 2026-11-02: "the jam
-                     * section isn't copying over". Put the form back.
-                     */
-                    if (!this.container.querySelector('.marker-form')) {
-                        this.openMarkerForm(existingTime, existingTime);
-                    }
                 }
             });
         });
