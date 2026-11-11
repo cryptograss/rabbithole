@@ -52,7 +52,7 @@ describe( 'the wiki pane', () => {
 		await first;
 		expect( pane.shown ).toBe( 'Justin Holmes' );
 		expect( pane.html ).toContain( '<p>Justin Holmes</p>' );
-		expect( location.pathname ).toBe( '/wiki/Justin_Holmes' );
+		expect( new URLSearchParams( location.search ).get( 'page' ) ).toBe( 'Justin Holmes' );
 	} );
 
 	it( 'aborts the request it supersedes', async () => {

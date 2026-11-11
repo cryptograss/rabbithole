@@ -83,7 +83,9 @@ npm test          # vitest
 ```
 
 Open `/rabbithole/?track=<cid>` for a track from the wiki, or `/rabbithole/`
-for the demo songs. `?layout=bar|sidebar|auto` picks a layout for one visit;
+for the demo songs. As the pane moves, the address keeps up:
+`/rabbithole/?track=<cid>&page=<title>` opens the player on that page with
+that song, so it can be reloaded or sent to somebody. `?layout=bar|sidebar|auto` picks a layout for one visit;
 `?enc=flac|ogg` forces an encoding; `?webaudio=off|on` forces the iOS bypass.
 
 ## Deployment

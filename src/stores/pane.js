@@ -7,16 +7,18 @@
  * for, `shown` is what is on screen, so a repeat of a page already on its
  * way is a no-op (audit item 2).
  *
- * The same click that moves the pane pushes the real wiki URL, so the
- * address bar reads /wiki/Cory_Walker while the song keeps playing, and
- * that URL is a thing you can send somebody.
+ * The same click that moves the pane pushes the app's own address,
+ * /rabbithole/?track=<cid>&page=Cory_Walker, so the song keeps playing and
+ * the address is a thing you can send somebody: it opens the player on
+ * that page with that song, where the wiki's /wiki/Cory_Walker opened the
+ * plain wiki with no player (Justin, 11 Nov 2026).
  */
 
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
 
 import * as wiki from '../wiki/api.js';
-import { paneBody, searchResults, loadingBody, failedBody, wikiPath } from '../wiki/pane-html.js';
+import { paneBody, searchResults, loadingBody, failedBody, appAddress } from '../wiki/pane-html.js';
 
 export const usePaneStore = defineStore( 'pane', () => {
 	const wanted = ref( null );
@@ -40,7 +42,7 @@ export const usePaneStore = defineStore( 'pane', () => {
 		if ( ! title ) {
 			return;
 		}
-		const path = wikiPath( title );
+		const path = appAddress( title );
 
 		if ( ! force && wanted.value === title ) {
 			if ( push ) {
