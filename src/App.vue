@@ -10,6 +10,7 @@
  */
 import { watch, watchEffect, onMounted, onBeforeUnmount } from 'vue';
 
+import { INITIAL_PARAMS } from './initial-params.js';
 import { useLayoutStore } from './stores/layout.js';
 import { useSongStore } from './stores/song.js';
 import { usePaneStore } from './stores/pane.js';
@@ -76,10 +77,16 @@ function onPopState( e ) {
 	}
 }
 
-/** Where the pane opens: the first song's page, linked to or not. */
+/**
+ * Where the pane opens: the page the address names (?page=, a shared or
+ * reloaded address), else the first song's page, linked to or not.
+ */
 function openPaneForStart() {
+	const page = INITIAL_PARAMS.get( 'page' );
 	const song = songs.initial;
-	if ( song ) {
+	if ( page ) {
+		pane.open( page, { push: false } );
+	} else if ( song ) {
 		pane.openSong( song, { push: false } );
 	} else {
 		pane.open( 'Justin Holmes', { push: false } );
