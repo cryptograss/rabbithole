@@ -148,7 +148,14 @@ async function lonePlayable( release, cid, { signal } = {} ) {
 	if ( ! /^audio\//.test( release.file_type || '' ) ) {
 		return null;
 	}
-	const r = await fetch( IPFS_GATEWAY + '/ipfs/' + cid + '/', { signal } );
+	// Some are pinned as the bare file (Barlow's Jig with David Grier), so
+	// ask what the CID is before reading it as a folder.
+	const url = IPFS_GATEWAY + '/ipfs/' + cid + '/';
+	const head = await fetch( url, { method: 'HEAD', signal } );
+	if ( /^audio\//.test( head.headers.get( 'content-type' ) || '' ) ) {
+		return cid;
+	}
+	const r = await fetch( url, { signal } );
 	return r.ok ? audioInFolder( await r.text(), cid ) : null;
 }
 
