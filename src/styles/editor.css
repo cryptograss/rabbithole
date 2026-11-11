@@ -1216,6 +1216,36 @@
     animation: ruler-rabbit-hop 0.42s ease-in-out infinite;
 }
 
+/* A carrot over the rabbit: play and pause from the ruler (Skyler). It
+   rides the playhead with the rabbit, and holds still while the rabbit hops.
+   The ruler leaves room above the song's start, so at 0:00 the carrot and
+   the rabbit are not cut off by the top of the ruler. */
+.ruler-track { margin-top: 56px; }
+
+.ruler-carrot {
+    position: absolute;
+    left: -8px;
+    bottom: 26px;
+    width: 30px;
+    height: 30px;
+    padding: 2px;
+    border: none;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.85);
+    box-shadow: 0 0 0 1px #e0e0e0;
+    cursor: pointer;
+    line-height: 0;
+    pointer-events: auto;
+    z-index: 2;
+}
+
+.ruler-carrot:hover { transform: scale(1.12); }
+.ruler-carrot-greens path { fill: #4a7c59; stroke: #3a6847; stroke-width: 0.6; }
+.ruler-carrot-body { fill: #ff6b35; stroke: #ff6b35; stroke-width: 3; stroke-linejoin: round; }
+.ruler-carrot-notches { fill: #fff; display: none; }
+.ruler-carrot.playing .ruler-carrot-body { fill: #e55a2b; stroke: #e55a2b; }
+.ruler-carrot.playing .ruler-carrot-notches { display: inline; }
+
 @keyframes ruler-rabbit-hop {
     0%, 100% { transform: translateY(0) rotate(0deg); }
     45%      { transform: translateY(-7px) rotate(-8deg); }

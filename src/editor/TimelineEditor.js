@@ -20,6 +20,14 @@ import { partTimes, fitGrid, gridLines, snapTime, planSnap } from './section-gri
 
 // The rabbit that runs down the ruler as the song plays.
 const RABBIT_URL = new URL('../images/rabbit.png', import.meta.url).href;
+
+/*
+ * A carrot over the rabbit that plays and pauses, so charting needs no
+ * trip across the page to the player (Skyler, #rabbithole, 11 Nov 2026).
+ * The same carrot as the player's: greens to the left, the body the ▶,
+ * two notches through it while the song plays.
+ */
+const RULER_CARROT = `<button type="button" class="ruler-carrot" title="Play / pause" aria-label="Play / pause"><svg viewBox="0 0 48 48" width="26" height="26" aria-hidden="true"><g class="ruler-carrot-greens"><path d="M15 24 C 12 17, 7 12, 2 10 C 4 15, 8 21, 15 24 Z"/><path d="M15 24 C 10 21, 4 21, 0 24 C 4 27, 10 27, 15 24 Z"/><path d="M15 24 C 12 31, 7 36, 2 38 C 4 33, 8 27, 15 24 Z"/></g><path class="ruler-carrot-body" d="M15 13 L 42 24 L 15 35 Z"/><g class="ruler-carrot-notches"><rect x="20" y="16" width="3.5" height="16" rx="1"/><rect x="26.5" y="16" width="3.5" height="16" rx="1"/></g></svg></button>`;
 export class TimelineEditor {
     /*
      * What an empty marker starts as. The two keys that every marker
@@ -707,11 +715,21 @@ export class TimelineEditor {
                     ${lines}
                     ${ticks.join('')}
                     ${markers}
-                    <div class="ruler-playhead" style="top:${pct(this.currentPlayingTime || 0)}%"><img class="ruler-rabbit" src="${RABBIT_URL}" alt="" draggable="false"><span class="ruler-playhead-tag">now <b>${this.formatTime(this.currentPlayingTime || 0).replace(/\.\d$/, '')}</b></span></div>
+                    <div class="ruler-playhead" style="top:${pct(this.currentPlayingTime || 0)}%">${RULER_CARROT}<img class="ruler-rabbit" src="${RABBIT_URL}" alt="" draggable="false"><span class="ruler-playhead-tag">now <b>${this.formatTime(this.currentPlayingTime || 0).replace(/\.\d$/, '')}</b></span></div>
                     <div class="ruler-hover" hidden><span class="ruler-hover-time"></span></div>
                 </div>
             </div>
         `;
+    }
+
+    /** The ruler's carrot says pause while the song plays, play when it doesn't. */
+    _showCarrot() {
+        const carrot = this.container && this.container.querySelector('.ruler-carrot');
+        if (!carrot) return;
+        const playing = !!(this.player && this.player.isPlaying && this.player.isPlaying());
+        carrot.classList.toggle('playing', playing);
+        carrot.title = playing ? 'Pause' : 'Play';
+        carrot.setAttribute('aria-label', carrot.title);
     }
 
     /**
@@ -768,7 +786,7 @@ export class TimelineEditor {
         };
 
         track.addEventListener('mousedown', (e) => {
-            if (e.target.closest('.ruler-marker, .ruler-rabbit')) return;
+            if (e.target.closest('.ruler-marker, .ruler-rabbit, .ruler-carrot')) return;
             dragging = true;
             moved = false;
             startY = e.clientY;
@@ -784,6 +802,19 @@ export class TimelineEditor {
          * natural thing to grab. It sets moved from the start -- this is a
          * seek, never a click, so the form does not open at the end.
          */
+        const carrot = track.querySelector('.ruler-carrot');
+        if (carrot) {
+            this._showCarrot();
+            carrot.addEventListener('click', (e) => {
+                e.stopPropagation();
+                if (this.player && this.player.togglePlay) {
+                    this.player.togglePlay();
+                    // Webamp settles a moment later; show what it settled on.
+                    setTimeout(() => this._showCarrot(), 150);
+                }
+            });
+        }
+
         const rabbit = track.querySelector('.ruler-rabbit');
         if (rabbit) {
             rabbit.addEventListener('mousedown', (e) => {
@@ -2340,6 +2371,7 @@ export class TimelineEditor {
                     }, 700);
                 }
                 this._lastHeadTime = currentTime;
+                this._showCarrot();
             }
         }
     }
