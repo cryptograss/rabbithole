@@ -38,6 +38,9 @@ export const PANE_STYLES = [
 	'h2 { font-size: 18px; margin: 1em 0 .3em; }',
 	'h3 { font-size: 15px; margin: .8em 0 .3em; }',
 	'.mw-editsection { display: none; }',
+	// MonoBook boxes the article in a grey border, which inside the pane
+	// was a frame inside a frame, standing off from the player.
+	'#content { border: 0; }',
 	'.pane-chrome { display: flex; align-items: center; gap: 8px;',
 	'  padding: 6px 8px; margin: -4px -4px 10px; background: #f3f5f1;',
 	'  border-bottom: 1px solid #d8ddd3; font-size: 13px;',

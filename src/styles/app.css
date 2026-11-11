@@ -615,8 +615,9 @@ body.bottom-bar .layout-ab-wrap {
     overflow-y: auto;
     background: white;
     /* No gutter of its own: the article sits snug against the player
-       (Justin, 11 Nov 2026), and keeps a little air for its text. */
-    padding: .6em .8em 1em;
+       (Justin, 11 Nov 2026). Its text keeps the air MonoBook's #content
+       gives it. */
+    padding: 0;
 }
 
 /* The pane is wiki content without the wiki's document, so it does
