@@ -1130,8 +1130,62 @@ export class TimelineEditor {
             });
         }
 
+        box.querySelectorAll('input[list]').forEach(input => this._pickMenu(box, input));
+
         const solo = box.querySelector('.mf-solo');
         if (solo) solo.focus();
+    }
+
+    /**
+     * Every choice, whatever is in the box.
+     *
+     * Skyler, 11 Nov 2026: "when you click the drop down for soloist - no
+     * names come up". A datalist offers only what matches the box's text,
+     * so with "Justin Holmes" already in it, it offered Justin Holmes, or
+     * nothing. This menu lists everyone on a click or the down arrow, and
+     * narrows only to what you type.
+     */
+    _pickMenu(box, input) {
+        const list = input.list;
+        const options = list ? [...list.options].map(o => o.value) : [];
+        input.removeAttribute('list');
+        if (!options.length) return;
+
+        const menu = document.createElement('div');
+        menu.className = 'mf-menu';
+        menu.hidden = true;
+        box.appendChild(menu);
+
+        const show = (filter) => {
+            const f = (filter || '').toLowerCase();
+            const shown = f ? options.filter(o => o.toLowerCase().includes(f)) : options;
+            if (!shown.length) { menu.hidden = true; return; }
+            menu.innerHTML = shown.map(o => `<div class="mf-menu-item${o === input.value ? ' on' : ''}"
+                data-value="${this._escapeHtml(o)}">${this._escapeHtml(o)}</div>`).join('');
+            const b = box.getBoundingClientRect();
+            const r = input.getBoundingClientRect();
+            menu.style.left = `${r.left - b.left}px`;
+            menu.style.top = `${r.bottom - b.top + 2}px`;
+            menu.style.width = `${r.width}px`;
+            menu.hidden = false;
+        };
+
+        input.addEventListener('click', () => show(''));
+        input.addEventListener('input', () => show(input.value));
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowDown') { e.preventDefault(); show(''); }
+        });
+        input.addEventListener('blur', () => { menu.hidden = true; });
+        // mousedown, not click: a click lands after the box has blurred.
+        menu.addEventListener('mousedown', (e) => {
+            const item = e.target.closest('.mf-menu-item');
+            if (!item) return;
+            e.preventDefault();
+            input.value = item.dataset.value;
+            input.dispatchEvent(new Event('input', { bubbles: true }));
+            input.dispatchEvent(new Event('change', { bubbles: true }));
+            menu.hidden = true;
+        });
     }
 
 
