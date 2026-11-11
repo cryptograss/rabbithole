@@ -1,6 +1,5 @@
 /**
- * The wiki pane: which page was asked for, which is on screen, and how
- * much of the wiki it wears.
+ * The wiki pane: which page was asked for, and which is on screen.
  *
  * The rule: the pane shows the page most recently asked for. Each open()
  * aborts the request before it and becomes the newest; a response that
@@ -17,23 +16,11 @@ import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
 
 import * as wiki from '../wiki/api.js';
-import { PANE_MODES, WIKI_STYLESHEETS, paneBody, searchResults, loadingBody, failedBody, wikiPath } from '../wiki/pane-html.js';
-
-const MODE_KEY = 'rabbitholePaneMode';
-
-function readMode() {
-	try {
-		const saved = window.localStorage.getItem( MODE_KEY );
-		return PANE_MODES.includes( saved ) ? saved : 'content';
-	} catch ( e ) {
-		return 'content';
-	}
-}
+import { paneBody, searchResults, loadingBody, failedBody, wikiPath } from '../wiki/pane-html.js';
 
 export const usePaneStore = defineStore( 'pane', () => {
 	const wanted = ref( null );
 	const shown = ref( null );
-	const mode = ref( readMode() );
 	/** The HTML inside the shadow root. A string: the component injects it. */
 	const html = ref( '' );
 	/** How many times html has been replaced, so a repeat of the same string still re-renders. */
@@ -80,26 +67,10 @@ export const usePaneStore = defineStore( 'pane', () => {
 
 		try {
 			const parsed = await wiki.parsePage( title, { signal: mine.signal } );
-			let fullPage = null;
-			let skinCss = '';
-			if ( mode.value === 'skin' ) {
-				try {
-					[ fullPage, skinCss ] = await Promise.all( [
-						fetch( path, { signal: mine.signal } ).then( ( r ) => r.text() ),
-						wiki.wikiStylesheets( WIKI_STYLESHEETS, { signal: mine.signal } ),
-					] );
-				} catch ( err ) {
-					if ( ! latest() ) {
-						return;
-					}
-					console.warn( 'Could not fetch the full page for skin mode', err );
-					fullPage = null;
-				}
-			}
 			if ( ! latest() ) {
 				return;
 			}
-			setHtml( paneBody( title, parsed, mode.value, fullPage, skinCss ) );
+			setHtml( paneBody( title, parsed ) );
 			shown.value = title;
 			loading.value = false;
 			if ( push ) {
@@ -121,28 +92,13 @@ export const usePaneStore = defineStore( 'pane', () => {
 		}
 	}
 
-	function setMode( m ) {
-		if ( ! PANE_MODES.includes( m ) ) {
-			return;
-		}
-		mode.value = m;
-		try {
-			window.localStorage.setItem( MODE_KEY, m );
-		} catch ( e ) {
-			// Fine: it holds for the page.
-		}
-		if ( shown.value ) {
-			open( shown.value, { push: false, force: true } );
-		}
-	}
-
 	async function search( text ) {
 		const q = text.trim();
 		if ( ! q ) {
 			return;
 		}
 		const hits = await wiki.search( q );
-		setHtml( searchResults( q, hits, mode.value ) );
+		setHtml( searchResults( q, hits ) );
 		shown.value = null;
 		wanted.value = null;
 	}
@@ -150,5 +106,5 @@ export const usePaneStore = defineStore( 'pane', () => {
 	/** The title of the song page on screen, or null if the pane shows something else. */
 	const shownSongTitle = computed( () => ( shown.value && shown.value.startsWith( 'Song:' ) ? shown.value : null ) );
 
-	return { wanted, shown, mode, html, revision, loading, trail, shownSongTitle, open, setMode, search };
+	return { wanted, shown, html, revision, loading, trail, shownSongTitle, open, search };
 } );

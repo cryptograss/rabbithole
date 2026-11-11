@@ -71,6 +71,7 @@ function onArtError() {
 		<div id="recording-metadata" class="recording-metadata">
 			<span v-for="p in songs.metadataParts" :key="p">{{ p }}</span>
 		</div>
-		<div v-if="upNextText" id="up-next" class="up-next">{{ upNextText }}</div>
+		<button v-if="upNextText" id="up-next" type="button" class="up-next" title="Play it now"
+			@click="player.model && player.model.playNext()">{{ upNextText }}</button>
 	</div>
 </template>

@@ -24,19 +24,23 @@ export function personName( title ) {
 }
 
 /**
- * The first of a picker's songs worth playing next: not the one playing, not
- * one already played while following, not one already queued. Pure: give it
- * the songs and a way to find each one's recording.
+ * The first of a picker's songs worth playing next: not the recording
+ * playing, not one already played while following, not one already queued.
+ * Pure: give it the songs and a way to find each one's recording.
+ *
+ * Recordings are compared by CID, never by title. The graph names a song
+ * by its Song: page and the track by its own title, and the two differ:
+ * "Barlow's Jig" is the track "Barlows". Compared by title, following
+ * never saw that Barlows was already playing and queued it again behind
+ * itself: "Up next: Barlows · Barlows" (Justin, 11 Nov 2026).
  */
-export async function firstPlayable( songsOf, { current, played, queuedCids, cidOf } ) {
+export async function firstPlayable( songsOf, { currentCid, playedCids, queuedCids, cidOf } ) {
 	for ( const song of songsOf ) {
-		if ( song === current || played.has( song ) ) {
+		const cid = await cidOf( song );
+		if ( ! cid || cid === currentCid || playedCids.has( cid ) || queuedCids.includes( cid ) ) {
 			continue;
 		}
-		const cid = await cidOf( song );
-		if ( cid && ! queuedCids.includes( cid ) ) {
-			return { song, cid };
-		}
+		return { song, cid };
 	}
 	return null;
 }
@@ -54,14 +58,15 @@ export const usePickerStore = defineStore( 'picker', () => {
 	 * {name, next: {song, cid} | null}, or null when the page is not a picker's.
 	 */
 	const offer = ref( null );
-	const played = new Set();
+	/** Every recording that has been on, by CID. */
+	const playedCids = new Set();
 
-	const currentSong = () => ( songs.current && songs.current.title ? 'Song:' + songs.current.title : null );
+	const currentCid = () => ( songs.current && songs.current._trackCid ) || null;
 
 	async function nextFor( name ) {
 		const graph = await performerGraph();
 		return firstPlayable( graph.plays[ name ] || [], {
-			current: currentSong(), played, queuedCids: songs.queuedCids, cidOf: songCid,
+			currentCid: currentCid(), playedCids, queuedCids: songs.queuedCids, cidOf: songCid,
 		} );
 	}
 
@@ -98,9 +103,19 @@ export const usePickerStore = defineStore( 'picker', () => {
 		}
 	}
 
+	/*
+	 * Following starts the picker's next song at once when nothing is
+	 * playing. Queued behind a song that had already ended, it waited for
+	 * an end that had come and gone: "Following Jake Stargel. Plays next:
+	 * Barlow's Jig", and then nothing (Justin, 11 Nov 2026). A paused song
+	 * is still the song you're on, so following waits for it.
+	 */
 	async function follow( name ) {
 		following.value = name;
 		await queueNext();
+		if ( next.value && player.status === 'STOPPED' ) {
+			player.model.playNext();
+		}
 	}
 
 	function stop() {
@@ -110,9 +125,9 @@ export const usePickerStore = defineStore( 'picker', () => {
 
 	// Every song that has been on counts as played, the first one too, so
 	// following never lines up something you just heard.
-	watch( currentSong, ( song ) => {
-		if ( song ) {
-			played.add( song );
+	watch( currentCid, ( cid ) => {
+		if ( cid ) {
+			playedCids.add( cid );
 		}
 	}, { immediate: true } );
 
