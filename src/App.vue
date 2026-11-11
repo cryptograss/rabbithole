@@ -77,12 +77,15 @@ function onPopState( e ) {
 }
 
 /*
- * A song's page: Song:<title> when there is one, else the track's metadata
- * page. A song should open on the song, not on the YAML somebody edits it
- * with (Skyler).
+ * A song's page: Song:<title> when there is one, else its Release page. A
+ * song should open on the song, not on the YAML somebody edits it with
+ * (Skyler). The /Metadata page was the fallback, and a song nobody had
+ * charted yet has none, so the pane opened on nothing: Reuben's Train from
+ * Web3 Summit 2024 (Skyler, 11 Nov 2026). The Release page is always
+ * there, since that is where the track was loaded from.
  */
 async function openSongPage( song, { push = true } = {} ) {
-	const fallback = song._metadataTitle;
+	const fallback = song._releaseTitle || song._metadataTitle;
 	if ( ! song.title ) {
 		pane.open( fallback, { push } );
 		return;

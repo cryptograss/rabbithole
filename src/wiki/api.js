@@ -185,6 +185,7 @@ export async function loadTrack( cid, { forcedEncoding = null, signal } = {} ) {
 		engineer: metadata.engineer,
 		_trackCid: cid,
 		_metadataTitle: 'Release:' + cid + '/Metadata',
+		_releaseTitle: 'Release:' + cid,
 		_record: metadata.record,
 		_studio: metadata.studio,
 		_sessionType: metadata.sessionType,
