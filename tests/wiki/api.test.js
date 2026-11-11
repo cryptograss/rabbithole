@@ -2,7 +2,7 @@
  * What the wiki says, read right.
  */
 import { describe, it, expect } from 'vitest';
-import { interpretEditResponse, extractMetadata, pickEncoding, metadataYaml, sameOrigin, isCharted } from '../../src/wiki/api.js';
+import { interpretEditResponse, extractMetadata, pickEncoding, audioInFolder, metadataYaml, sameOrigin, isCharted } from '../../src/wiki/api.js';
 
 /*
  * "Saved" means the wiki made a revision. MediaWiki answers result: Success
@@ -72,6 +72,21 @@ describe( 'pickEncoding', () => {
 
 	it( 'has nothing to say without encodings', () => {
 		expect( pickEncoding( null ) ).toBeNull();
+	} );
+} );
+
+describe( 'audioInFolder', () => {
+	const listing = '<a href="/ipfs/QmDir">QmDir</a> <a href="/ipfs/QmDir/metadata.json">metadata.json</a>'
+		+ ' <a href="/ipfs/QmMeta?filename=metadata.json">QmMeta</a>'
+		+ ' <a href="/ipfs/QmDir/ruebens-train-web3summit.mp3">ruebens-train-web3summit.mp3</a>'
+		+ ' <a href="/ipfs/QmFile?filename=ruebens-train-web3summit.mp3">QmFile</a>';
+
+	it( 'finds the audio file in an upload folder', () => {
+		expect( audioInFolder( listing, 'QmDir' ) ).toBe( 'QmDir/ruebens-train-web3summit.mp3' );
+	} );
+
+	it( 'has nothing when the folder holds no audio', () => {
+		expect( audioInFolder( '<a href="/ipfs/QmDir/metadata.json">m</a>', 'QmDir' ) ).toBeNull();
 	} );
 } );
 
