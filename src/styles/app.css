@@ -232,47 +232,26 @@ body:not(.bottom-bar) .data-section {
     padding-bottom: 6px;
 }
 
-/* The A/B switch. Deliberately plain and labelled with which layout
-   you are looking at, so a screenshot says which one it is. */
-.layout-ab-wrap {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 4px;
-    align-items: center;
-}
-
-/* In the sidebar it sits at the bottom left, under the song parts,
-   inside the sticky data section, so it is there whatever the
-   song's length. Skyler, 6 Nov 2026. */
-body:not(.bottom-bar) .layout-ab-wrap {
-    justify-content: flex-start;
-    margin-top: 6px;
-}
-
-.layout.minimized .layout-ab-wrap {
-    display: none;
-}
-
-/* In the bar layout the sidebar is the bar itself, so the switch
-   floats top right of the page, as it always has. */
-body.bottom-bar .layout-ab-wrap {
-    position: fixed;
-    top: 4px;
-    right: 4px;
-    z-index: 2000;
-    justify-content: flex-end;
-    max-width: calc(100vw - 8px);
+/* The layout switch: one small button, the shape of the other layout.
+   In the sidebar it sits at the right end of the Song Parts label, so
+   it takes no row the cards might need (Justin, 11 Nov 2026). */
+.data-section {
+    position: relative;
 }
 
 .layout-ab {
-    font: 600 11px/1 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-    padding: 5px 9px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    padding: 0;
     border: 1px solid #c3cbbb;
-    border-radius: 11px;
+    border-radius: 4px;
     background: #fffdf5;
-    color: #2d5016;
-    text-decoration: none;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+    color: #4a7c59;
+    cursor: pointer;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.1);
 }
 
 .layout-ab:hover {
@@ -281,18 +260,23 @@ body.bottom-bar .layout-ab-wrap {
     border-color: #3c6749;
 }
 
-/* Only shown once a person has overruled the window, so there is
-   always a way back to "decide for me". */
-.layout-ab-auto {
-    font-weight: 500;
+body:not(.bottom-bar) .layout-ab {
+    position: absolute;
+    top: 3px;
+    right: 4px;
 }
 
-/* A stored choice is overriding the window. Amber so it reads as a
-   state somebody set, rather than as the normal furniture. */
-.layout-ab-pinned,
-.layout-ab-pinned + .layout-ab-auto {
-    background: #fff6d8;
-    border-color: #e3d08a;
+.layout.minimized .layout-ab {
+    display: none;
+}
+
+/* In the bar layout the sidebar is the bar itself, so the switch
+   floats top right of the page, as it always has. */
+body.bottom-bar .layout-ab {
+    position: fixed;
+    top: 4px;
+    right: 4px;
+    z-index: 2000;
 }
 
 /* The YAML export, shown when the clipboard is refused or just so a
@@ -320,6 +304,15 @@ body.bottom-bar .layout-ab-wrap {
     padding: 6px 4px 4px;
     margin-bottom: 6px;
     border-bottom: 1px solid #e5e7e1;
+}
+
+.song-title-link {
+    color: inherit;
+    text-decoration: none;
+}
+
+.song-title-link:hover {
+    text-decoration: underline;
 }
 
 .song-title-display {

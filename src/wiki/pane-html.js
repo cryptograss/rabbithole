@@ -14,33 +14,41 @@
  */
 
 /*
- * The same modules a real article page loads, in the same skin. The one
- * that matters most is ext.pickipediaContent.styles, the extension's own
- * stylesheet: it draws the proposal markers and the studio blocks.
+ * The same modules a real article page loads, in the same skin. The ones
+ * that matter most are the extensions' own stylesheets: pickipediaContent
+ * draws the studio blocks and the rows on a picker's page, and
+ * pickipediaVerification draws the proposal markers. Without the second
+ * every proposed line wore a bare "[unverified]" (Justin, 11 Nov 2026).
  */
 const WIKI_STYLESHEETS = [
-	'/load.php?lang=en&modules=ext.pickipediaContent.styles%7Cskins.monobook.styles&only=styles&skin=monobook',
+	'/load.php?lang=en&modules=ext.pickipediaContent.styles%7Cext.pickipediaVerification.styles%7Cskins.monobook.styles&only=styles&skin=monobook',
 	'/load.php?lang=en&modules=site.styles&only=styles&skin=monobook',
 ];
 
+/*
+ * The pane wears MonoBook's page, not only its article: the grey paper
+ * with the wave along the top, the white article box with its thin
+ * border, and the skin's own sans-serif at the skin's size. MonoBook
+ * puts those on <body>, which a shadow root has none of, so they are
+ * restated on :host. A plain white pane with the app's own font was
+ * jarring beside the wiki (Justin, 11 Nov 2026).
+ */
 export const PANE_STYLES = [
 	...WIKI_STYLESHEETS.map( ( href ) => '<link rel="stylesheet" href="' + href + '">' ),
 	'<style>',
-	':host { display: block; font-size: 14px; line-height: 1.5;',
-	'  color: #202122; font-family: -apple-system, BlinkMacSystemFont,',
-	'  "Segoe UI", Roboto, sans-serif; }',
+	':host { display: block; font-family: sans-serif; font-size: 11px;',
+	'  line-height: 1.5; color: #000; background: #f9f9f9',
+	'  url("/skins/MonoBook/resources/images/headbg.svg") 0 0 no-repeat;',
+	'  min-height: 100%; }',
 	'img { max-width: 100%; height: auto; }',
 	'table { max-width: 100%; }',
-	'.pane-title { font-size: 22px; font-weight: 700; color: #2d5016;',
-	'  margin: 0 0 .4em; border-bottom: 1px solid #e5e7e1;',
-	'  padding-bottom: .2em; }',
+	// MonoBook floats the article beside a sidebar column the pane has
+	// not got: the box sits in the pane with a margin of paper around it.
+	'#globalWrapper #column-content { float: none; margin: 0; width: auto; }',
+	'#globalWrapper #content.mw-body { margin: 10px; }',
+	'.pane-title { margin: 0 0 .4em; }',
 	'.pane-loading { color: #6b7566; font-size: 13px; }',
-	'h2 { font-size: 18px; margin: 1em 0 .3em; }',
-	'h3 { font-size: 15px; margin: .8em 0 .3em; }',
 	'.mw-editsection { display: none; }',
-	// MonoBook boxes the article in a grey border, which inside the pane
-	// was a frame inside a frame, standing off from the player.
-	'#content { border: 0; }',
 	'.pane-chrome { display: flex; align-items: center; gap: 8px;',
 	'  padding: 6px 8px; margin: -4px -4px 10px; background: #f3f5f1;',
 	'  border-bottom: 1px solid #d8ddd3; font-size: 13px;',

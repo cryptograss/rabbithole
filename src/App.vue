@@ -53,7 +53,7 @@ watch( () => [ player.song && player.song._trackCid, player.currentSolo ], ( [ c
 	if ( cid !== oldCid ) {
 		// The first song is openPaneForStart's; this is the next one.
 		if ( oldCid && player.song ) {
-			openSongPage( player.song );
+			pane.openSong( player.song );
 		}
 	} else if ( solo && player.playing ) {
 		pane.open( solo );
@@ -76,34 +76,11 @@ function onPopState( e ) {
 	}
 }
 
-/*
- * A song's page: Song:<title> when there is one, else its Release page. A
- * song should open on the song, not on the YAML somebody edits it with
- * (Skyler). The /Metadata page was the fallback, and a song nobody had
- * charted yet has none, so the pane opened on nothing: Reuben's Train from
- * Web3 Summit 2024 (Skyler, 11 Nov 2026). The Release page is always
- * there, since that is where the track was loaded from.
- */
-async function openSongPage( song, { push = true } = {} ) {
-	const fallback = song._releaseTitle || song._metadataTitle;
-	if ( ! song.title ) {
-		pane.open( fallback, { push } );
-		return;
-	}
-	const songPage = 'Song:' + song.title;
-	try {
-		pane.open( ( await wiki.pageExists( songPage ) ) ? songPage : fallback, { push } );
-	} catch ( err ) {
-		console.warn( 'Could not check for a song page:', err );
-		pane.open( fallback, { push } );
-	}
-}
-
 /** Where the pane opens: the first song's page, linked to or not. */
 function openPaneForStart() {
 	const song = songs.initial;
 	if ( song ) {
-		openSongPage( song, { push: false } );
+		pane.openSong( song, { push: false } );
 	} else {
 		pane.open( 'Justin Holmes', { push: false } );
 	}
@@ -141,15 +118,16 @@ onBeforeUnmount( () => {
 				     they are the bar's middle zone, after the song parts. -->
 				<Ensemble v-if="!layout.isBar" />
 
-				<!-- Where you have been comes after what is playing: above it,
-				     a few hops pushed Webamp off the bottom of the screen
-				     (Justin, 11 Nov 2026). The bar has no room for it. -->
-				<WalkTrail v-if="!layout.isBar" />
+				<!-- One line, after what is playing: above Webamp, a few hops
+				     pushed it off the bottom of the screen (Justin, 11 Nov
+				     2026). The hops open in a drawer over the page; in the
+				     bar the line is a tab at the right end. -->
+				<WalkTrail />
 
 				<div class="data-section">
 					<div class="section-label">Song Parts</div>
-					<SongParts />
 					<LayoutSwitch />
+					<SongParts />
 				</div>
 
 				<Ensemble v-if="layout.isBar" />

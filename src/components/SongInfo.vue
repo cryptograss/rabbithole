@@ -10,15 +10,26 @@ import { computed } from 'vue';
 import { useSongStore } from '../stores/song.js';
 import { usePlayerStore } from '../stores/player.js';
 import { useLayoutStore } from '../stores/layout.js';
+import { usePaneStore } from '../stores/pane.js';
+import { wikiPath } from '../wiki/pane-html.js';
 import DemoSongSelect from './DemoSongSelect.vue';
 
 const songs = useSongStore();
 const player = usePlayerStore();
 const layout = useLayoutStore();
+const pane = usePaneStore();
 
 const song = computed( () => songs.current );
 const tracks = computed( () => ( songs.album ? songs.album.tracks.slice().sort( ( a, b ) => ( a.track_number || 0 ) - ( b.track_number || 0 ) ) : [] ) );
 const upNextText = computed( () => ( player.upNext.length ? 'Up next: ' + player.upNext.map( ( s ) => s.title ).join( ' · ' ) : '' ) );
+
+/** The song's own page, for the title's href; the click opens it in the pane. */
+const songHref = computed( () => wikiPath( song.value.title ? 'Song:' + song.value.title : song.value._metadataTitle || '' ) );
+
+function backToSong() {
+	layout.stopFollowing();
+	pane.openSong( song.value );
+}
 
 function onTrackPick( e ) {
 	songs.goToTrack( e.target.value );
@@ -37,7 +48,10 @@ function onArtError() {
 			it edits, not a button with its own space in the player (Justin,
 			7 Nov 2026), named in small print so it reads as more than a
 			doodle (Skyler, 8 Nov). -->
-		<h2 id="song-title-display" class="song-title-display">{{ song.title || 'Untitled' }}<button
+		<!-- The title is the way back to the song's page once the pane has
+			followed the pickers away from it (Justin, 11 Nov 2026). -->
+		<h2 id="song-title-display" class="song-title-display"><a id="song-title-link" class="song-title-link" :href="songHref"
+			title="Back to this song's page" @click.prevent="backToSong">{{ song.title || 'Untitled' }}</a><button
 			id="editor-toggle-btn"
 			class="editor-pencil"
 			:class="{ active: layout.editorOpen }"
