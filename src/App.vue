@@ -24,6 +24,7 @@ import WebampDock from './components/WebampDock.vue';
 import Ensemble from './components/Ensemble.vue';
 import SongParts from './components/SongParts.vue';
 import LayoutSwitch from './components/LayoutSwitch.vue';
+import WalkTrail from './components/WalkTrail.vue';
 import WikiPane from './components/WikiPane.vue';
 import EditorPanel from './components/EditorPanel.vue';
 
@@ -131,6 +132,7 @@ onBeforeUnmount( () => {
 					<FollowSwitch />
 				</div>
 
+				<WalkTrail />
 
 				<WebampDock />
 
