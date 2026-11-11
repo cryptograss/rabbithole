@@ -173,6 +173,14 @@ onBeforeUnmount( dispose );
 
 // The song changed under an open editor: the edits are kept in the
 // browser's backup for that recording, and the editor shows the new song.
+// Paused or played anywhere (Webamp, the sidebar's carrot), the ruler's
+// carrot says so: the editor's ticks stop when the song does.
+watch( () => player.status, () => {
+	if ( editor ) {
+		editor._showCarrot();
+	}
+} );
+
 watch( song, ( next, prev ) => {
 	if ( next === prev ) {
 		return;
