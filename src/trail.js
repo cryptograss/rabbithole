@@ -14,14 +14,36 @@
  * Turn an SMW `#ask` result set into a graph.
  *
  * @param {Object} results The `query.results` object from api.php action=ask,
- *   keyed by subobject id, each with printouts for Has performer and
- *   Has instrument.
- * @return {{band: Object, plays: Object}} band maps a song to its players and
- *   their instruments; plays maps a person to the songs they are on.
+ *   keyed by subobject id, each with printouts for Has cut, Has performer
+ *   and Has instrument (a musician), or Has cut and Has record (an
+ *   appearance).
+ * @return {{band: Object, plays: Object, records: Object}} band maps a song
+ *   to its players and their instruments; plays maps a person to the songs
+ *   they are on; records maps a song to each player's records of it, so a
+ *   credit on one cut is never taken for a credit on another.
  */
 export function buildGraph( results ) {
 	const band = {};
 	const plays = {};
+	const records = {};
+
+	// A cut's record, per song: the appearance subobjects say it, the
+	// musician subobjects only name the cut. With no block height the cut
+	// is named after its record anyway, so a cut nobody matched is its own
+	// record.
+	const recordOfCut = {};
+	const text = ( v ) => ( typeof v === 'string' ? v : v && v.fulltext ) || null;
+
+	for ( const [ key, value ] of Object.entries( results || {} ) ) {
+		const song = key.split( '#' )[ 0 ].trim();
+		const printouts = value.printouts || {};
+		const record = text( ( printouts[ 'Has record' ] || [] )[ 0 ] );
+		const cut = text( ( printouts[ 'Has cut' ] || [] )[ 0 ] );
+		if ( song && record && cut ) {
+			recordOfCut[ song ] = recordOfCut[ song ] || {};
+			recordOfCut[ song ][ cut ] = record;
+		}
+	}
 
 	for ( const [ key, value ] of Object.entries( results || {} ) ) {
 		// Subobject ids look like "Song:August# 4d6a4d21...".
@@ -32,9 +54,11 @@ export function buildGraph( results ) {
 
 		const printouts = value.printouts || {};
 		const instruments = printouts[ 'Has instrument' ] || [];
+		const cut = text( ( printouts[ 'Has cut' ] || [] )[ 0 ] );
+		const record = cut ? ( ( recordOfCut[ song ] || {} )[ cut ] || cut ) : null;
 
 		for ( const performer of printouts[ 'Has performer' ] || [] ) {
-			const name = typeof performer === 'string' ? performer : performer.fulltext;
+			const name = text( performer );
 			if ( !name ) {
 				continue;
 			}
@@ -46,10 +70,26 @@ export function buildGraph( results ) {
 			if ( !plays[ name ].includes( song ) ) {
 				plays[ name ].push( song );
 			}
+
+			if ( record ) {
+				records[ song ] = records[ song ] || {};
+				records[ song ][ name ] = records[ song ][ name ] || [];
+				if ( !records[ song ][ name ].includes( record ) ) {
+					records[ song ][ name ].push( record );
+				}
+			}
 		}
 	}
 
-	return { band, plays };
+	return { band, plays, records };
+}
+
+/**
+ * The records a person's credits on a song are on, as the graph knows them.
+ * Empty when the credit names no cut: then nothing can be ruled out.
+ */
+export function recordsOn( graph, song, name ) {
+	return ( ( graph && graph.records && graph.records[ song ] ) || {} )[ name ] || [];
 }
 
 /**

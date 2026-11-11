@@ -38,6 +38,36 @@ describe( 'firstPlayable', () => {
 		} );
 		expect( next ).toEqual( { song: 'Song:Victory', cid: 'Qv' } );
 	} );
+
+	it( 'skips a recording the picker is not on, when the song was cut twice', async () => {
+		// Harry Clark is on Barlow's Jig from Vowel Sounds. The song's page
+		// plays the 4masks recording, with David Grier. Following Harry
+		// landed on it (Justin, 11 Nov 2026).
+		// A record goes by its page's name and its Release's title; the
+		// credit names the page.
+		const jig = { "Song:Barlow's Jig": 'Qb4', 'Song:Silver 44': 'Qs' };
+		const names = [ '4masks', 'Justin Myles Holmes - 4masks (RC1)' ];
+		const harry = { "Song:Barlow's Jig": [ 'Vowel Sounds' ], 'Song:Silver 44': [ '4masks' ] };
+		const next = await firstPlayable( [ "Song:Barlow's Jig", 'Song:Silver 44' ], {
+			currentCid: null, playedCids: new Set(), queuedCids: [],
+			cidOf: async ( s ) => jig[ s ], recordsOf: async () => names, recordsOn: ( s ) => harry[ s ] || [],
+		} );
+		expect( next ).toEqual( { song: 'Song:Silver 44', cid: 'Qs' } );
+	} );
+
+	it( 'rules nothing out when the recording or the credit names no record', async () => {
+		const lone = await firstPlayable( [ "Song:Reuben's Train" ], {
+			currentCid: null, playedCids: new Set(), queuedCids: [],
+			cidOf: async () => 'Qr', recordsOf: async () => [], recordsOn: () => [ 'Vowel Sounds' ],
+		} );
+		expect( lone ).toEqual( { song: "Song:Reuben's Train", cid: 'Qr' } );
+
+		const uncut = await firstPlayable( [ 'Song:August' ], {
+			currentCid: null, playedCids: new Set(), queuedCids: [],
+			cidOf: async () => 'Qa', recordsOf: async () => [ '4masks' ], recordsOn: () => [],
+		} );
+		expect( uncut ).toEqual( { song: 'Song:August', cid: 'Qa' } );
+	} );
 } );
 
 describe( 'personName', () => {

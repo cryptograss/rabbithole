@@ -333,10 +333,58 @@ export async function search( text ) {
 	return data.query?.search || [];
 }
 
-/** The performer graph's raw results, for trail.js's buildGraph. */
+/**
+ * The performer graph's raw results, for trail.js's buildGraph.
+ *
+ * Two kinds of subobject come back, both from {{Studio cut}}: one per
+ * musician (Has cut, Has performer, Has instrument) and one per appearance
+ * (Has cut, Has record). They share the cut, and buildGraph joins them, so
+ * each credit knows which record it is on. Without that, Harry Clark's
+ * Vowel Sounds cut of Barlow's Jig led to the 4masks recording, which he
+ * is not on (Justin, 11 Nov 2026).
+ */
 export async function performerResults() {
-	const d = await api( { action: 'ask', query: '[[Has performer::+]]|?Has performer|?Has instrument|limit=500' } );
+	const d = await api( {
+		action: 'ask',
+		query: '[[Has performer::+]] OR [[Has record::+]]|?Has cut|?Has performer|?Has instrument|?Has record|limit=1000',
+	} );
 	return d.query && d.query.results;
+}
+
+const recordsForCid = {};
+
+/**
+ * The names the record a track is on goes by: the record page that carries
+ * its parent Release ({{Record release}} on [[4masks]] names
+ * Release:QmUWtV…, so the backlink finds the page, as findAlbumArt does),
+ * and the Release's own title ("Justin Myles Holmes - 4masks (RC1)"). The
+ * Studio cut credits name the record page, so that is the one that matters.
+ * Empty when the track stands alone or nobody can say. Asked once per CID.
+ */
+export function recordsOf( cid ) {
+	if ( recordsForCid[ cid ] === undefined ) {
+		recordsForCid[ cid ] = ( async () => {
+			try {
+				const release = await fetchYamlPage( 'Release:' + cid );
+				if ( ! release || ! release.parent_release ) {
+					return [];
+				}
+				const parent = 'Release:' + release.parent_release;
+				const [ album, back ] = await Promise.all( [
+					fetchYamlPage( parent ),
+					api( { action: 'query', list: 'backlinks', bltitle: parent, blnamespace: '0', bllimit: '5' } ),
+				] );
+				const names = ( back.query?.backlinks || [] ).map( ( b ) => b.title );
+				if ( album && album.title ) {
+					names.push( album.title );
+				}
+				return names;
+			} catch ( err ) {
+				return [];
+			}
+		} )();
+	}
+	return recordsForCid[ cid ];
 }
 
 /**

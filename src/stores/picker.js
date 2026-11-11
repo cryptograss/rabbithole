@@ -14,6 +14,8 @@
 import { defineStore } from 'pinia';
 import { ref, watch } from 'vue';
 
+import { recordsOn } from '../trail.js';
+import { recordsOf } from '../wiki/api.js';
 import { performerGraph, songCid } from '../wiki/queue.js';
 import { usePlayerStore } from './player.js';
 import { useSongStore } from './song.js';
@@ -44,11 +46,26 @@ export function viaPicker( graph, song, name ) {
  * "Barlow's Jig" is the track "Barlows". Compared by title, following
  * never saw that Barlows was already playing and queued it again behind
  * itself: "Up next: Barlows · Barlows" (Justin, 11 Nov 2026).
+ *
+ * And the recording has to be one the picker is on. A song is cut more than
+ * once, with different bands: Harry Clark is on Barlow's Jig from Vowel
+ * Sounds, and the recording the song's page plays is the one from 4masks,
+ * which he is not on. Following him landed there (Justin, 11 Nov 2026).
+ * So the names of the recording's record are held against the records the
+ * picker's credits on the song are on; when either side is unknown, nothing
+ * is ruled out.
  */
-export async function firstPlayable( songsOf, { currentCid, playedCids, queuedCids, cidOf } ) {
+export async function firstPlayable( songsOf, {
+	currentCid, playedCids, queuedCids, cidOf, recordsOf = async () => [], recordsOn = () => [],
+} ) {
 	for ( const song of songsOf ) {
 		const cid = await cidOf( song );
 		if ( ! cid || cid === currentCid || playedCids.has( cid ) || queuedCids.includes( cid ) ) {
+			continue;
+		}
+		const names = await recordsOf( cid );
+		const theirs = recordsOn( song );
+		if ( names.length && theirs.length && ! names.some( ( n ) => theirs.includes( n ) ) ) {
 			continue;
 		}
 		return { song, cid };
@@ -79,6 +96,7 @@ export const usePickerStore = defineStore( 'picker', () => {
 		const graph = await performerGraph();
 		return firstPlayable( graph.plays[ name ] || [], {
 			currentCid: currentCid(), playedCids, queuedCids: songs.queuedCids, cidOf: songCid,
+			recordsOf, recordsOn: ( song ) => recordsOn( graph, song, name ),
 		} );
 	}
 
