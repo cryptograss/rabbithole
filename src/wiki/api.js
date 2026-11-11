@@ -125,6 +125,41 @@ function defaultCanPlay( type ) {
 }
 
 /**
+ * The audio file in an upload's folder, as "<cid>/<name>", or null.
+ *
+ * A song uploaded on its own (Special:DeliverOtherContent) is pinned as a
+ * folder: the file as it was uploaded, and a metadata.json. Its Release has
+ * no encodings, since only albums are transcoded, so Rabbithole said "no
+ * encoding this browser can play" and played nothing: Reuben's Train from
+ * Web3 Summit 2024 (Skyler and Justin, 11 Nov 2026). The folder's listing
+ * on the gateway names the file; this reads it from that page.
+ */
+export function audioInFolder( html, cid ) {
+	const prefix = '/ipfs/' + cid + '/';
+	for ( const [ , href ] of String( html ).matchAll( /href="([^"]+)"/g ) ) {
+		if ( href.startsWith( prefix ) && /\.(mp3|ogg|oga|flac|wav|m4a|aac|opus)$/i.test( href ) ) {
+			return href.slice( '/ipfs/'.length );
+		}
+	}
+	return null;
+}
+
+async function lonePlayable( release, cid, { signal } = {} ) {
+	if ( ! /^audio\//.test( release.file_type || '' ) ) {
+		return null;
+	}
+	// Some are pinned as the bare file (Barlow's Jig with David Grier), so
+	// ask what the CID is before reading it as a folder.
+	const url = IPFS_GATEWAY + '/ipfs/' + cid + '/';
+	const head = await fetch( url, { method: 'HEAD', signal } );
+	if ( /^audio\//.test( head.headers.get( 'content-type' ) || '' ) ) {
+		return cid;
+	}
+	const r = await fetch( url, { signal } );
+	return r.ok ? audioInFolder( await r.text(), cid ) : null;
+}
+
+/**
  * A track, ready to play: its Release page and its /Metadata page, folded
  * into the one object the player and the editor work on.
  */
@@ -134,7 +169,8 @@ export async function loadTrack( cid, { forcedEncoding = null, signal } = {} ) {
 		throw new Error( 'Track Release page not found: ' + cid );
 	}
 	const metadata = extractMetadata( await fetchYamlPage( 'Release:' + cid + '/Metadata', { signal } ) || {} );
-	const encoding = pickEncoding( release.encodings, { forced: forcedEncoding } );
+	const encoding = pickEncoding( release.encodings, { forced: forcedEncoding } )
+		|| await lonePlayable( release, cid, { signal } ).then( ( path ) => path && { cid: path, format: 'file' } );
 	if ( ! encoding ) {
 		throw new Error( 'Track has no encoding this browser can play' );
 	}
