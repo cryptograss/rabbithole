@@ -6,12 +6,24 @@
  * each. That shape is what makes plain shortest-path give a boring answer.
  */
 import { describe, it, expect } from 'vitest';
-import { buildGraph, findTrail, reach, trailSongs } from '../../src/trail.js';
+import { buildGraph, findTrail, reach, recordsOn, trailSongs } from '../../src/trail.js';
 
-function subobject( song, person, instrument ) {
+function subobject( song, person, instrument, cut = null ) {
 	return [
-		`${ song }# ${ person.replace( /\W/g, '' ) }`,
-		{ printouts: { 'Has performer': [ { fulltext: person } ], 'Has instrument': [ instrument ] } },
+		`${ song }# ${ person.replace( /\W/g, '' ) }${ cut ? cut.replace( /\W/g, '' ) : '' }`,
+		{ printouts: {
+			'Has performer': [ { fulltext: person } ],
+			'Has instrument': [ instrument ],
+			...( cut ? { 'Has cut': [ cut ] } : {} ),
+		} },
+	];
+}
+
+/** The appearance subobject {{Studio cut}} writes beside the musicians'. */
+function appearance( song, cut, record ) {
+	return [
+		`${ song }# appears${ cut.replace( /\W/g, '' ) }`,
+		{ printouts: { 'Has cut': [ cut ], 'Has record': [ { fulltext: record } ] } },
 	];
 }
 
@@ -44,6 +56,30 @@ describe( 'buildGraph', () => {
 	it( 'ignores a subobject with no performer', () => {
 		const thin = buildGraph( { 'Song:X# 1': { printouts: { 'Has instrument': [ 'kazoo' ] } } } );
 		expect( thin.band ).toEqual( {} );
+	} );
+
+	it( 'knows which record each credit is on, through the cut', () => {
+		// Barlow's Jig twice: Grier on the 4masks cut, Clark on Vowel Sounds.
+		// A cut with a block height for a name is matched to its record by
+		// the appearance subobject; a cut named after its record is its own.
+		const twice = buildGraph( Object.fromEntries( [
+			subobject( 'Song:Jig', 'Grier', 'guitar', '24638686' ),
+			appearance( 'Song:Jig', '24638686', '4masks' ),
+			subobject( 'Song:Jig', 'Clark', 'mandolin', 'Vowel Sounds' ),
+			subobject( 'Song:Jig', 'Hub', 'guitar', '24638686' ),
+			subobject( 'Song:Jig', 'Hub', 'guitar', 'Vowel Sounds' ),
+		] ) );
+		expect( recordsOn( twice, 'Song:Jig', 'Grier' ) ).toEqual( [ '4masks' ] );
+		expect( recordsOn( twice, 'Song:Jig', 'Clark' ) ).toEqual( [ 'Vowel Sounds' ] );
+		expect( recordsOn( twice, 'Song:Jig', 'Hub' ) ).toEqual( [ '4masks', 'Vowel Sounds' ] );
+		expect( recordsOn( twice, 'Song:Jig', 'Nobody' ) ).toEqual( [] );
+		// An appearance is not a player.
+		expect( Object.keys( twice.band[ 'Song:Jig' ] ).sort() ).toEqual( [ 'Clark', 'Grier', 'Hub' ] );
+	} );
+
+	it( 'rules nothing out for a credit that names no cut', () => {
+		expect( recordsOn( graph, 'Song:A', 'Hub' ) ).toEqual( [] );
+		expect( graph.records ).toEqual( {} );
 	} );
 } );
 
