@@ -16,9 +16,16 @@ body {
     background: #f5f5f5;
 }
 
+/* The sidebar is as wide as Webamp and no wider (Justin, 11 Nov 2026):
+   the skin's 275px, 10px of gutter each side, and the 2px border. It
+   was 320px, and nothing in it needed the extra 23px on the right. */
+:root {
+    --rh-side-width: 297px;
+}
+
 .layout {
     display: grid;
-    grid-template-columns: 320px 1fr;
+    grid-template-columns: var(--rh-side-width) 1fr;
     height: 100vh;
     gap: 0;
     transition: grid-template-columns 0.3s ease;
@@ -29,7 +36,7 @@ body {
 }
 
 .layout.with-editor {
-    grid-template-columns: 320px 1fr 470px;
+    grid-template-columns: var(--rh-side-width) 1fr 470px;
 }
 
 .layout.minimized.with-editor {
@@ -607,7 +614,9 @@ body.bottom-bar .layout-ab-wrap {
     border: none;
     overflow-y: auto;
     background: white;
-    padding: 1.2em 1.6em 2em;
+    /* No gutter of its own: the article sits snug against the player
+       (Justin, 11 Nov 2026), and keeps a little air for its text. */
+    padding: .6em .8em 1em;
 }
 
 /* The pane is wiki content without the wiki's document, so it does
@@ -720,13 +729,13 @@ body:not(.bottom-bar) #ensemble-display {
     display: flex;
     flex-direction: column;
     gap: 2px;
-    width: 269px;
-    margin: 0 0 6px 10px;
+    width: 275px;
+    margin: 0 0 6px;
 }
 
 /* Sidebar leaves the grid flow (position:fixed below), so collapse
    the layout grid to a single main column. Otherwise the iframe
-   auto-flows into the now-empty 320px sidebar column. */
+   auto-flows into the now-empty sidebar column. */
 body.bottom-bar .layout,
 body.bottom-bar .layout.minimized {
     grid-template-columns: 1fr;
@@ -1454,10 +1463,18 @@ body.bottom-bar .data-section:has(.parts-chart.two-rows) {
         font-size: 11px;
     }
 
-    /* 113px holds a name or a name and its instrument, not both; the
-       instrument is on the musician's page, the name is the card. */
     body.bottom-bar #ensemble-display .musician-card .musician-instrument {
-        display: none;
+        font-size: 9px;
+    }
+
+    /* On a phone, 113px holds a name or a name and its instrument, not
+       both; the instrument is on the musician's page, the name is the
+       card. Only there: on a wider window in the bar the instruments
+       stay (Justin, 11 Nov 2026, zoomed in on a desktop). */
+    @media ( max-width: 760px ) {
+        body.bottom-bar #ensemble-display .musician-card .musician-instrument {
+            display: none;
+        }
     }
 
     body.bottom-bar .inline-carrot {
@@ -1601,15 +1618,12 @@ body.bottom-bar .data-section:has(.parts-chart.two-rows) {
    next to each other.
 
    Scoped to :not(.bottom-bar) so none of it can reach the bar. */
-@media (max-width: 1100px) {
-    /* 292, not narrower, and this is the hard floor: the Winamp skin
-       is 275px of fixed bitmap and does not scale. A column narrower
-       than that pushes the player out through the side of the
-       sidebar and the cards pile up under it. So "scoot it back" can
-       only buy the 28px between here and the old 320. */
-    body:not(.bottom-bar) .layout {
-        grid-template-columns: 292px 1fr;
-    }
+@media (max-width: 700px) {
+    /* Only a window this narrow with the sidebar chosen by hand reaches
+       here now: a phone gets the bar, and the sidebar is the default
+       down to 700px (AUTO_AT). The column is already the skin's own
+       width, the hard floor: the Winamp skin is 275px of fixed bitmap
+       and does not scale. */
 
     body:not(.bottom-bar) .layout.minimized {
         grid-template-columns: 44px 1fr;
@@ -1674,13 +1688,16 @@ body.bottom-bar #webamp div:has(> #main-window) {
     transform: translate(0px, 0px) !important;
 }
 
-@media (max-width: 1100px) {
-    body:not(.bottom-bar) #webamp div:has(> #main-window) {
-        transform: none !important;
-        position: relative !important;
-        left: 0 !important;
-        width: 100%;
-    }
+/* Webamp draws its window 10px in from its own corner (its layout's
+   offset), so in the sidebar the skin sat 20px from the edge while
+   everything else sat 10px in. In flow, it lines up. This used to hold
+   only under 1100px; it holds at every width now that the sidebar is
+   exactly the skin's width (Justin, 11 Nov 2026). */
+body:not(.bottom-bar) #webamp div:has(> #main-window) {
+    transform: none !important;
+    position: relative !important;
+    left: 0 !important;
+    width: 100%;
 }
 
 /* === The cards move when their order changes: what Packery was for === */
