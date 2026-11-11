@@ -848,6 +848,29 @@
 
 .marker-form-head strong { color: #2d5016; }
 
+/* Every name or instrument, on a click (see _pickMenu). */
+.mf-menu {
+    position: absolute;
+    z-index: 31;
+    max-height: 180px;
+    overflow-y: auto;
+    background: #fff;
+    border: 1px solid #4a7c59;
+    border-radius: 4px;
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.15);
+}
+
+.mf-menu[hidden] { display: none; }
+
+.mf-menu-item {
+    padding: 4px 8px;
+    cursor: pointer;
+}
+
+.mf-menu-item:hover { background: #eef5e9; }
+
+.mf-menu-item.on { font-weight: 600; color: #2d5016; }
+
 .mf-time {
     width: 72px;
     font-family: ui-monospace, Menlo, Consolas, monospace;
