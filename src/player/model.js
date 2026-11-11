@@ -27,6 +27,18 @@ import { webAudioBypassed } from './web-audio.js';
 import { followVolume } from './ios-web-audio.js';
 import * as timeline from './timeline.js';
 
+/**
+ * Two songs are the same recording when they share a track CID, or, with
+ * no CID, the same audio URL. The URL alone isn't enough: the same CID can
+ * resolve to another encoding's file.
+ */
+export function sameRecording( a, b ) {
+	if ( a._trackCid && b._trackCid ) {
+		return a._trackCid === b._trackCid;
+	}
+	return a.audioFile === b.audioFile;
+}
+
 // How long any one highlight may hold, in seconds. The timelines ask for
 // more in places (Paint Exchange: 8.5s of spotlight, 7s of flourish) and at
 // that length an effect stops reading as emphasis and starts reading as a
@@ -311,10 +323,24 @@ export class WebampPlayer {
 		if ( ! this.webamp ) {
 			return false;
 		}
-		if ( this.upNext().some( ( s ) => s.audioFile === raw.audioFile ) ) {
+		if ( this.upNext().some( ( s ) => sameRecording( s, raw ) ) ) {
 			return false;
 		}
 		this.webamp.appendTracks( [ this._webampTrack( raw ) ] );
+		return true;
+	}
+
+	/**
+	 * Skip to the next song in the queue and play it. False when nothing
+	 * is queued.
+	 */
+	playNext() {
+		if ( ! this.webamp || ! this.upNext().length ) {
+			return false;
+		}
+		this._pauseOnNextPlay = false;
+		this.webamp.nextTrack();
+		this.webamp.play();
 		return true;
 	}
 

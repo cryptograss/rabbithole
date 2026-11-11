@@ -374,11 +374,23 @@ body.bottom-bar .layout-ab-wrap {
 }
 
 .up-next {
+    display: block;
+    max-width: 100%;
+    padding: 0;
+    border: 0;
+    background: none;
+    font: inherit;
     font-size: 11px;
     color: #4a7c59;
+    text-align: left;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    cursor: pointer;
+}
+
+.up-next:hover {
+    text-decoration: underline;
 }
 
 .song-select {
