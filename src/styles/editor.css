@@ -1217,7 +1217,11 @@
 }
 
 /* A carrot over the rabbit: play and pause from the ruler (Skyler). It
-   rides the playhead with the rabbit, and holds still while the rabbit hops. */
+   rides the playhead with the rabbit, and holds still while the rabbit hops.
+   The ruler leaves room above the song's start, so at 0:00 the carrot and
+   the rabbit are not cut off by the top of the ruler. */
+.ruler-track { margin-top: 56px; }
+
 .ruler-carrot {
     position: absolute;
     left: -8px;
