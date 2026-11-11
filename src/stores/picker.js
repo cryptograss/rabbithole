@@ -17,10 +17,21 @@ import { ref, watch } from 'vue';
 import { performerGraph, songCid } from '../wiki/queue.js';
 import { usePlayerStore } from './player.js';
 import { useSongStore } from './song.js';
+import { useWalkStore } from './walk.js';
 
 /** A page title as the graph spells a person: spaces, not underscores. */
 export function personName( title ) {
 	return title ? title.replace( /_/g, ' ' ).trim() : null;
+}
+
+/**
+ * How the walk says a hop was made by following someone: who, and what
+ * they played on the song they led to, as the performer graph has it.
+ * Pure.
+ */
+export function viaPicker( graph, song, name ) {
+	const instruments = ( ( graph && graph.band && graph.band[ song ] ) || {} )[ name ] || [];
+	return { name, instrument: instruments[ 0 ] || null };
 }
 
 /**
@@ -48,6 +59,7 @@ export async function firstPlayable( songsOf, { currentCid, playedCids, queuedCi
 export const usePickerStore = defineStore( 'picker', () => {
 	const player = usePlayerStore();
 	const songs = useSongStore();
+	const walk = useWalkStore();
 
 	/** Who is being followed, or null. */
 	const following = ref( null );
@@ -94,8 +106,12 @@ export const usePickerStore = defineStore( 'picker', () => {
 	}
 
 	async function queueNext() {
-		next.value = await nextFor( following.value );
+		const name = following.value;
+		next.value = await nextFor( name );
 		if ( next.value ) {
+			// Marked before it is queued, so however soon it starts, the
+			// walk knows it came by following this picker.
+			walk.mark( next.value.cid, viaPicker( await performerGraph(), next.value.song, name ) );
 			await songs.queueCid( next.value.cid );
 		}
 		if ( offer.value && offer.value.name === following.value ) {
