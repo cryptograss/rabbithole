@@ -103,8 +103,30 @@ export const usePaneStore = defineStore( 'pane', () => {
 		wanted.value = null;
 	}
 
+	/*
+	 * A song's page: Song:<title> when there is one, else the track's
+	 * metadata page. A song should open on the song, not on the YAML
+	 * somebody edits it with (Skyler). The song's title in the dock is a
+	 * link here, the way back once the pane has followed the pickers off
+	 * the song (Justin, 11 Nov 2026).
+	 */
+	async function openSong( song, { push = true } = {} ) {
+		const fallback = song._metadataTitle;
+		if ( ! song.title ) {
+			open( fallback, { push } );
+			return;
+		}
+		const songPage = 'Song:' + song.title;
+		try {
+			open( ( await wiki.pageExists( songPage ) ) ? songPage : fallback, { push } );
+		} catch ( err ) {
+			console.warn( 'Could not check for a song page:', err );
+			open( fallback, { push } );
+		}
+	}
+
 	/** The title of the song page on screen, or null if the pane shows something else. */
 	const shownSongTitle = computed( () => ( shown.value && shown.value.startsWith( 'Song:' ) ? shown.value : null ) );
 
-	return { wanted, shown, html, revision, loading, trail, shownSongTitle, open, search };
+	return { wanted, shown, html, revision, loading, trail, shownSongTitle, open, openSong, search };
 } );
