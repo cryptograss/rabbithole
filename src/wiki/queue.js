@@ -17,6 +17,7 @@ import * as wiki from './api.js';
 import { useSongStore } from '../stores/song.js';
 import { usePaneStore } from '../stores/pane.js';
 import { useLayoutStore } from '../stores/layout.js';
+import { useWalkStore } from '../stores/walk.js';
 
 let graphPromise = null;
 
@@ -123,12 +124,15 @@ export async function trailToHere( button ) {
 
 	pane.trail = { from, hops };
 
+	const walk = useWalkStore();
 	const queued = [];
-	for ( const song of trailSongs( from, hops ).slice( 1 ) ) {
+	for ( const [ i, song ] of trailSongs( from, hops ).slice( 1 ).entries() ) {
 		const cid = await songCid( song );
 		if ( ! cid || songs.queuedCids.includes( cid ) ) {
 			continue;
 		}
+		// Each song on the trail is reached through the person its hop names.
+		walk.mark( cid, { name: hops[ i ].via, instrument: hops[ i ].instrument || null } );
 		try {
 			if ( await songs.queueCid( cid ) ) {
 				queued.push( song );

@@ -39,7 +39,9 @@ function instrumentOf( hop ) {
 	if ( ! graph.value || ! hop.via || ! hop.song ) {
 		return null;
 	}
-	const instruments = ( ( graph.value.band[ hop.song ] || {} )[ hop.via.name ] ) || [];
+	// The walk stores a track's title; the graph names its Song: page.
+	const page = hop.song.startsWith( 'Song:' ) ? hop.song : 'Song:' + hop.song;
+	const instruments = ( ( graph.value.band[ page ] || {} )[ hop.via.name ] ) || [];
 	return instruments[ 0 ] || null;
 }
 
@@ -48,7 +50,7 @@ const rows = computed( () => walk.hops.map( ( hop, i ) => ( {
 	song: hop.song ? hop.song.replace( /^Song:/, '' ) : hop.cid.slice( 0, 10 ),
 	via: hop.via ? hop.via.name : null,
 	viaInstrument: hop.via && hop.via.instrument ? hop.via.instrument : instrumentOf( hop ),
-	color: COLORS[ instrumentOf( hop ) || ( hop.via && hop.via.instrument ) ] || NEUTRAL,
+	color: COLORS[ String( ( hop.via && hop.via.instrument ) || instrumentOf( hop ) || '' ).toLowerCase() ] || NEUTRAL,
 	isNow: i === walk.hops.length - 1,
 } ) ) );
 </script>
