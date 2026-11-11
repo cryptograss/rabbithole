@@ -32,28 +32,6 @@ export async function fetchYamlPage( title, { signal } = {} ) {
 	return jsYaml.load( text ) || {};
 }
 
-let stylesheetText = null;
-
-/**
- * The wiki's stylesheets as one string, fetched once and kept: skin mode
- * injects them rewritten, since a <link> inside a shadow root cannot have
- * its selectors changed.
- */
-export function wikiStylesheets( hrefs, { signal } = {} ) {
-	if ( ! stylesheetText ) {
-		stylesheetText = Promise.all( hrefs.map( ( href ) => fetch( href, { signal } ).then( ( r ) => {
-			if ( ! r.ok ) {
-				throw new Error( `Stylesheet answered ${ r.status }` );
-			}
-			return r.text();
-		} ) ) ).then( ( parts ) => parts.join( '\n' ) ).catch( ( err ) => {
-			stylesheetText = null;
-			throw err;
-		} );
-	}
-	return stylesheetText;
-}
-
 /** Whether a page exists. */
 export async function pageExists( title ) {
 	const j = await api( { action: 'query', titles: title } );

@@ -67,36 +67,12 @@ async function onClick( e ) {
 	}
 }
 
-function onChange( e ) {
-	const el = e.composedPath()[ 0 ];
-	if ( el && el.classList && el.classList.contains( 'pane-mode' ) ) {
-		pane.setMode( el.value );
-	}
-}
-
 function onKeydown( e ) {
 	const el = e.composedPath()[ 0 ];
 	if ( e.key === 'Enter' && el && el.classList && el.classList.contains( 'pane-search' ) ) {
 		layout.stopFollowing();
 		pane.search( el.value );
 	}
-}
-
-/*
- * A search form in the pane (MonoBook's, in skin mode) searches in the
- * pane. Left alone it would submit the whole window to /index.php and
- * walk away from the player; injected HTML runs no scripts, so nothing
- * of MonoBook's own would answer it either.
- */
-function onSubmit( e ) {
-	const form = e.composedPath()[ 0 ];
-	const input = form && form.querySelector && form.querySelector( 'input[name="search"]' );
-	if ( ! input ) {
-		return;
-	}
-	e.preventDefault();
-	layout.stopFollowing();
-	pane.search( input.value );
 }
 
 function trailPanel( trail ) {
@@ -182,9 +158,7 @@ function showTrail() {
 onMounted( () => {
 	shadow = host.value.shadowRoot || host.value.attachShadow( { mode: 'open' } );
 	shadow.addEventListener( 'click', onClick );
-	shadow.addEventListener( 'change', onChange );
 	shadow.addEventListener( 'keydown', onKeydown );
-	shadow.addEventListener( 'submit', onSubmit );
 	render();
 } );
 
