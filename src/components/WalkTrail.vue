@@ -27,7 +27,9 @@ const COLORS = {
 };
 const NEUTRAL = '#a9a8a3';
 
-const open = ref( true );
+// Closed until asked for: one line saying how deep you are, the hops on a
+// click. Open, it took the room Webamp and the cards need.
+const open = ref( false );
 const graph = ref( null );
 performerGraph().then( ( g ) => { graph.value = g; } );
 

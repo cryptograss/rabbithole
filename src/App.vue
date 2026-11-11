@@ -132,13 +132,16 @@ onBeforeUnmount( () => {
 					<FollowSwitch />
 				</div>
 
-				<WalkTrail />
-
 				<WebampDock />
 
 				<!-- In the sidebar the cards sit under the player; in the bar
 				     they are the bar's middle zone, after the song parts. -->
 				<Ensemble v-if="!layout.isBar" />
+
+				<!-- Where you have been comes after what is playing: above it,
+				     a few hops pushed Webamp off the bottom of the screen
+				     (Justin, 11 Nov 2026). The bar has no room for it. -->
+				<WalkTrail v-if="!layout.isBar" />
 
 				<div class="data-section">
 					<div class="section-label">Song Parts</div>
