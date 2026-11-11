@@ -40,20 +40,15 @@ export const usePlayerStore = defineStore( 'player', () => {
 	const partIndex = computed( () => ( model.value ? model.value.partIndex.value : -1 ) );
 
 	/*
-	 * How much of the carrot the rabbit has eaten, 0 to 1: one bite per part
-	 * of the song behind you, so the carrot says where you are in the song,
-	 * not only how long it has played (Skyler and magent, #rabbithole, 8 Nov
-	 * 2026). A song with no chart is eaten in tenths of its length.
+	 * How much of the carrot the rabbit has eaten, 0 to 1: how far through
+	 * the song you are, nibbled smoothly as it plays. It went a part at a
+	 * time (Skyler and magent, #rabbithole, 8 Nov 2026), which jumped and
+	 * read as a glitch (Justin, 11 Nov); Skyler wanted the rabbit to be
+	 * seen eating it away as the song plays.
 	 */
-	const eaten = computed( () => {
-		if ( parts.value.length > 1 ) {
-			return Math.max( 0, partIndex.value ) / parts.value.length;
-		}
-		if ( duration.value > 0 ) {
-			return Math.floor( 10 * time.value / duration.value ) / 10;
-		}
-		return 0;
-	} );
+	const eaten = computed( () => (
+		duration.value > 0 ? Math.max( 0, Math.min( 1, time.value / duration.value ) ) : 0
+	) );
 
 	function togglePlay() {
 		if ( model.value ) {
