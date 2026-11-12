@@ -160,7 +160,7 @@ export function unmatchedNames(timeline, names = []) {
 
     Object.entries(timeline || {}).forEach(([key, marker]) => {
         if (!marker || typeof marker !== 'object') return;
-        note(marker.solo, key + ' solo');
+        (Array.isArray(marker.solo) ? marker.solo : [marker.solo]).forEach(n => note(n, key + ' solo'));
         note(marker.pickup, key + ' pickup');
         Object.keys(marker.musicians || {}).forEach(n => note(n, key + ' musicians'));
         Object.keys(marker.instrumentChanges || {}).forEach(n => note(n, key + ' instrument'));
@@ -207,6 +207,10 @@ export function renameMusician(timeline, ensemble, from, to) {
     Object.values(tl).forEach(marker => {
         if (!marker || typeof marker !== 'object') return;
         if (marker.solo === oldName) { marker.solo = newName; changed += 1; }
+        if (Array.isArray(marker.solo) && marker.solo.includes(oldName)) {
+            marker.solo = marker.solo.map(n => (n === oldName ? newName : n));
+            changed += 1;
+        }
         if (marker.pickup === oldName) { marker.pickup = newName; changed += 1; }
         if (moveKey(marker.musicians)) changed += 1;
         if (moveKey(marker.instrumentChanges)) changed += 1;
