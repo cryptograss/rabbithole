@@ -154,8 +154,10 @@ export const useSongStore = defineStore( 'song', () => {
 		document.title = song.title ? `${ song.title } · Rabbithole` : 'Rabbithole';
 
 		if ( song._trackCid ) {
+			// The address names the track by the readable alias it came with,
+			// else by its CID.
 			const url = new URL( window.location.href );
-			url.searchParams.set( 'track', song._trackCid );
+			url.searchParams.set( 'track', song._alias || song._trackCid );
 			history.replaceState( { ...history.state, track: song._trackCid }, '', url );
 		}
 
