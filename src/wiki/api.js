@@ -39,6 +39,38 @@ export async function pageExists( title ) {
 	return !! page && page.missing === undefined;
 }
 
+const SONG_NAMESPACE = '3008';
+
+/**
+ * The Song: page a track belongs to, read from one query's answer: the page
+ * named after the track's title when there is one, else the Song: page that
+ * links the track's Release page. Null when neither. Pure.
+ *
+ * A release is titled the way whoever pinned it typed it: "Immutable Strings
+ * - Reuben's Train (from web3summit 2024)" is a cut of Reuben's Train, and
+ * there is no Song: page by the long name, so ?track=<its cid> opened on the
+ * YAML (Justin, 11 Nov 2026). The song page that claims the recording is the
+ * one to open: [[Song:Reuben's Train]] lists that release under Recordings.
+ */
+export function songPageFrom( answer, title ) {
+	const page = Object.values( answer?.query?.pages || {} )[ 0 ];
+	if ( title && page && page.missing === undefined && page.invalid === undefined ) {
+		return page.title;
+	}
+	const claims = ( answer?.query?.backlinks || [] ).filter( ( b ) => String( b.ns ) === SONG_NAMESPACE );
+	return claims[ 0 ]?.title || null;
+}
+
+/** The Song: page of the track with this cid and title, or null. One request. */
+export async function songPageOf( cid, title ) {
+	const j = await api( {
+		action: 'query',
+		...( title ? { titles: 'Song:' + title } : {} ),
+		list: 'backlinks', bltitle: 'Release:' + cid, blnamespace: SONG_NAMESPACE, bllimit: '5',
+	} );
+	return songPageFrom( j, title );
+}
+
 /**
  * Ensemble, timeline and the rest out of a metadata page, in either of
  * the two shapes it comes in: flat (what the editor saves) or arthel's
