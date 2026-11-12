@@ -2,7 +2,7 @@
  * What the wiki says, read right.
  */
 import { describe, it, expect } from 'vitest';
-import { interpretEditResponse, extractMetadata, pickEncoding, audioInFolder, metadataYaml, sameOrigin, isCharted } from '../../src/wiki/api.js';
+import { interpretEditResponse, extractMetadata, pickEncoding, audioInFolder, metadataYaml, sameOrigin, isCharted, songPageFrom } from '../../src/wiki/api.js';
 
 /*
  * "Saved" means the wiki made a revision. MediaWiki answers result: Success
@@ -115,5 +115,32 @@ describe( 'isCharted', () => {
 	} );
 	it( 'is false for YAML it cannot read', () => {
 		expect( isCharted( 'timeline: [unclosed' ) ).toBe( false );
+	} );
+} );
+
+/*
+ * A track opens on its song's page. The release's title is whatever the
+ * pinner typed, so the page named after it is tried first and the Song: page
+ * that links the release is the fallback (Reuben's Train, 11 Nov 2026).
+ */
+describe( 'songPageFrom', () => {
+	const reubens = { title: 'Immutable Strings - Reuben\'s Train (from web3summit 2024)' };
+
+	it( 'takes the page named after the title when it exists', () => {
+		const answer = { query: { pages: { 7: { title: 'Song:August' } }, backlinks: [] } };
+		expect( songPageFrom( answer, 'August' ) ).toBe( 'Song:August' );
+	} );
+
+	it( 'falls back to the Song: page that links the release', () => {
+		const answer = { query: {
+			pages: { '-1': { title: 'Song:' + reubens.title, missing: true } },
+			backlinks: [ { ns: 3000, title: 'Cryptograss:Moods/rabbithole/links/2026-11' }, { ns: 3008, title: 'Song:Reuben\'s Train' } ],
+		} };
+		expect( songPageFrom( answer, reubens.title ) ).toBe( 'Song:Reuben\'s Train' );
+	} );
+
+	it( 'has nothing when no song page owns the track', () => {
+		expect( songPageFrom( { query: { pages: { '-1': { missing: true } }, backlinks: [] } }, 'Nobody' ) ).toBeNull();
+		expect( songPageFrom( { query: { backlinks: [] } }, '' ) ).toBeNull();
 	} );
 } );
