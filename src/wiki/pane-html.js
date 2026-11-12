@@ -47,6 +47,11 @@ export const PANE_STYLES = [
 	'#globalWrapper #column-content { float: none; margin: 0; width: auto; }',
 	'#globalWrapper #content.mw-body { margin: 10px; }',
 	'.pane-title { margin: 0 0 .4em; }',
+	// The title is a link out to the wiki, dressed as a title: the same
+	// colour, no underline until the pointer says so, a small ↗ beside it.
+	'.pane-title .pane-escape, .pane-title .pane-escape:visited { color: inherit; text-decoration: none; }',
+	'.pane-title .pane-escape:hover { text-decoration: underline; }',
+	'.pane-escape-mark { font-size: .55em; margin-left: .35em; vertical-align: super; color: #2d5016; }',
 	'.pane-loading { color: #6b7566; font-size: 13px; }',
 	'.mw-editsection { display: none; }',
 	'.pane-chrome { display: flex; align-items: center; gap: 8px;',
@@ -88,11 +93,23 @@ export function appAddress( title, from = window.location.href ) {
 	return url.pathname + url.search;
 }
 
+/*
+ * The article's title is the way out: it opens the same page on PickiPedia
+ * itself, in a new tab, so the song plays on. Inside the pane there was no
+ * telling how to escape to the regular wiki page (Justin, 12 Nov 2026).
+ * target=_blank is what tells the pane's click handler to leave it alone.
+ */
+function titleLink( title, parsed ) {
+	return '<a class="pane-escape" href="' + wikiPath( title ) + '" target="_blank" rel="noopener"'
+		+ ' title="Open on PickiPedia, in a new tab">'
+		+ ( parsed.displaytitle || escapeHtml( title ) ) + '<span class="pane-escape-mark" aria-hidden="true">\u2197</span></a>';
+}
+
 /** The article, wrapped in the containers MonoBook's rules hang off. */
 function article( title, parsed ) {
 	return '<div id="globalWrapper"><div id="column-content">'
 		+ '<div id="content" class="mw-body"><div class="mw-body-content">'
-		+ '<h1 class="pane-title firstHeading">' + ( parsed.displaytitle || escapeHtml( title ) ) + '</h1>'
+		+ '<h1 class="pane-title firstHeading">' + titleLink( title, parsed ) + '</h1>'
 		+ parsed.text
 		+ '</div></div></div></div>';
 }

@@ -9,8 +9,17 @@ describe( 'paneBody', () => {
 	const html = paneBody( 'Song:Swords to Ploughshares', { text: '<p>A song.</p>' } );
 
 	it( 'is the article, under its title', () => {
-		expect( html ).toContain( 'Song:Swords to Ploughshares</h1>' );
+		expect( html ).toMatch( /<h1 class="pane-title firstHeading"><a [^>]*>Song:Swords to Ploughshares</ );
 		expect( html ).toContain( '<p>A song.</p>' );
+	} );
+
+	/*
+	 * The title is the way out to the regular wiki page, in a new tab, so
+	 * the song plays on; inside the pane there was no telling how to escape
+	 * (Justin, 12 Nov 2026).
+	 */
+	it( 'makes the title a link to the page on PickiPedia, in a new tab', () => {
+		expect( html ).toContain( '<a class="pane-escape" href="/wiki/Song:Swords_to_Ploughshares" target="_blank" rel="noopener"' );
 	} );
 
 	it( 'carries no mode selector and no chrome bar', () => {
