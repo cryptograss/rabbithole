@@ -44,21 +44,12 @@ function onArtError() {
 
 <template>
 	<div v-if="song" id="song-info-header" class="song-info-header">
-		<!-- The way into the timeline editor is a pencil on the title of what
-			it edits, not a button with its own space in the player (Justin,
-			7 Nov 2026), named in small print so it reads as more than a
-			doodle (Skyler, 8 Nov). -->
 		<!-- The title is the way back to the song's page once the pane has
-			followed the pickers away from it (Justin, 11 Nov 2026). -->
+			followed the pickers away from it (Justin, 11 Nov 2026). The
+			editor's pencil used to sit on it and took a line of its own
+			under a two-line title; it is on the Song Parts label now. -->
 		<h2 id="song-title-display" class="song-title-display"><a id="song-title-link" class="song-title-link" :href="songHref"
-			title="Back to this song's page" @click.prevent="backToSong">{{ song.title || 'Untitled' }}</a><button
-			id="editor-toggle-btn"
-			class="editor-pencil"
-			:class="{ active: layout.editorOpen }"
-			:title="layout.editorOpen ? 'Close the timeline editor' : 'Edit this song\'s timeline'"
-			:aria-label="layout.editorOpen ? 'Close the timeline editor' : 'Edit this song\'s timeline'"
-			@click="layout.editorOpen = !layout.editorOpen"
-		>✎<span class="editor-pencil-label">edit timeline</span></button></h2>
+			title="Back to this song's page" @click.prevent="backToSong">{{ song.title || 'Untitled' }}</a></h2>
 		<div v-if="songs.album || !songs.lockedToTrack" id="album-row" class="album-row">
 			<img
 				v-if="songs.album && songs.artUrl"

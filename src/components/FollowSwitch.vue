@@ -25,6 +25,6 @@ const SHORT = 'Follow solo';
 		</span>
 		<span class="auto-switch-caption">{{ layout.narrow ? SHORT : LONG }}</span>
 	</label>
-	<CarrotButton id="inline-play-btn" class="inline-carrot" :playing="player.playing" :eaten="player.eaten" :size="40"
+	<CarrotButton id="inline-play-btn" class="inline-carrot" :playing="player.playing" :eaten="player.eaten" :size="30"
 		@toggle="player.togglePlay()" />
 </template>
