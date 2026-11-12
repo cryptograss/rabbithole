@@ -3,7 +3,7 @@
  * wear the wiki at the top (Justin and Skyler, #rabbithole, 11 Nov 2026).
  */
 import { describe, it, expect } from 'vitest';
-import { paneBody, searchResults } from '../../src/wiki/pane-html.js';
+import { PANE_STYLES, paneBody, searchResults } from '../../src/wiki/pane-html.js';
 
 describe( 'paneBody', () => {
 	const html = paneBody( 'Song:Swords to Ploughshares', { text: '<p>A song.</p>' } );
@@ -35,5 +35,17 @@ describe( 'searchResults', () => {
 		expect( html ).toContain( 'class="pane-search"' );
 		expect( html ).not.toContain( 'pane-mode' );
 		expect( html ).toContain( '1 result for banjo' );
+	} );
+} );
+
+describe( 'PANE_STYLES', () => {
+	/*
+	 * The record box floats right at 20em; in a narrow pane the text
+	 * beside it came out a word to a line (Justin, 12 Nov 2026). The
+	 * pane measures itself, not the window, since it sits beside the dock.
+	 */
+	it( 'unfloats the record box when the pane itself is narrow', () => {
+		expect( PANE_STYLES ).toContain( ':host { container-type: inline-size; }' );
+		expect( PANE_STYLES ).toMatch( /@container \(max-width: 560px\) \{\s*\.pp-record-box \{ float: none;/ );
 	} );
 } );
