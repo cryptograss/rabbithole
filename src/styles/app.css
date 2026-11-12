@@ -203,7 +203,7 @@ body {
 }
 
 .player-container {
-    padding: 6px 10px;
+    padding: 4px 10px;
     position: relative;
 }
 
@@ -298,11 +298,13 @@ body.bottom-bar .layout-ab {
     white-space: pre;
 }
 
-/* Track title + recording info, shown when loaded via ?track=. */
+/* Track title + recording info, shown when loaded via ?track=. Tight:
+   every pixel above the cards is a pixel of ensemble lost when the
+   page is zoomed (Justin, 12 Nov 2026). */
 .song-info-header {
     text-align: center;
-    padding: 6px 4px 4px;
-    margin-bottom: 6px;
+    padding: 2px 4px 1px;
+    margin-bottom: 2px;
     border-bottom: 1px solid #e5e7e1;
 }
 
@@ -317,9 +319,9 @@ body.bottom-bar .layout-ab {
 
 .song-title-display {
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    font-size: 18px;
+    font-size: 16px;
     line-height: 1.1;
-    margin: 0 0 3px;
+    margin: 0;
     color: #2d5016;
     font-weight: 700;
     letter-spacing: -0.015em;
@@ -330,7 +332,7 @@ body.bottom-bar .layout-ab {
     display: flex;
     align-items: center;
     gap: 6px;
-    margin: 4px 0 3px;
+    margin: 2px 0 1px;
 }
 
 .album-art {
@@ -413,15 +415,14 @@ body.bottom-bar .layout-ab {
     display: flex;
     align-items: center;
     gap: 8px;
-    margin-bottom: 6px;
+    margin-bottom: 2px;
     font-size: 13px;
     color: #555;
 }
 
 .inline-carrot {
     margin-left: auto;
-    margin-top: 8px;
-    align-self: flex-start;
+    align-self: center;
 }
 
 /* The slider and its knob are absolutely positioned against this box,
@@ -490,7 +491,7 @@ body.bottom-bar .layout-ab {
    this box by the player, which is why it was 410px tall. */
 .webamp-wrapper {
     height: 126px;
-    margin-bottom: 6px;
+    margin-bottom: 4px;
     position: relative;
 }
 
@@ -507,9 +508,20 @@ body.bottom-bar .layout-ab {
 }
 
 .data-section {
-    margin-top: 8px;
-    padding-top: 6px;
+    margin-top: 4px;
+    padding-top: 3px;
     border-top: 1px solid #4a7c59;
+}
+
+/* In the sidebar the label and the editor's pencil share a line; in the
+   bar the section is a flex row and both are items of it. */
+body:not(.bottom-bar) .data-section > .section-label {
+    display: inline-block;
+}
+
+body.bottom-bar .editor-pencil {
+    flex-shrink: 0;
+    margin-left: 0;
 }
 
 .section-label {
@@ -1488,7 +1500,8 @@ body.bottom-bar .data-section:has(.parts-chart.two-rows) {
     /* The label was eating 64px of a 390px strip and the part names
        were cut to two letters. The strip says what it is by being a
        row of song sections; it does not need to be told. */
-    body.bottom-bar .data-section .section-label {
+    body.bottom-bar .data-section .section-label,
+    body.bottom-bar .data-section .editor-pencil-label {
         display: none;
     }
 
@@ -1562,10 +1575,6 @@ body.bottom-bar .data-section:has(.parts-chart.two-rows) {
         align-self: center;
         margin: 0;
         font-size: 0;
-    }
-
-    body.bottom-bar .song-title-display .editor-pencil {
-        font-size: 14px;
     }
 
     body.bottom-bar .rabbithole-header {
@@ -1796,17 +1805,22 @@ body:not(.bottom-bar) #webamp div:has(> #main-window) {
     }
 }
 
-/* The editor's way in: a pencil on the song's title (Justin, 7 Nov 2026). */
+/* The editor's way in: a pencil, on the Song Parts label since 12 Nov
+   2026 (on the song's title before, Justin, 7 Nov). Sizes in px: the
+   label is 10px uppercase, and the pencil is neither. */
 .editor-pencil {
-    margin-left: 6px;
+    margin-left: 8px;
     padding: 0 4px;
     border: 1px solid transparent;
     border-radius: 4px;
     background: none;
     color: #87a96b;
-    font-size: 0.8em;
-    line-height: 1.3;
-    vertical-align: 0.1em;
+    font-size: 12px;
+    font-weight: normal;
+    line-height: 1.2;
+    letter-spacing: normal;
+    text-transform: none;
+    vertical-align: -1px;
     cursor: pointer;
 }
 

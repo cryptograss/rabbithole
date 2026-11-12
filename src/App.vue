@@ -132,7 +132,19 @@ onBeforeUnmount( () => {
 				<WalkTrail />
 
 				<div class="data-section">
-					<div class="section-label">Song Parts</div>
+					<!-- The way into the timeline editor: a pencil on the label
+					     of what it edits. It was on the song's title, where a
+					     two-line title pushed it onto a line of its own, and
+					     the ensemble off the screen (Justin, 12 Nov 2026). -->
+					<div class="section-label">Song Parts</div><button
+						id="editor-toggle-btn"
+						type="button"
+						class="editor-pencil"
+						:class="{ active: layout.editorOpen }"
+						:title="layout.editorOpen ? 'Close the timeline editor' : 'Edit this song\'s timeline'"
+						:aria-label="layout.editorOpen ? 'Close the timeline editor' : 'Edit this song\'s timeline'"
+						@click="layout.editorOpen = !layout.editorOpen"
+					>✎<span class="editor-pencil-label">edit timeline</span></button>
 					<LayoutSwitch />
 					<SongParts />
 				</div>
