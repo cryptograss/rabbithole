@@ -191,6 +191,45 @@ async function lonePlayable( release, cid, { signal } = {} ) {
 	return r.ok ? audioInFolder( await r.text(), cid ) : null;
 }
 
+/** The shape of an IPFS CID: base58 Qm…, or base32 bafy…. */
+const CID_SHAPE = /^(Qm[1-9A-HJ-NP-Za-km-z]{44}|b[a-z2-7]{50,})$/;
+
+/**
+ * The CID a ?track= names, from the wiki's answer to a redirect-following
+ * query: the first redirect that lands on a Release:<cid> page. Pure.
+ *
+ * A CID is too long to read and says nothing about which song it is
+ * (Justin, 12 Nov 2026). The readable name is a wiki redirect page,
+ * "Reuben's Train (Immutable Strings, Funkhaus 2024)" → Release:QmNogi…,
+ * so ?track=<that name> opens the same track, the name works as a wiki
+ * link anywhere, search finds it, and anyone can add or move one. The
+ * Release namespace is protected, so the alias lives in the main one;
+ * both are asked for.
+ */
+export function cidFromRedirect( answer ) {
+	for ( const r of answer?.query?.redirects || [] ) {
+		const to = String( r.to || '' );
+		if ( to.startsWith( 'Release:' ) && CID_SHAPE.test( to.slice( 'Release:'.length ) ) ) {
+			return to.slice( 'Release:'.length );
+		}
+	}
+	return null;
+}
+
+/**
+ * What ?track= holds, resolved: a CID as it is, or a readable alias to the
+ * CID its redirect points at. Unknown names come back as given, so
+ * loadTrack says "not found" about the name the person typed.
+ */
+export async function resolveTrack( name, { signal } = {} ) {
+	if ( ! name || CID_SHAPE.test( name ) ) {
+		return { cid: name, alias: null };
+	}
+	const j = await api( { action: 'query', titles: name + '|Release:' + name, redirects: '1' }, { signal } );
+	const cid = cidFromRedirect( j );
+	return cid ? { cid, alias: name } : { cid: name, alias: null };
+}
+
 /**
  * A track, ready to play: its Release page and its /Metadata page, folded
  * into the one object the player and the editor work on.
@@ -216,6 +255,8 @@ export async function loadTrack( cid, { forcedEncoding = null, signal } = {} ) {
 		standardSectionLength: metadata.standardSectionLength,
 		engineer: metadata.engineer,
 		_trackCid: cid,
+		/** The readable name ?track= came with, if it did; the address keeps it. */
+		_alias: null,
 		_metadataTitle: 'Release:' + cid + '/Metadata',
 		_releaseTitle: 'Release:' + cid,
 		_record: metadata.record,

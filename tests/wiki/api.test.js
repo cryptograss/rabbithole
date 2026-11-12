@@ -2,7 +2,7 @@
  * What the wiki says, read right.
  */
 import { describe, it, expect } from 'vitest';
-import { interpretEditResponse, extractMetadata, pickEncoding, audioInFolder, metadataYaml, sameOrigin, isCharted, songPageFrom } from '../../src/wiki/api.js';
+import { interpretEditResponse, extractMetadata, pickEncoding, audioInFolder, metadataYaml, sameOrigin, isCharted, songPageFrom, cidFromRedirect } from '../../src/wiki/api.js';
 
 /*
  * "Saved" means the wiki made a revision. MediaWiki answers result: Success
@@ -142,5 +142,24 @@ describe( 'songPageFrom', () => {
 	it( 'has nothing when no song page owns the track', () => {
 		expect( songPageFrom( { query: { pages: { '-1': { missing: true } }, backlinks: [] } }, 'Nobody' ) ).toBeNull();
 		expect( songPageFrom( { query: { backlinks: [] } }, '' ) ).toBeNull();
+	} );
+} );
+
+/*
+ * ?track= takes a readable alias: a Release: page that redirects to the
+ * track's Release:<cid> page (Justin, 12 Nov 2026).
+ */
+describe( 'cidFromRedirect', () => {
+	const cid = 'QmNogiUdf4xR98WZ3beGCUHJJ9RK9gkd91dsBKereUNVBd';
+	const name = 'Reuben\'s Train (Immutable Strings, Funkhaus 2024)';
+
+	it( 'reads the CID the alias redirects to', () => {
+		const answer = { query: { redirects: [ { from: name, to: 'Release:' + cid } ] } };
+		expect( cidFromRedirect( answer ) ).toBe( cid );
+	} );
+
+	it( 'has nothing for a page that is no redirect, or redirects elsewhere', () => {
+		expect( cidFromRedirect( { query: { pages: { '-1': { missing: true } } } } ) ).toBeNull();
+		expect( cidFromRedirect( { query: { redirects: [ { from: name, to: 'Song:Reuben\'s Train' } ] } } ) ).toBeNull();
 	} );
 } );
