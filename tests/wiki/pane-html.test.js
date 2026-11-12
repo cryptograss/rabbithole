@@ -3,7 +3,7 @@
  * wear the wiki at the top (Justin and Skyler, #rabbithole, 11 Nov 2026).
  */
 import { describe, it, expect } from 'vitest';
-import { paneBody, searchResults } from '../../src/wiki/pane-html.js';
+import { PANE_STYLES, paneBody, searchResults } from '../../src/wiki/pane-html.js';
 
 describe( 'paneBody', () => {
 	const html = paneBody( 'Song:Swords to Ploughshares', { text: '<p>A song.</p>' } );
@@ -35,5 +35,17 @@ describe( 'searchResults', () => {
 		expect( html ).toContain( 'class="pane-search"' );
 		expect( html ).not.toContain( 'pane-mode' );
 		expect( html ).toContain( '1 result for banjo' );
+	} );
+} );
+
+/*
+ * {{Listen in Rabbithole}} hides its "find a trail here" button, since a
+ * trail needs a song already playing to start from; the pane is the one
+ * place that is true, so its stylesheet is what shows the button (Justin,
+ * #rabbithole, 12 Nov 2026).
+ */
+describe( 'PANE_STYLES', () => {
+	it( 'shows the trail button the template renders hidden', () => {
+		expect( PANE_STYLES ).toContain( '.pp-trail-rh { display: inline-flex !important; }' );
 	} );
 } );
