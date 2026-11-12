@@ -70,8 +70,11 @@ export const useSongStore = defineStore( 'song', () => {
 		loadError.value = null;
 		try {
 			if ( trackParam ) {
-				const song = await wiki.loadTrack( trackParam, { forcedEncoding } );
+				// ?track= is a CID, or a readable alias: a Release: redirect to one.
+				const { cid, alias } = await wiki.resolveTrack( trackParam );
+				const song = await wiki.loadTrack( cid, { forcedEncoding } );
 				song.colorScheme = defaultColorScheme;
+				song._alias = alias;
 				initial.value = song;
 			} else {
 				initial.value = await fetchTrack( DEFAULT_TRACK );
@@ -151,8 +154,10 @@ export const useSongStore = defineStore( 'song', () => {
 		document.title = song.title ? `${ song.title } · Rabbithole` : 'Rabbithole';
 
 		if ( song._trackCid ) {
+			// The address names the track by the readable alias it came with,
+			// else by its CID.
 			const url = new URL( window.location.href );
-			url.searchParams.set( 'track', song._trackCid );
+			url.searchParams.set( 'track', song._alias || song._trackCid );
 			history.replaceState( { ...history.state, track: song._trackCid }, '', url );
 		}
 
