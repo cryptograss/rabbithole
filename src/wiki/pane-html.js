@@ -54,6 +54,11 @@ export const PANE_STYLES = [
 	'.pane-escape-mark { font-size: .55em; margin-left: .35em; vertical-align: super; color: #2d5016; }',
 	'.pane-loading { color: #6b7566; font-size: 13px; }',
 	'.mw-editsection { display: none; }',
+	// The "find a trail here" button of {{Listen in Rabbithole}} means
+	// nothing outside the player: a trail needs a "from". The template
+	// renders it display:none inline, and only the pane shows it (Justin,
+	// #rabbithole, 12 Nov 2026). !important, because inline wins otherwise.
+	'.pp-trail-rh { display: inline-flex !important; }',
 	'.pane-chrome { display: flex; align-items: center; gap: 8px;',
 	'  padding: 6px 8px; margin: -4px -4px 10px; background: #f3f5f1;',
 	'  border-bottom: 1px solid #d8ddd3; font-size: 13px;',
