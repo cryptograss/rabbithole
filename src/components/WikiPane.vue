@@ -37,6 +37,11 @@ async function onClick( e ) {
 	if ( ! a ) {
 		return;
 	}
+	if ( a.target === '_blank' ) {
+		// Asked for a new tab, by the pane's own title above all: the
+		// browser does that itself, and the song plays on here.
+		return;
+	}
 	const listen = listenRequest( a.getAttribute( 'href' ) );
 	if ( listen ) {
 		e.preventDefault();
