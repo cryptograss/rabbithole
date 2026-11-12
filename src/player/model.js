@@ -206,14 +206,17 @@ export class WebampPlayer {
 	_tick( time ) {
 		this.state.time = time;
 		const arrangement = this.arrangement.value;
-		const solo = timeline.soloistOf( arrangement );
+		const solos = timeline.soloistsOf( arrangement );
+		const solo = solos[ 0 ] || null;
 
 		if ( solo !== this.state.currentSolo ) {
-			if ( this.state.currentSolo ) {
-				this._addRecentSoloist( this.state.currentSolo );
-			}
+			// Everyone who was taking it and is not now is recent, the
+			// first of them most recent.
+			( this._lastSolos || [] ).filter( ( n ) => ! solos.includes( n ) ).reverse()
+				.forEach( ( n ) => this._addRecentSoloist( n ) );
 			this.state.currentSolo = solo;
 		}
+		this._lastSolos = solos;
 
 		if ( arrangement !== this._lastArrangement ) {
 			this._lastArrangement = arrangement;

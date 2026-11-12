@@ -13,6 +13,25 @@
 
 import jsYaml from 'js-yaml';
 
+/*
+ * `solo` in a marker is one name, or a list when more than one person takes
+ * it at once (a cappella harmony on Reuben's Train; Justin, 12 Nov 2026).
+ * The form shows them as one line, comma-separated, and saves one name as a
+ * string so a chart with one soloist per marker reads as it always did.
+ */
+export function soloNames(solo) {
+    if (!solo) return [];
+    const list = Array.isArray(solo) ? solo : String(solo).split(',');
+    return list.map(n => String(n).trim()).filter(Boolean);
+}
+export function soloText(solo) {
+    return soloNames(solo).join(', ');
+}
+export function soloValue(names) {
+    const list = soloNames(names);
+    return list.length <= 1 ? (list[0] || '') : list;
+}
+
 import { musicianEntries, statusAt, compactMusicians, unmatchedNames, renameMusician } from '../musician-status.js';
 
 import { loadPeaks, loadServerPeaks, drawWaveform } from './waveform.js';
@@ -697,7 +716,7 @@ export class TimelineEditor {
 
         const markers = entries.map(entry => {
             const { time, data } = entry;
-            const who = data.solo || data.pickup || '';
+            const who = soloText(data.solo) || data.pickup || '';
             const part = data.part || '';
             const label = [part, who].filter(Boolean).join(' · ') || 'unnamed';
             const selected = this.data.selectedMarkerTime === time ? ' selected' : '';
@@ -935,7 +954,7 @@ export class TimelineEditor {
             const seen = new Set();
             Object.values(this.data.workingData.timeline || {}).forEach(m => {
                 if (!m || typeof m !== 'object') return;
-                if (m.solo) seen.add(m.solo);
+                soloNames(m.solo).forEach(n => seen.add(n));
                 if (m.pickup) seen.add(m.pickup);
                 Object.keys(m.musicians || {}).forEach(n => { if (n !== 'band') seen.add(n); });
             });
@@ -1011,8 +1030,8 @@ export class TimelineEditor {
             </label>
 
             <label class="mf-row">
-                <span title="Who is taking the solo from this moment">Soloist</span>
-                ${field('mf-solo', data.solo, 'nobody')}
+                <span title="Who is taking it from this moment. More than one? Separate the names with commas.">Soloist</span>
+                ${field('mf-solo', soloText(data.solo), 'nobody')}
             </label>
 
             <label class="mf-row">
@@ -1187,6 +1206,13 @@ export class TimelineEditor {
         menu.hidden = true;
         box.appendChild(menu);
 
+        // Names before the last comma stay; the menu fills in the one after
+        // it, so a second soloist is picked the way the first was.
+        const head = () => {
+            const i = input.value.lastIndexOf(',');
+            return i === -1 ? '' : input.value.slice(0, i + 1) + ' ';
+        };
+        const tail = () => input.value.slice(head().length).trim();
         const show = (filter) => {
             const f = (filter || '').toLowerCase();
             const shown = f ? options.filter(o => o.toLowerCase().includes(f)) : options;
@@ -1202,7 +1228,7 @@ export class TimelineEditor {
         };
 
         input.addEventListener('click', () => show(''));
-        input.addEventListener('input', () => show(input.value));
+        input.addEventListener('input', () => show(tail()));
         input.addEventListener('keydown', (e) => {
             if (e.key === 'ArrowDown') { e.preventDefault(); show(''); }
         });
@@ -1212,7 +1238,7 @@ export class TimelineEditor {
             const item = e.target.closest('.mf-menu-item');
             if (!item) return;
             e.preventDefault();
-            input.value = item.dataset.value;
+            input.value = head() + item.dataset.value;
             input.dispatchEvent(new Event('input', { bubbles: true }));
             input.dispatchEvent(new Event('change', { bubbles: true }));
             menu.hidden = true;
@@ -1341,7 +1367,9 @@ export class TimelineEditor {
         if (box) {
             ['.mf-solo', '.mf-pickup'].forEach(sel => {
                 const f = box.querySelector(sel);
-                if (f && f.value === oldName) f.value = newName;
+                if (!f) return;
+                const names = soloNames(f.value);
+                if (names.includes(oldName)) f.value = names.map(n => (n === oldName ? newName : n)).join(', ');
             });
         }
 
@@ -1444,8 +1472,8 @@ export class TimelineEditor {
 
     _soloInstrument(data) {
         const changes = data.instrumentChanges || {};
-        if (data.solo && changes[data.solo]) return changes[data.solo];
-        return '';
+        const named = soloNames(data.solo).find(n => changes[n]);
+        return named ? changes[named] : '';
     }
 
     _musicianRow(name, data, inherited) {
@@ -1499,9 +1527,10 @@ export class TimelineEditor {
 
         // The soloist's own instrument change has its own field; showing it
         // here as well would mean editing it in two places.
-        if (rest.instrumentChanges && data.solo && rest.instrumentChanges[data.solo]) {
+        const soloists = soloNames(data.solo);
+        if (rest.instrumentChanges && soloists.some(n => rest.instrumentChanges[n])) {
             const others = { ...rest.instrumentChanges };
-            delete others[data.solo];
+            soloists.forEach(n => { delete others[n]; });
             if (Object.keys(others).length) rest.instrumentChanges = others;
             else delete rest.instrumentChanges;
         }
@@ -1576,22 +1605,26 @@ export class TimelineEditor {
             delete marker.musicians;
         }
 
-        const soloName = box.querySelector('.mf-solo').value.trim();
+        const soloists = soloNames(box.querySelector('.mf-solo').value);
         const instrument = box.querySelector('.mf-instrument').value.trim();
-        if (instrument && soloName) {
-            marker.instrumentChanges = { ...(marker.instrumentChanges || {}), [soloName]: instrument };
-            this._rememberMusician(soloName, instrument);
-        } else if (marker.instrumentChanges && soloName) {
-            // Cleared on purpose: take this person's change out, leave the rest.
-            delete marker.instrumentChanges[soloName];
+        if (instrument && soloists.length) {
+            // The instrument is what everyone taking it picks up here.
+            marker.instrumentChanges = { ...(marker.instrumentChanges || {}) };
+            soloists.forEach(n => {
+                marker.instrumentChanges[n] = instrument;
+                this._rememberMusician(n, instrument);
+            });
+        } else if (marker.instrumentChanges && soloists.length) {
+            // Cleared on purpose: take these people's changes out, leave the rest.
+            soloists.forEach(n => { delete marker.instrumentChanges[n]; });
             if (!Object.keys(marker.instrumentChanges).length) delete marker.instrumentChanges;
         }
 
         const part = box.querySelector('.mf-part.on');
         if (part) marker.part = part.dataset.part;
-        if (soloName) {
-            marker.solo = soloName;
-            this._rememberMusician(soloName);
+        if (soloists.length) {
+            marker.solo = soloValue(soloists);
+            soloists.forEach(n => this._rememberMusician(n));
         }
         const pickup = box.querySelector('.mf-pickup').value.trim();
         if (pickup) {
@@ -1623,7 +1656,7 @@ export class TimelineEditor {
 
         // Build marker info string (compact summary)
         let info = [];
-        if (data.solo) info.push(`solo: ${data.solo}`);
+        if (data.solo) info.push(`solo: ${soloText(data.solo)}`);
         if (data.pickup) info.push(`pickup: ${data.pickup}`);
         if (data.part) info.push(`part: ${data.part}`);
         // Show other keys briefly

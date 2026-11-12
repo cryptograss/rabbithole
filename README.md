@@ -105,8 +105,13 @@ ensemble:
 timeline:
   0: { part: intro, musicians: { band: in } }
   46.7: { part: A, solo: Harry Clark }
+  200: { part: B, solo: [Justin Holmes, Skyler Golden] }
 standardSectionLength: 13.68
 ```
+
+`solo` is one name, or a list when more than one person takes it at once
+(a cappella harmony): every name on it is starred. In the editor, separate
+the names with commas.
 
 A marker says what changes at that moment. See `src/musician-status.js` for
 the in/out rule and `src/player/timeline.js` for sections.

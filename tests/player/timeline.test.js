@@ -5,7 +5,7 @@
 import { describe, it, expect } from 'vitest';
 import {
 	processTimeline, songParts, songPartTimes, currentPartIndex, currentArrangement,
-	currentInstruments, musicianStatus, momentTimes, dynamicWeight, baseWeights, cards, soloistOf,
+	currentInstruments, musicianStatus, momentTimes, dynamicWeight, baseWeights, cards, soloistOf, soloistsOf,
 } from '../../src/player/timeline.js';
 
 describe( 'processTimeline', () => {
@@ -165,5 +165,36 @@ describe( 'cards', () => {
 	it( 'reads nobody soloing as null, so "nobody" equals "nobody"', () => {
 		expect( soloistOf( { part: 'A' } ) ).toBeNull();
 		expect( soloistOf( undefined ) ).toBeNull();
+	} );
+} );
+
+/*
+ * More than one person takes it at once: a cappella harmony on Reuben's
+ * Train (Justin, 12 Nov 2026). `solo` is then a list, and every name on it
+ * is starred and weighted as the lead.
+ */
+describe( 'more than one soloist', () => {
+	const two = { part: 'B', solo: [ 'Justin Holmes', 'Skyler Golden' ] };
+
+	it( 'names them all, the first of them as the soloist', () => {
+		expect( soloistsOf( two ) ).toEqual( [ 'Justin Holmes', 'Skyler Golden' ] );
+		expect( soloistsOf( { solo: 'Kuba Hejhal' } ) ).toEqual( [ 'Kuba Hejhal' ] );
+		expect( soloistsOf( { part: 'A' } ) ).toEqual( [] );
+		expect( soloistOf( two ) ).toBe( 'Justin Holmes' );
+	} );
+
+	it( 'weights each of them as the lead', () => {
+		expect( dynamicWeight( 'Skyler Golden', two ) ).toBe( 1 );
+		expect( dynamicWeight( 'Justin Holmes', two ) ).toBe( 1 );
+		expect( dynamicWeight( 'Kuba Hejhal', two ) ).toBe( 100 );
+	} );
+
+	it( 'stars both cards', () => {
+		const track = { ensemble: { 'Justin Holmes': [ 'guitar' ], 'Skyler Golden': [ 'bass' ], 'Kuba Hejhal': [ 'fiddle' ] },
+			timeline: { 0: { part: 'A', musicians: { band: 'in' } }, 200: two } };
+		const processed = processTimeline( track );
+		const starred = cards( track, processed, 201, { currentSolo: soloistOf( currentArrangement( processed, 201 ) ) } )
+			.filter( ( c ) => c.star ).map( ( c ) => c.name ).sort();
+		expect( starred ).toEqual( [ 'Justin Holmes', 'Skyler Golden' ] );
 	} );
 } );
