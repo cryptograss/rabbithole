@@ -48,4 +48,14 @@ describe( 'PANE_STYLES', () => {
 	it( 'shows the trail button the template renders hidden', () => {
 		expect( PANE_STYLES ).toContain( '.pp-trail-rh { display: inline-flex !important; }' );
 	} );
+
+	/*
+	 * The record box floats right at 20em; in a narrow pane the text
+	 * beside it came out a word to a line (Justin, 12 Nov 2026). The
+	 * pane measures itself, not the window, since it sits beside the dock.
+	 */
+	it( 'unfloats the record box when the pane itself is narrow', () => {
+		expect( PANE_STYLES ).toContain( ':host { container-type: inline-size; }' );
+		expect( PANE_STYLES ).toMatch( /@container \(max-width: 560px\) \{\s*\.pp-record-box \{ float: none;/ );
+	} );
 } );

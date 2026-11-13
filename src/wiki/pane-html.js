@@ -40,6 +40,16 @@ export const PANE_STYLES = [
 	'  line-height: 1.5; color: #000; background: #f9f9f9',
 	'  url("/skins/MonoBook/resources/images/headbg.svg") 0 0 no-repeat;',
 	'  min-height: 100%; }',
+	// A float needs room beside it. The record box is 20em wide; in a
+	// pane narrower than about twice that, the text beside it came out a
+	// word to a line, "On the record" stacked four high (Justin, zoomed
+	// in, #rabbithole, 12 Nov 2026). The stylesheet's own rule for that
+	// asks the window's width, which a pane in a wide window never meets,
+	// so the pane asks its own: :host is the container.
+	':host { container-type: inline-size; }',
+	'@container (max-width: 560px) {',
+	'  .pp-record-box { float: none; width: auto; margin: 0 0 1em; }',
+	'}',
 	'img { max-width: 100%; height: auto; }',
 	'table { max-width: 100%; }',
 	// MonoBook floats the article beside a sidebar column the pane has
