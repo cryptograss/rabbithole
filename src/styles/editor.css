@@ -1414,3 +1414,18 @@
 .grid-controls {
     flex-wrap: wrap;
 }
+
+/* Read-only (TimelineView.vue): the ruler alone fills the column, and
+   scrolls if zoomed. */
+.timeline-editor.view-only,
+.timeline-editor.view-only .editor-body {
+    height: 100%;
+}
+
+.timeline-editor.view-only .timeline-ruler {
+    flex: 1 1 auto;
+    height: 100%;
+    max-height: none;
+    overflow-y: auto;
+    padding: 24px 0 10px;
+}
