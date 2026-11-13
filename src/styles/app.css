@@ -1298,6 +1298,18 @@ body.bottom-bar .data-section:has(.parts-chart.two-rows) {
         position: static;
     }
 
+    /* "Your rabbithole" is a tab in the bar. On a phone the bar is this
+       grid, and with no cell of its own the tab was auto-placed into the
+       first free one: the cover's column, over the title (Skyler, 12 Nov
+       2026). It takes the edit cell, free since the pencil moved to the
+       parts row, at the right of the track list. */
+    body.bottom-bar .walk-trail {
+        grid-area: edit;
+        justify-self: end;
+        align-self: center;
+        padding: 0 4px;
+    }
+
     body.bottom-bar .rabbithole-header img {
         display: block;
         width: 20px;

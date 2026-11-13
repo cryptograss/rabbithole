@@ -38,7 +38,17 @@ describe( 'searchResults', () => {
 	} );
 } );
 
+/*
+ * {{Listen in Rabbithole}} hides its "find a trail here" button, since a
+ * trail needs a song already playing to start from; the pane is the one
+ * place that is true, so its stylesheet is what shows the button (Justin,
+ * #rabbithole, 12 Nov 2026).
+ */
 describe( 'PANE_STYLES', () => {
+	it( 'shows the trail button the template renders hidden', () => {
+		expect( PANE_STYLES ).toContain( '.pp-trail-rh { display: inline-flex !important; }' );
+	} );
+
 	/*
 	 * The record box floats right at 20em; in a narrow pane the text
 	 * beside it came out a word to a line (Justin, 12 Nov 2026). The
