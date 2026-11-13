@@ -4,8 +4,9 @@
  * shape of the layout it would move you to, with the words in its title.
  * It sits on the Song Parts label's line in the sidebar, so it takes no
  * row of its own: the sidebar's height is precious, and the cards must
- * never be pushed into a scroll (Justin, 11 Nov 2026). Top right of the
- * page in the bar. Not on a phone, which always gets the bar.
+ * never be pushed into a scroll (Justin, 11 Nov 2026). The same line in
+ * the bar, so it never leaves the mouse that clicked it (Skyler, 13 Nov
+ * 2026). Not on a phone, which always gets the bar.
  *
  * It used to be two text pills, the second one "use auto", which undid a
  * stored choice and let the window decide again. A choice you made is a
