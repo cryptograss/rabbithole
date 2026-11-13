@@ -327,6 +327,18 @@ body.bottom-bar .layout-ab {
     text-decoration: underline;
 }
 
+/* The way back, said with a mark: the title always was a link to the
+   song's page, and nothing said so (Skyler, 13 Nov 2026). */
+.song-title-back {
+    font-size: 0.8em;
+    margin-left: 4px;
+    color: #87a96b;
+}
+
+.song-title-link:hover .song-title-back {
+    color: #2d5016;
+}
+
 .song-title-display {
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     font-size: 16px;
@@ -662,6 +674,15 @@ body.bottom-bar .editor-pencil {
 #webamp #equalizer-window,
 #webamp #playlist-window {
     display: none !important;
+}
+
+/* Their buttons stay, dimmed and inert: the windows they open are hidden
+   above, so a click did nothing (Justin, 13 Nov 2026, item 4). Hiding the
+   buttons would leave a hole in the skin; dimmed, they read as off. */
+#webamp #equalizer-button,
+#webamp #playlist-button {
+    opacity: 0.3;
+    pointer-events: none;
 }
 
 /* Editor panel inline styles */

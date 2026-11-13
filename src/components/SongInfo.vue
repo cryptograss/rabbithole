@@ -49,7 +49,7 @@ function onArtError() {
 			editor's pencil used to sit on it and took a line of its own
 			under a two-line title; it is on the Song Parts label now. -->
 		<h2 id="song-title-display" class="song-title-display"><a id="song-title-link" class="song-title-link" :href="songHref"
-			title="Back to this song's page" @click.prevent="backToSong">{{ song.title || 'Untitled' }}</a></h2>
+			title="Back to this song's page" @click.prevent="backToSong">{{ song.title || 'Untitled' }}<span class="song-title-back" aria-hidden="true">↩</span></a></h2>
 		<div v-if="songs.album || !songs.lockedToTrack" id="album-row" class="album-row">
 			<img
 				v-if="songs.album && songs.artUrl"
