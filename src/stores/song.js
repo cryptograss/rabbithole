@@ -12,6 +12,7 @@ import { defineStore } from 'pinia';
 import { ref, computed, watch } from 'vue';
 
 import { INITIAL_PARAMS } from '../initial-params.js';
+import { runningOrderFrom } from '../record-order.js';
 import * as wiki from '../wiki/api.js';
 import { DEFAULT_TRACK, defaultColorScheme } from '../wiki/demo-songs.js';
 import { usePlayerStore } from './player.js';
@@ -20,6 +21,10 @@ export const useSongStore = defineStore( 'song', () => {
 	const player = usePlayerStore();
 
 	const trackParam = INITIAL_PARAMS.get( 'track' );
+	/** ?record=<cid>: a whole record, played in running order. */
+	const recordParam = INITIAL_PARAMS.get( 'record' );
+	/** The record's tracks still to line up once the player stands. */
+	const recordRest = ref( [] );
 	const forcedEncoding = INITIAL_PARAMS.get( 'enc' );
 
 	const initial = ref( null );
@@ -27,8 +32,8 @@ export const useSongStore = defineStore( 'song', () => {
 	const loadError = ref( null );
 	/** Every track with a chart on the wiki: the song selector's list. */
 	const charted = ref( [] );
-	/** Locked to one track by ?track=: the song selector stays hidden. */
-	const lockedToTrack = computed( () => !! trackParam );
+	/** Locked to one track by ?track=, or one record by ?record=: the song selector stays hidden. */
+	const lockedToTrack = computed( () => !! trackParam || !! recordParam );
 
 	const current = computed( () => player.song || initial.value );
 
@@ -62,14 +67,16 @@ export const useSongStore = defineStore( 'song', () => {
 	/** Load the track named in the URL, or the default song. */
 	async function boot() {
 		loading.value = true;
-		if ( ! trackParam ) {
+		if ( ! trackParam && ! recordParam ) {
 			wiki.chartedTracks().then( ( list ) => {
 				charted.value = list;
 			} ).catch( ( err ) => console.warn( 'Could not list the charted songs:', err ) );
 		}
 		loadError.value = null;
 		try {
-			if ( trackParam ) {
+			if ( recordParam ) {
+				initial.value = await bootRecord();
+			} else if ( trackParam ) {
 				// ?track= is a CID, or a readable alias: a Release: redirect to one.
 				const { cid, alias } = await wiki.resolveTrack( trackParam );
 				const song = await wiki.loadTrack( cid, { forcedEncoding } );
@@ -90,6 +97,44 @@ export const useSongStore = defineStore( 'song', () => {
 			}
 		} finally {
 			loading.value = false;
+		}
+	}
+
+	/**
+	 * The record ?record= names: its first playable track (or the one a
+	 * reload names) to start with; the rest wait in recordRest for
+	 * queueRecordRest, since Webamp's playlist exists only once it stands.
+	 */
+	async function bootRecord() {
+		const { cid } = await wiki.resolveTrack( recordParam );
+		const record = await wiki.loadAlbum( cid );
+		if ( ! record ) {
+			throw new Error( 'Record Release page not found, or it lists no tracks: ' + recordParam );
+		}
+		const from = trackParam ? ( await wiki.resolveTrack( trackParam ) ).cid : null;
+		const order = runningOrderFrom( record.tracks, from );
+		for ( let i = 0; i < order.length; i++ ) {
+			try {
+				const song = await fetchTrack( order[ i ] );
+				recordRest.value = order.slice( i + 1 );
+				return song;
+			} catch ( err ) {
+				console.warn( 'Skipping a track of the record that will not load:', order[ i ], err );
+			}
+		}
+		throw new Error( 'No track of this record will play: ' + recordParam );
+	}
+
+	/** Line up the rest of the record, in running order. A track that will not load is skipped. */
+	async function queueRecordRest() {
+		const rest = recordRest.value;
+		recordRest.value = [];
+		for ( const cid of rest ) {
+			try {
+				await queueCid( cid );
+			} catch ( err ) {
+				console.warn( 'Skipping a track of the record that will not load:', cid, err );
+			}
 		}
 	}
 
@@ -184,6 +229,6 @@ export const useSongStore = defineStore( 'song', () => {
 	return {
 		initial, loading, loadError, charted, lockedToTrack, current,
 		album, artUrl, artFailed, notice, metadataParts, queuedCids,
-		boot, pickTrack, fetchTrack, playCid, queueCid, goToTrack,
+		boot, pickTrack, fetchTrack, playCid, queueCid, queueRecordRest, goToTrack,
 	};
 } );

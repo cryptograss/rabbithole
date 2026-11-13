@@ -14,7 +14,8 @@ export const INITIAL_PARAMS = new URLSearchParams(
 export const PAGE_URL = typeof window !== 'undefined' ? window.location.href : '';
 
 /**
- * Whether the address is a Listen button's: a track named, and no page.
+ * Whether the address is a Listen button's: a track or a record named,
+ * and no page.
  *
  * "Listen in Rabbithole" on a Song page, and "Play in Rabbithole" on a
  * Release page, both land at ?track=<cid>, and a person who pressed a
@@ -28,5 +29,5 @@ export const PAGE_URL = typeof window !== 'undefined' ? window.location.href : '
  * @return {boolean}
  */
 export function cameToListen( params ) {
-	return params.has( 'track' ) && ! params.has( 'page' );
+	return ( params.has( 'track' ) || params.has( 'record' ) ) && ! params.has( 'page' );
 }
