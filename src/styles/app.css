@@ -270,13 +270,12 @@ body:not(.bottom-bar) .layout-ab {
     display: none;
 }
 
-/* In the bar layout the sidebar is the bar itself, so the switch
-   floats top right of the page, as it always has. */
+/* In the bar it stays on the Song Parts line too: a flex item after the
+   pencil. It used to float to the page's top right, so the click that
+   moved the player also moved the button out from under the mouse, and
+   switching back meant finding it again (Skyler, 13 Nov 2026). */
 body.bottom-bar .layout-ab {
-    position: fixed;
-    top: 4px;
-    right: 4px;
-    z-index: 2000;
+    flex-shrink: 0;
 }
 
 /* The YAML export, shown when the clipboard is refused or just so a
