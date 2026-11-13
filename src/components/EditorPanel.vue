@@ -18,6 +18,7 @@ import { ref, computed, watch, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import { useLayoutStore } from '../stores/layout.js';
 import { usePlayerStore } from '../stores/player.js';
 import { useSongStore } from '../stores/song.js';
+import { useAccountStore } from '../stores/account.js';
 import { EditableTrackData } from '../editor/EditableTrackData.js';
 import { TimelineEditor } from '../editor/TimelineEditor.js';
 import { KeyboardShortcuts } from '../editor/keyboard-shortcuts.js';
@@ -26,6 +27,7 @@ import { saveMetadata, metadataYaml } from '../wiki/api.js';
 const layout = useLayoutStore();
 const player = usePlayerStore();
 const songs = useSongStore();
+const account = useAccountStore();
 
 const CONTAINER_ID = 'timeline-editor-container';
 
@@ -115,6 +117,7 @@ async function save() {
 			// another tab, so nothing typed is lost: log in there, come
 			// back, press Save again.
 			data.backupNow();
+			account.refresh();
 			status.value = {
 				kind: 'error',
 				html: 'Not logged in. <a href="/index.php?title=Special:UserLogin" target="_blank" rel="noopener">'

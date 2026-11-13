@@ -476,6 +476,17 @@ export async function trackCidForSong( songTitle ) {
 	}
 }
 
+/**
+ * Who this browser is signed in to PickiPedia as: their user name, or null
+ * when nobody is. The wiki answers an anonymous visitor with an "anon" flag
+ * (and id 0) rather than an error.
+ */
+export async function signedInAs() {
+	const r = await fetch( '/api.php?action=query&meta=userinfo&format=json', { credentials: 'include' } );
+	const info = ( await r.json() ).query?.userinfo;
+	return ! info || 'anon' in info || ! info.id ? null : info.name;
+}
+
 /** The session's CSRF token, or null when nobody is logged in. */
 export async function csrfToken() {
 	const r = await fetch( '/api.php?action=query&meta=tokens&format=json', { credentials: 'include' } );
