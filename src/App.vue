@@ -104,6 +104,17 @@ if ( cameToListen( INITIAL_PARAMS ) ) {
 	}, { immediate: true } );
 }
 
+// A record link (?record=): once the player stands, the rest of the record
+// lines up behind the track it started with.
+if ( INITIAL_PARAMS.has( 'record' ) ) {
+	const stop = watch( () => player.ready, ( ready ) => {
+		if ( ready ) {
+			stop();
+			songs.queueRecordRest();
+		}
+	}, { immediate: true } );
+}
+
 onMounted( async () => {
 	window.addEventListener( 'popstate', onPopState );
 	await songs.boot();
