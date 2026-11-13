@@ -45,6 +45,10 @@ describe( 'searchResults', () => {
  * #rabbithole, 12 Nov 2026).
  */
 describe( 'PANE_STYLES', () => {
+	it( 'loads the connectome card\'s stylesheet, which hides its hover tips', () => {
+		expect( PANE_STYLES ).toContain( 'ext.pickipediaContent.connectome.styles' );
+	} );
+
 	it( 'shows the trail button the template renders hidden', () => {
 		expect( PANE_STYLES ).toContain( '.pp-trail-rh { display: inline-flex !important; }' );
 	} );

@@ -19,9 +19,12 @@
  * draws the studio blocks and the rows on a picker's page, and
  * pickipediaVerification draws the proposal markers. Without the second
  * every proposed line wore a bare "[unverified]" (Justin, 11 Nov 2026).
+ * The connectome card's sheet is what hides each neighbour's hover tip
+ * until it is pointed at; without it all fifteen tips stood open at once,
+ * stacked over the card in big type (Skyler, #connectome, 13 Nov 2026).
  */
 const WIKI_STYLESHEETS = [
-	'/load.php?lang=en&modules=ext.pickipediaContent.styles%7Cext.pickipediaVerification.styles%7Cskins.monobook.styles&only=styles&skin=monobook',
+	'/load.php?lang=en&modules=ext.pickipediaContent.styles%7Cext.pickipediaContent.connectome.styles%7Cext.pickipediaVerification.styles%7Cskins.monobook.styles&only=styles&skin=monobook',
 	'/load.php?lang=en&modules=site.styles&only=styles&skin=monobook',
 ];
 
