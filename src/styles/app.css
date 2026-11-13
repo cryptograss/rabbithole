@@ -107,6 +107,33 @@ body {
     background: rgba(255, 255, 255, 0.4);
 }
 
+.timeline-view-labels {
+    display: flex;
+    gap: 0;
+    padding: 4px 8px;
+    flex: 0 0 auto;
+    border-bottom: 1px solid #d8e2d2;
+}
+
+.timeline-view-labels button {
+    flex: 1 1 0;
+    border: 1px solid #87a96b;
+    background: #fff;
+    color: #2d5016;
+    font-size: 11px;
+    line-height: 1;
+    padding: 3px 4px;
+    cursor: pointer;
+}
+
+.timeline-view-labels button:first-child { border-radius: 4px 0 0 4px; }
+.timeline-view-labels button:last-child { border-radius: 0 4px 4px 0; border-left: none; }
+
+.timeline-view-labels button.on {
+    background: #87a96b;
+    color: #fff;
+}
+
 .timeline-view-body {
     flex: 1 1 auto;
     min-height: 0;

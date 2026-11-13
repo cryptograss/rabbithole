@@ -63,6 +63,7 @@ function writeStored( choice ) {
 }
 
 const TIMELINE_KEY = 'rabbitholeTimelineView';
+const LABELS_KEY = 'rabbitholeTimelineLabels';
 
 function readFlag( key, fallback ) {
 	try {
@@ -70,6 +71,14 @@ function readFlag( key, fallback ) {
 		return v === null ? fallback : v === 'on';
 	} catch ( e ) {
 		return fallback;
+	}
+}
+
+function readLabels() {
+	try {
+		return window.localStorage.getItem( LABELS_KEY ) === 'name' ? 'name' : 'instrument';
+	} catch ( e ) {
+		return 'instrument';
 	}
 }
 
@@ -122,6 +131,19 @@ export const useLayoutStore = defineStore( 'layout', () => {
 	// Under 1000px the page beside it would be squeezed below ~540px.
 	const roomy = useMediaQuery( '(min-width: 1000px)' );
 	const showTimeline = computed( () => roomy.value && ! isBar.value && ! phone.value && ! editorOpen.value );
+	/*
+	 * What the timeline's labels say: the instrument, or the picker's name.
+	 * Instruments unless chosen otherwise (Justin, #rabbithole, 13 Nov
+	 * 2026); the choice kept in the browser.
+	 */
+	const timelineLabels = ref( readLabels() );
+	watch( timelineLabels, ( v ) => {
+		try {
+			window.localStorage.setItem( LABELS_KEY, v );
+		} catch ( e ) {
+			// The choice holds for this page.
+		}
+	} );
 
 	function setLayout( choice ) {
 		saved.value = choice;
@@ -151,7 +173,7 @@ export const useLayoutStore = defineStore( 'layout', () => {
 
 	return {
 		layout, isBar, narrow, phone, auto, pinned, saved,
-		minimized, collapsed, editorOpen, follow, timelineView, showTimeline,
+		minimized, collapsed, editorOpen, follow, timelineView, showTimeline, timelineLabels,
 		setLayout, toggleDock, openDock, stopFollowing,
 	};
 } );

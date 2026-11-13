@@ -33,6 +33,22 @@ export function soloValue(names) {
 }
 
 import { musicianEntries, statusAt, compactMusicians, unmatchedNames, renameMusician } from '../musician-status.js';
+import { currentInstruments } from '../player/timeline.js';
+
+/*
+ * Who a marker names, as the ruler labels it: the pickers' names, or what
+ * they play (Justin, #rabbithole, 13 Nov 2026: a toggle between the two,
+ * instruments by default). The instrument is the one the player's card
+ * shows at that marker -- the ensemble's first, or the marker's own
+ * instrumentChanges -- by the same function, so the two cannot disagree.
+ * Someone with no instrument on record keeps their name.
+ */
+export function markerWho(data, ensemble, by = 'name') {
+    const names = data.solo ? soloNames(data.solo) : soloNames(data.pickup);
+    if (by !== 'instrument') return names.join(', ');
+    const playing = currentInstruments({ ensemble }, data);
+    return names.map(n => playing[n] || n).join(', ');
+}
 
 import { loadPeaks, loadServerPeaks, drawWaveform } from './waveform.js';
 import { partTimes, fitGrid, gridLines, snapTime, planSnap } from './section-grid.js';
@@ -81,6 +97,8 @@ export class TimelineEditor {
          * actual edit boxes").
          */
         this.viewOnly = !!options.viewOnly;
+        // 'name' or 'instrument': what the ruler's labels say (markerWho).
+        this.labelBy = options.labelBy || 'name';
 
         // The footer follows the data's save state, whoever changes it:
         // an edit, an apply, or the wiki's answer to a save.
@@ -746,7 +764,7 @@ export class TimelineEditor {
 
         const markers = entries.map(entry => {
             const { time, data } = entry;
-            const who = soloText(data.solo) || data.pickup || '';
+            const who = markerWho(data, this.data.ensemble, this.labelBy);
             const part = data.part || '';
             const label = [part, who].filter(Boolean).join(' · ') || 'unnamed';
             const selected = this.data.selectedMarkerTime === time ? ' selected' : '';

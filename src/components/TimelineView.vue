@@ -11,6 +11,9 @@
  * It shows the chart as saved, which is what the player plays: no browser
  * backup of unsaved edits is restored here, and nothing is backed up.
  *
+ * Its labels name the instrument or the picker, instruments by default
+ * (layout.timelineLabels).
+ *
  * The x folds it to a tab at the page's edge, and the tab unfolds it;
  * either way is remembered (layout.timelineView).
  */
@@ -39,7 +42,7 @@ function build() {
 		return;
 	}
 	data = new EditableTrackData( current, { enableBackup: false, restoreBackup: false } );
-	view = new TimelineEditor( CONTAINER_ID, data, player.model, { viewOnly: true } );
+	view = new TimelineEditor( CONTAINER_ID, data, player.model, { viewOnly: true, labelBy: layout.timelineLabels } );
 }
 
 function dispose() {
@@ -61,6 +64,12 @@ watch( () => player.status, () => {
 	}
 } );
 watch( [ song, () => player.model ], build );
+watch( () => layout.timelineLabels, ( by ) => {
+	if ( view ) {
+		view.labelBy = by;
+		view.render();
+	}
+} );
 watch( () => layout.timelineView, async () => {
 	await nextTick();
 	build();
@@ -76,6 +85,14 @@ watch( () => layout.timelineView, async () => {
 					@click="layout.editorOpen = true">✎ edit</button>
 				<button type="button" class="timeline-view-close" title="Fold the timeline away"
 					aria-label="Fold the timeline away" @click="layout.timelineView = false">×</button>
+			</div>
+			<div class="timeline-view-labels" role="group" aria-label="Label the timeline by">
+				<button type="button" :class="{ on: layout.timelineLabels === 'instrument' }"
+					:aria-pressed="layout.timelineLabels === 'instrument'"
+					@click="layout.timelineLabels = 'instrument'">instruments</button>
+				<button type="button" :class="{ on: layout.timelineLabels === 'name' }"
+					:aria-pressed="layout.timelineLabels === 'name'"
+					@click="layout.timelineLabels = 'name'">pickers</button>
 			</div>
 			<div :id="CONTAINER_ID" class="timeline-view-body"></div>
 		</template>
