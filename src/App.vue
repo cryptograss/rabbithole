@@ -10,6 +10,7 @@
  */
 import { watch, watchEffect, onMounted, onBeforeUnmount } from 'vue';
 
+import { INITIAL_PARAMS, cameToListen } from './initial-params.js';
 import { useLayoutStore } from './stores/layout.js';
 import { useSongStore } from './stores/song.js';
 import { usePaneStore } from './stores/pane.js';
@@ -24,6 +25,7 @@ import WebampDock from './components/WebampDock.vue';
 import Ensemble from './components/Ensemble.vue';
 import SongParts from './components/SongParts.vue';
 import LayoutSwitch from './components/LayoutSwitch.vue';
+import WalkTrail from './components/WalkTrail.vue';
 import WikiPane from './components/WikiPane.vue';
 import EditorPanel from './components/EditorPanel.vue';
 
@@ -37,9 +39,24 @@ watchEffect( () => {
 	document.body.classList.toggle( 'bar-collapsed', layout.isBar && layout.collapsed );
 } );
 
-// Follow the solo into each player's page, while following is on.
-watch( () => player.currentSolo, ( solo ) => {
-	if ( solo && layout.follow ) {
+/*
+ * Each song starts on its own page, and the pane follows the solo from
+ * there as the song plays (Skyler, 17 and 30 Oct, 8 Nov 2026). So a new
+ * song opens its page, and a change of soloist opens theirs only while the
+ * music is playing: loading a song sets its first soloist, and that used
+ * to carry the pane off the song page before a note had played. Both wait
+ * on following being on; a person reading something keeps reading.
+ */
+watch( () => [ player.song && player.song._trackCid, player.currentSolo ], ( [ cid, solo ], [ oldCid ] ) => {
+	if ( ! layout.follow ) {
+		return;
+	}
+	if ( cid !== oldCid ) {
+		// The first song is openPaneForStart's; this is the next one.
+		if ( oldCid && player.song ) {
+			pane.openSong( player.song );
+		}
+	} else if ( solo && player.playing ) {
 		pane.open( solo );
 	}
 } );
@@ -60,30 +77,31 @@ function onPopState( e ) {
 	}
 }
 
-/*
- * Where the pane opens: the song's own page when there is one, else the
- * track's metadata page; with no track, where the iframe used to start.
- * A song should open on the song, not on the YAML somebody edits it with
- * (Skyler).
+/**
+ * Where the pane opens: the page the address names (?page=, a shared or
+ * reloaded address), else the first song's page, linked to or not.
  */
-async function openPaneForStart() {
+function openPaneForStart() {
+	const page = INITIAL_PARAMS.get( 'page' );
 	const song = songs.initial;
-	if ( ! songs.lockedToTrack || ! song ) {
+	if ( page ) {
+		pane.open( page, { push: false } );
+	} else if ( song ) {
+		pane.openSong( song, { push: false } );
+	} else {
 		pane.open( 'Justin Holmes', { push: false } );
-		return;
 	}
-	const fallback = song._metadataTitle;
-	if ( ! song.title ) {
-		pane.open( fallback, { push: false } );
-		return;
-	}
-	const songPage = 'Song:' + song.title;
-	try {
-		pane.open( ( await wiki.pageExists( songPage ) ) ? songPage : fallback, { push: false } );
-	} catch ( err ) {
-		console.warn( 'Could not check for a song page:', err );
-		pane.open( fallback, { push: false } );
-	}
+}
+
+// A Listen button brought them here: the song plays as soon as the player
+// stands (cameToListen says which addresses are a button's).
+if ( cameToListen( INITIAL_PARAMS ) ) {
+	const stop = watch( () => player.ready, ( ready ) => {
+		if ( ready ) {
+			player.model.play();
+			stop();
+		}
+	}, { immediate: true } );
 }
 
 onMounted( async () => {
@@ -112,17 +130,34 @@ onBeforeUnmount( () => {
 					<FollowSwitch />
 				</div>
 
-
 				<WebampDock />
 
 				<!-- In the sidebar the cards sit under the player; in the bar
 				     they are the bar's middle zone, after the song parts. -->
 				<Ensemble v-if="!layout.isBar" />
 
+				<!-- One line, after what is playing: above Webamp, a few hops
+				     pushed it off the bottom of the screen (Justin, 11 Nov
+				     2026). The hops open in a drawer over the page; in the
+				     bar the line is a tab at the right end. -->
+				<WalkTrail />
+
 				<div class="data-section">
-					<div class="section-label">Song Parts</div>
-					<SongParts />
+					<!-- The way into the timeline editor: a pencil on the label
+					     of what it edits. It was on the song's title, where a
+					     two-line title pushed it onto a line of its own, and
+					     the ensemble off the screen (Justin, 12 Nov 2026). -->
+					<div class="section-label">Song Parts</div><button
+						id="editor-toggle-btn"
+						type="button"
+						class="editor-pencil"
+						:class="{ active: layout.editorOpen }"
+						:title="layout.editorOpen ? 'Close the timeline editor' : 'Edit this song\'s timeline'"
+						:aria-label="layout.editorOpen ? 'Close the timeline editor' : 'Edit this song\'s timeline'"
+						@click="layout.editorOpen = !layout.editorOpen"
+					>✎<span class="editor-pencil-label">edit timeline</span></button>
 					<LayoutSwitch />
+					<SongParts />
 				</div>
 
 				<Ensemble v-if="layout.isBar" />

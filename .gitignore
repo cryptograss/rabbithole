@@ -3,3 +3,6 @@ dist/
 .vite/
 *.log
 .DS_Store
+# Local settings, and sometimes secrets: never committed
+.env
+.env.local

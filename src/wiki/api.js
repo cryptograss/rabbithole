@@ -32,33 +32,43 @@ export async function fetchYamlPage( title, { signal } = {} ) {
 	return jsYaml.load( text ) || {};
 }
 
-let stylesheetText = null;
-
-/**
- * The wiki's stylesheets as one string, fetched once and kept: skin mode
- * injects them rewritten, since a <link> inside a shadow root cannot have
- * its selectors changed.
- */
-export function wikiStylesheets( hrefs, { signal } = {} ) {
-	if ( ! stylesheetText ) {
-		stylesheetText = Promise.all( hrefs.map( ( href ) => fetch( href, { signal } ).then( ( r ) => {
-			if ( ! r.ok ) {
-				throw new Error( `Stylesheet answered ${ r.status }` );
-			}
-			return r.text();
-		} ) ) ).then( ( parts ) => parts.join( '\n' ) ).catch( ( err ) => {
-			stylesheetText = null;
-			throw err;
-		} );
-	}
-	return stylesheetText;
-}
-
 /** Whether a page exists. */
 export async function pageExists( title ) {
 	const j = await api( { action: 'query', titles: title } );
 	const page = Object.values( j.query?.pages || {} )[ 0 ];
 	return !! page && page.missing === undefined;
+}
+
+const SONG_NAMESPACE = '3008';
+
+/**
+ * The Song: page a track belongs to, read from one query's answer: the page
+ * named after the track's title when there is one, else the Song: page that
+ * links the track's Release page. Null when neither. Pure.
+ *
+ * A release is titled the way whoever pinned it typed it: "Immutable Strings
+ * - Reuben's Train (from web3summit 2024)" is a cut of Reuben's Train, and
+ * there is no Song: page by the long name, so ?track=<its cid> opened on the
+ * YAML (Justin, 11 Nov 2026). The song page that claims the recording is the
+ * one to open: [[Song:Reuben's Train]] lists that release under Recordings.
+ */
+export function songPageFrom( answer, title ) {
+	const page = Object.values( answer?.query?.pages || {} )[ 0 ];
+	if ( title && page && page.missing === undefined && page.invalid === undefined ) {
+		return page.title;
+	}
+	const claims = ( answer?.query?.backlinks || [] ).filter( ( b ) => String( b.ns ) === SONG_NAMESPACE );
+	return claims[ 0 ]?.title || null;
+}
+
+/** The Song: page of the track with this cid and title, or null. One request. */
+export async function songPageOf( cid, title ) {
+	const j = await api( {
+		action: 'query',
+		...( title ? { titles: 'Song:' + title } : {} ),
+		list: 'backlinks', bltitle: 'Release:' + cid, blnamespace: SONG_NAMESPACE, bllimit: '5',
+	} );
+	return songPageFrom( j, title );
 }
 
 /**
@@ -147,6 +157,80 @@ function defaultCanPlay( type ) {
 }
 
 /**
+ * The audio file in an upload's folder, as "<cid>/<name>", or null.
+ *
+ * A song uploaded on its own (Special:DeliverOtherContent) is pinned as a
+ * folder: the file as it was uploaded, and a metadata.json. Its Release has
+ * no encodings, since only albums are transcoded, so Rabbithole said "no
+ * encoding this browser can play" and played nothing: Reuben's Train from
+ * Web3 Summit 2024 (Skyler and Justin, 11 Nov 2026). The folder's listing
+ * on the gateway names the file; this reads it from that page.
+ */
+export function audioInFolder( html, cid ) {
+	const prefix = '/ipfs/' + cid + '/';
+	for ( const [ , href ] of String( html ).matchAll( /href="([^"]+)"/g ) ) {
+		if ( href.startsWith( prefix ) && /\.(mp3|ogg|oga|flac|wav|m4a|aac|opus)$/i.test( href ) ) {
+			return href.slice( '/ipfs/'.length );
+		}
+	}
+	return null;
+}
+
+async function lonePlayable( release, cid, { signal } = {} ) {
+	if ( ! /^audio\//.test( release.file_type || '' ) ) {
+		return null;
+	}
+	// Some are pinned as the bare file (Barlow's Jig with David Grier), so
+	// ask what the CID is before reading it as a folder.
+	const url = IPFS_GATEWAY + '/ipfs/' + cid + '/';
+	const head = await fetch( url, { method: 'HEAD', signal } );
+	if ( /^audio\//.test( head.headers.get( 'content-type' ) || '' ) ) {
+		return cid;
+	}
+	const r = await fetch( url, { signal } );
+	return r.ok ? audioInFolder( await r.text(), cid ) : null;
+}
+
+/** The shape of an IPFS CID: base58 Qm…, or base32 bafy…. */
+const CID_SHAPE = /^(Qm[1-9A-HJ-NP-Za-km-z]{44}|b[a-z2-7]{50,})$/;
+
+/**
+ * The CID a ?track= names, from the wiki's answer to a redirect-following
+ * query: the first redirect that lands on a Release:<cid> page. Pure.
+ *
+ * A CID is too long to read and says nothing about which song it is
+ * (Justin, 12 Nov 2026). The readable name is a wiki redirect page,
+ * "Reuben's Train (Immutable Strings, Funkhaus 2024)" → Release:QmNogi…,
+ * so ?track=<that name> opens the same track, the name works as a wiki
+ * link anywhere, search finds it, and anyone can add or move one. The
+ * Release namespace is protected, so the alias lives in the main one;
+ * both are asked for.
+ */
+export function cidFromRedirect( answer ) {
+	for ( const r of answer?.query?.redirects || [] ) {
+		const to = String( r.to || '' );
+		if ( to.startsWith( 'Release:' ) && CID_SHAPE.test( to.slice( 'Release:'.length ) ) ) {
+			return to.slice( 'Release:'.length );
+		}
+	}
+	return null;
+}
+
+/**
+ * What ?track= holds, resolved: a CID as it is, or a readable alias to the
+ * CID its redirect points at. Unknown names come back as given, so
+ * loadTrack says "not found" about the name the person typed.
+ */
+export async function resolveTrack( name, { signal } = {} ) {
+	if ( ! name || CID_SHAPE.test( name ) ) {
+		return { cid: name, alias: null };
+	}
+	const j = await api( { action: 'query', titles: name + '|Release:' + name, redirects: '1' }, { signal } );
+	const cid = cidFromRedirect( j );
+	return cid ? { cid, alias: name } : { cid: name, alias: null };
+}
+
+/**
  * A track, ready to play: its Release page and its /Metadata page, folded
  * into the one object the player and the editor work on.
  */
@@ -156,7 +240,8 @@ export async function loadTrack( cid, { forcedEncoding = null, signal } = {} ) {
 		throw new Error( 'Track Release page not found: ' + cid );
 	}
 	const metadata = extractMetadata( await fetchYamlPage( 'Release:' + cid + '/Metadata', { signal } ) || {} );
-	const encoding = pickEncoding( release.encodings, { forced: forcedEncoding } );
+	const encoding = pickEncoding( release.encodings, { forced: forcedEncoding } )
+		|| await lonePlayable( release, cid, { signal } ).then( ( path ) => path && { cid: path, format: 'file' } );
 	if ( ! encoding ) {
 		throw new Error( 'Track has no encoding this browser can play' );
 	}
@@ -170,12 +255,88 @@ export async function loadTrack( cid, { forcedEncoding = null, signal } = {} ) {
 		standardSectionLength: metadata.standardSectionLength,
 		engineer: metadata.engineer,
 		_trackCid: cid,
+		/** The readable name ?track= came with, if it did; the address keeps it. */
+		_alias: null,
 		_metadataTitle: 'Release:' + cid + '/Metadata',
+		_releaseTitle: 'Release:' + cid,
 		_record: metadata.record,
 		_studio: metadata.studio,
 		_sessionType: metadata.sessionType,
 		_engineer: metadata.engineer,
 	};
+}
+
+/** Every page named, as {title: wikitext}, fifty titles to a request (the API's limit). */
+async function pageTexts( titles ) {
+	const texts = {};
+	for ( let i = 0; i < titles.length; i += 50 ) {
+		const j = await api( {
+			action: 'query', titles: titles.slice( i, i + 50 ).join( '|' ),
+			prop: 'revisions', rvprop: 'content', rvslots: 'main',
+		} );
+		for ( const page of Object.values( j.query?.pages || {} ) ) {
+			const text = page.revisions?.[ 0 ]?.slots?.main?.[ '*' ];
+			if ( text !== undefined ) {
+				texts[ page.title ] = text;
+			}
+		}
+	}
+	return texts;
+}
+
+/** Whether a metadata page has a chart: a timeline with more than one entry. */
+export function isCharted( metadataText ) {
+	let data;
+	try {
+		data = jsYaml.load( metadataText );
+	} catch {
+		return false;
+	}
+	const timeline = extractMetadata( data ).timeline;
+	return !! timeline && typeof timeline === 'object' && Object.keys( timeline ).length > 1;
+}
+
+/**
+ * Every track with a chart on the wiki, as {cid, title, album}, by album
+ * then title: the song selector's list. A song is on it once its
+ * /Metadata page has a timeline, so charting a song is what puts it there.
+ */
+export async function chartedTracks() {
+	const metadataTitles = [];
+	let from;
+	do {
+		const j = await api( {
+			action: 'query', list: 'allpages', apnamespace: 3004, aplimit: 500, ...( from ? { apcontinue: from } : {} ),
+		} );
+		for ( const p of j.query?.allpages || [] ) {
+			if ( p.title.endsWith( '/Metadata' ) ) {
+				metadataTitles.push( p.title );
+			}
+		}
+		from = j.continue?.apcontinue;
+	} while ( from );
+
+	const metadata = await pageTexts( metadataTitles );
+	const cids = metadataTitles.filter( ( t ) => metadata[ t ] && isCharted( metadata[ t ] ) )
+		.map( ( t ) => t.slice( 'Release:'.length, -'/Metadata'.length ) );
+
+	const load = ( text ) => {
+		try {
+			return jsYaml.load( text ) || {};
+		} catch {
+			return {};
+		}
+	};
+	const releases = await pageTexts( cids.map( ( cid ) => 'Release:' + cid ) );
+	const tracks = cids.map( ( cid ) => ( { cid, release: load( releases[ 'Release:' + cid ] || '' ) } ) );
+	const parents = [ ...new Set( tracks.map( ( t ) => t.release.parent_release ).filter( Boolean ) ) ];
+	const albums = await pageTexts( parents.map( ( cid ) => 'Release:' + cid ) );
+
+	return tracks.map( ( { cid, release } ) => ( {
+		cid,
+		title: release.title || cid,
+		album: ( release.parent_release && load( albums[ 'Release:' + release.parent_release ] || '' ).title ) || '',
+	} ) ).sort( ( a, b ) => a.album.localeCompare( b.album ) || a.title.localeCompare( b.title ) );
 }
 
 /** The record a track belongs to: title and running order, from the parent Release. */
@@ -245,10 +406,58 @@ export async function search( text ) {
 	return data.query?.search || [];
 }
 
-/** The performer graph's raw results, for trail.js's buildGraph. */
+/**
+ * The performer graph's raw results, for trail.js's buildGraph.
+ *
+ * Two kinds of subobject come back, both from {{Studio cut}}: one per
+ * musician (Has cut, Has performer, Has instrument) and one per appearance
+ * (Has cut, Has record). They share the cut, and buildGraph joins them, so
+ * each credit knows which record it is on. Without that, Harry Clark's
+ * Vowel Sounds cut of Barlow's Jig led to the 4masks recording, which he
+ * is not on (Justin, 11 Nov 2026).
+ */
 export async function performerResults() {
-	const d = await api( { action: 'ask', query: '[[Has performer::+]]|?Has performer|?Has instrument|limit=500' } );
+	const d = await api( {
+		action: 'ask',
+		query: '[[Has performer::+]] OR [[Has record::+]]|?Has cut|?Has performer|?Has instrument|?Has record|limit=1000',
+	} );
 	return d.query && d.query.results;
+}
+
+const recordsForCid = {};
+
+/**
+ * The names the record a track is on goes by: the record page that carries
+ * its parent Release ({{Record release}} on [[4masks]] names
+ * Release:QmUWtV…, so the backlink finds the page, as findAlbumArt does),
+ * and the Release's own title ("Justin Myles Holmes - 4masks (RC1)"). The
+ * Studio cut credits name the record page, so that is the one that matters.
+ * Empty when the track stands alone or nobody can say. Asked once per CID.
+ */
+export function recordsOf( cid ) {
+	if ( recordsForCid[ cid ] === undefined ) {
+		recordsForCid[ cid ] = ( async () => {
+			try {
+				const release = await fetchYamlPage( 'Release:' + cid );
+				if ( ! release || ! release.parent_release ) {
+					return [];
+				}
+				const parent = 'Release:' + release.parent_release;
+				const [ album, back ] = await Promise.all( [
+					fetchYamlPage( parent ),
+					api( { action: 'query', list: 'backlinks', bltitle: parent, blnamespace: '0', bllimit: '5' } ),
+				] );
+				const names = ( back.query?.backlinks || [] ).map( ( b ) => b.title );
+				if ( album && album.title ) {
+					names.push( album.title );
+				}
+				return names;
+			} catch ( err ) {
+				return [];
+			}
+		} )();
+	}
+	return recordsForCid[ cid ];
 }
 
 /**

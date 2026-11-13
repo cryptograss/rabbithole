@@ -27,6 +27,18 @@ import { webAudioBypassed } from './web-audio.js';
 import { followVolume } from './ios-web-audio.js';
 import * as timeline from './timeline.js';
 
+/**
+ * Two songs are the same recording when they share a track CID, or, with
+ * no CID, the same audio URL. The URL alone isn't enough: the same CID can
+ * resolve to another encoding's file.
+ */
+export function sameRecording( a, b ) {
+	if ( a._trackCid && b._trackCid ) {
+		return a._trackCid === b._trackCid;
+	}
+	return a.audioFile === b.audioFile;
+}
+
 // How long any one highlight may hold, in seconds. The timelines ask for
 // more in places (Paint Exchange: 8.5s of spotlight, 7s of flourish) and at
 // that length an effect stops reading as emphasis and starts reading as a
@@ -134,6 +146,11 @@ export class WebampPlayer {
 			container.appendChild( node );
 		}
 		container.style.position = 'relative';
+		// Webamp turns a wheel over its window into volume, so scrolling the
+		// page past the player changed the volume instead (Justin, 11 Nov
+		// 2026). The wheel is the page's: it is stopped here, on the way
+		// down, before Webamp's own listener sees it.
+		container.addEventListener( 'wheel', ( e ) => e.stopPropagation(), { capture: true, passive: true } );
 
 		// With the Web Audio graph bypassed the volume slider drives a gain
 		// node downstream of nothing; point it at the element instead.
@@ -189,14 +206,17 @@ export class WebampPlayer {
 	_tick( time ) {
 		this.state.time = time;
 		const arrangement = this.arrangement.value;
-		const solo = timeline.soloistOf( arrangement );
+		const solos = timeline.soloistsOf( arrangement );
+		const solo = solos[ 0 ] || null;
 
 		if ( solo !== this.state.currentSolo ) {
-			if ( this.state.currentSolo ) {
-				this._addRecentSoloist( this.state.currentSolo );
-			}
+			// Everyone who was taking it and is not now is recent, the
+			// first of them most recent.
+			( this._lastSolos || [] ).filter( ( n ) => ! solos.includes( n ) ).reverse()
+				.forEach( ( n ) => this._addRecentSoloist( n ) );
 			this.state.currentSolo = solo;
 		}
+		this._lastSolos = solos;
 
 		if ( arrangement !== this._lastArrangement ) {
 			this._lastArrangement = arrangement;
@@ -311,10 +331,24 @@ export class WebampPlayer {
 		if ( ! this.webamp ) {
 			return false;
 		}
-		if ( this.upNext().some( ( s ) => s.audioFile === raw.audioFile ) ) {
+		if ( this.upNext().some( ( s ) => sameRecording( s, raw ) ) ) {
 			return false;
 		}
 		this.webamp.appendTracks( [ this._webampTrack( raw ) ] );
+		return true;
+	}
+
+	/**
+	 * Skip to the next song in the queue and play it. False when nothing
+	 * is queued.
+	 */
+	playNext() {
+		if ( ! this.webamp || ! this.upNext().length ) {
+			return false;
+		}
+		this._pauseOnNextPlay = false;
+		this.webamp.nextTrack();
+		this.webamp.play();
 		return true;
 	}
 

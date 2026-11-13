@@ -1,0 +1,12 @@
+#!/bin/sh
+# rabbithole's tests, as Jenkins' branches agent runs them (Cryptograss:Moods/ramp/Plan, section 11;
+# maybelle-config's maybelle/jobs/branch-tests.groovy): the unit tests, then the build, so a change that
+# breaks the bundle is red before it merges. Its npm comes through the agent's proxy (registry.npmjs.org).
+# eslint is left out: src/ has no eslint config, so `npm run lint` can't pass as things stand.
+set -eu
+echo "node $(node --version), npm $(npm --version)"
+npm ci --no-audit --no-fund
+echo '--- vitest'
+npx vitest run
+echo '--- vite build'
+npx vite build

@@ -1,47 +1,51 @@
-// @vitest-environment happy-dom
 /**
- * Skin mode dresses the wiki page in MonoBook inside a shadow root.
- *
- * MonoBook writes its layout against body and html, which a shadow root
- * does not have; the chrome arrived unpositioned, under the article, for
- * three weeks before Justin asked why the wiki looked naked (6 Nov 2026).
- * The selectors are rewritten to stand-in elements, and only they.
+ * The pane shows the article and nothing else: no selector of ways to
+ * wear the wiki at the top (Justin and Skyler, #rabbithole, 11 Nov 2026).
  */
 import { describe, it, expect } from 'vitest';
-import { skinStyles, paneBody, SHADOW_BODY } from '../../src/wiki/pane-html.js';
+import { PANE_STYLES, paneBody, searchResults } from '../../src/wiki/pane-html.js';
 
-describe( 'skinStyles', () => {
-	it( 'moves body and html selectors onto the stand-ins', () => {
-		expect( skinStyles( 'body{margin:0}html{font-size:100%}' ) )
-			.toBe( '.mw-shadow-body{margin:0}.mw-shadow-html{font-size:100%}' );
+describe( 'paneBody', () => {
+	const html = paneBody( 'Song:Swords to Ploughshares', { text: '<p>A song.</p>' } );
+
+	it( 'is the article, under its title', () => {
+		expect( html ).toMatch( /<h1 class="pane-title firstHeading"><a [^>]*>Song:Swords to Ploughshares</ );
+		expect( html ).toContain( '<p>A song.</p>' );
 	} );
 
-	it( 'rewrites each selector of a list, with its pseudo-classes', () => {
-		expect( skinStyles( 'body:not(.skin--responsive) #column-content,body.skin--responsive .portlet{float:left}' ) )
-			.toBe( '.mw-shadow-body:not(.skin--responsive) #column-content,.mw-shadow-body.skin--responsive .portlet{float:left}' );
+	/*
+	 * The title is the way out to the regular wiki page, in a new tab, so
+	 * the song plays on; inside the pane there was no telling how to escape
+	 * (Justin, 12 Nov 2026).
+	 */
+	it( 'makes the title a link to the page on PickiPedia, in a new tab', () => {
+		expect( html ).toContain( '<a class="pane-escape" href="/wiki/Song:Swords_to_Ploughshares" target="_blank" rel="noopener"' );
 	} );
 
-	it( 'reaches inside @media blocks', () => {
-		expect( skinStyles( '@media screen and (min-width:551px){body .portlet{width:11.6em}}' ) )
-			.toBe( '@media screen and (min-width:551px){.mw-shadow-body .portlet{width:11.6em}}' );
-	} );
-
-	it( 'leaves tbody, .body, and declarations alone', () => {
-		const css = 'tbody tr{color:red}.body{x:1}#htmlish{y:2}a{background:url(body.png)}';
-		expect( skinStyles( css ) ).toBe( css );
+	it( 'carries no mode selector and no chrome bar', () => {
+		expect( html ).not.toContain( 'pane-mode' );
+		expect( html ).not.toContain( 'pane-chrome' );
+		expect( html ).not.toContain( '<select' );
 	} );
 } );
 
-describe( 'paneBody in skin mode', () => {
-	const page = '<html><body class="mediawiki skin-monobook skin--responsive ns-3008">'
-		+ '<div id="globalWrapper"><div id="column-one"><div class="portlet">nav</div></div>'
-		+ '<script>/* furniture */</script></div></body></html>';
+describe( 'searchResults', () => {
+	it( 'keeps its search box, and no mode selector', () => {
+		const html = searchResults( 'banjo', [ { title: 'Cory Walker', snippet: 'banjo' } ] );
+		expect( html ).toContain( 'class="pane-search"' );
+		expect( html ).not.toContain( 'pane-mode' );
+		expect( html ).toContain( '1 result for banjo' );
+	} );
+} );
 
-	it( 'wraps the page in a stand-in body wearing the real body classes, with the rewritten styles', () => {
-		const html = paneBody( 'Song:Swords', { text: '' }, 'skin', page, 'body .portlet{float:left}' );
-		expect( html ).toContain( '<style>.mw-shadow-body .portlet{float:left}</style>' );
-		expect( html ).toContain( `class="${ SHADOW_BODY } mediawiki skin-monobook skin--responsive ns-3008"` );
-		expect( html ).toContain( 'id="globalWrapper"' );
-		expect( html ).not.toContain( '<script' );
+/*
+ * {{Listen in Rabbithole}} hides its "find a trail here" button, since a
+ * trail needs a song already playing to start from; the pane is the one
+ * place that is true, so its stylesheet is what shows the button (Justin,
+ * #rabbithole, 12 Nov 2026).
+ */
+describe( 'PANE_STYLES', () => {
+	it( 'shows the trail button the template renders hidden', () => {
+		expect( PANE_STYLES ).toContain( '.pp-trail-rh { display: inline-flex !important; }' );
 	} );
 } );

@@ -6,7 +6,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 vi.mock( '../../src/player/webamp-global.js', () => ( { default: () => class {} } ) );
 
-import { WebampPlayer } from '../../src/player/model.js';
+import { WebampPlayer, sameRecording } from '../../src/player/model.js';
 
 const SWORDS = {
 	title: 'Swords to Ploughshares',
@@ -126,5 +126,15 @@ describe( 'the player model', () => {
 		expect( model.trackData.timeline ).toEqual( { 0: { part: 'Z' } } );
 		expect( model.parts.value ).toEqual( [ 'Z' ] );
 		expect( seen.at( -1 ) ).toEqual( [ 3, 'Z' ] );
+	} );
+} );
+
+describe( 'sameRecording', () => {
+	it( 'is the CID when both have one, whatever the file', () => {
+		expect( sameRecording( { _trackCid: 'Qb', audioFile: 'a.ogg' }, { _trackCid: 'Qb', audioFile: 'a.flac' } ) ).toBe( true );
+		expect( sameRecording( { _trackCid: 'Qb', audioFile: 'a.ogg' }, { _trackCid: 'Qv', audioFile: 'a.ogg' } ) ).toBe( false );
+	} );
+	it( 'is the file when there is no CID', () => {
+		expect( sameRecording( { audioFile: 'a.ogg' }, { audioFile: 'a.ogg' } ) ).toBe( true );
 	} );
 } );

@@ -85,7 +85,11 @@ npm run test:e2e  # a playthrough in headless Chromium, with sound (needs npm ru
 
 Open `/rabbithole/?track=<cid>` for a track from the wiki, or `/rabbithole/`
 for August, the song it opens on; the dropdown lists every song with a chart
-on the wiki. `?layout=bar|sidebar|auto` picks a layout for one visit;
+on the wiki. As the pane moves, the address keeps up:
+`/rabbithole/?track=<cid>&page=<title>` opens the player on that page with
+that song, so it can be reloaded or sent to somebody. A bare `?track=<cid>`
+is what the Listen and Play buttons on the wiki send, and it starts playing;
+an address that names a page opens quiet. `?layout=bar|sidebar|auto` picks a layout for one visit;
 `?enc=flac|ogg` forces an encoding; `?webaudio=off|on` forces the iOS bypass.
 
 ## Testing
@@ -98,7 +102,7 @@ or any URL you give it (`npm run test:e2e -- https://pickipedia.xyz/rabbithole/`
 It presses the carrot, then checks that the audio decodes and plays (the Web
 Audio analyser hears it), that Webamp's clock moves, after a seek too, and that
 what the song's chart says happens when the song gets there: the pane follows
-the solo, the carrot loses a bite per part, a flourish fires. It also checks
+the solo, the carrot shortens as the song plays, a flourish fires. It also checks
 following a picker, the dropdown, the phone layout, and the editor's save
 target, through Copy YAML; it never saves. Its expectations come from the
 song's chart on the wiki, through `src/player/timeline.js`. It needs
@@ -131,8 +135,13 @@ ensemble:
 timeline:
   0: { part: intro, musicians: { band: in } }
   46.7: { part: A, solo: Harry Clark }
+  200: { part: B, solo: [Justin Holmes, Skyler Golden] }
 standardSectionLength: 13.68
 ```
+
+`solo` is one name, or a list when more than one person takes it at once
+(a cappella harmony): every name on it is starred. In the editor, separate
+the names with commas.
 
 A marker says what changes at that moment. See `src/musician-status.js` for
 the in/out rule and `src/player/timeline.js` for sections.

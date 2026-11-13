@@ -13,6 +13,25 @@
 
 import jsYaml from 'js-yaml';
 
+/*
+ * `solo` in a marker is one name, or a list when more than one person takes
+ * it at once (a cappella harmony on Reuben's Train; Justin, 12 Nov 2026).
+ * The form shows them as one line, comma-separated, and saves one name as a
+ * string so a chart with one soloist per marker reads as it always did.
+ */
+export function soloNames(solo) {
+    if (!solo) return [];
+    const list = Array.isArray(solo) ? solo : String(solo).split(',');
+    return list.map(n => String(n).trim()).filter(Boolean);
+}
+export function soloText(solo) {
+    return soloNames(solo).join(', ');
+}
+export function soloValue(names) {
+    const list = soloNames(names);
+    return list.length <= 1 ? (list[0] || '') : list;
+}
+
 import { musicianEntries, statusAt, compactMusicians, unmatchedNames, renameMusician } from '../musician-status.js';
 
 import { loadPeaks, loadServerPeaks, drawWaveform } from './waveform.js';
@@ -20,6 +39,14 @@ import { partTimes, fitGrid, gridLines, snapTime, planSnap } from './section-gri
 
 // The rabbit that runs down the ruler as the song plays.
 const RABBIT_URL = new URL('../images/rabbit.png', import.meta.url).href;
+
+/*
+ * A carrot over the rabbit that plays and pauses, so charting needs no
+ * trip across the page to the player (Skyler, #rabbithole, 11 Nov 2026).
+ * The same carrot as the player's: greens to the left, the body the ▶,
+ * two notches through it while the song plays.
+ */
+const RULER_CARROT = `<button type="button" class="ruler-carrot" title="Play / pause" aria-label="Play / pause"><svg viewBox="0 0 48 48" width="26" height="26" aria-hidden="true"><g class="ruler-carrot-greens"><path d="M15 24 C 12 17, 7 12, 2 10 C 4 15, 8 21, 15 24 Z"/><path d="M15 24 C 10 21, 4 21, 0 24 C 4 27, 10 27, 15 24 Z"/><path d="M15 24 C 12 31, 7 36, 2 38 C 4 33, 8 27, 15 24 Z"/></g><path class="ruler-carrot-body" d="M15 13 L 42 24 L 15 35 Z"/><g class="ruler-carrot-notches"><rect x="20" y="16" width="3.5" height="16" rx="1"/><rect x="26.5" y="16" width="3.5" height="16" rx="1"/></g></svg></button>`;
 export class TimelineEditor {
     /*
      * What an empty marker starts as. The two keys that every marker
@@ -343,6 +370,16 @@ export class TimelineEditor {
         if (oldRuler) this._rulerScroll = oldRuler.scrollTop;
         const oldList = this.container.querySelector('.marker-list');
         if (oldList) this._listScroll = oldList.scrollTop;
+        /*
+         * An open marker form is a draft: what is typed in it belongs to
+         * the person until they save or cancel, so rebuilding the editor
+         * carries the form across whole, fields and all. Skyler,
+         * 2026-11-10: picking a part blanked the soloist just chosen,
+         * because the part saves at once and the form was rebuilt from
+         * the saved marker.
+         */
+        const openForm = this.container.querySelector('.marker-form');
+        if (openForm) openForm.remove();
 
         this.container.innerHTML = `
             <div class="timeline-editor">
@@ -394,6 +431,12 @@ export class TimelineEditor {
                 </div>
             </div>
         `;
+
+        if (openForm && (this._formFor === null || this.data.getMarker(this._formFor))) {
+            this.container.querySelector('.timeline-editor').appendChild(openForm);
+        } else if (openForm) {
+            this._formFor = undefined;
+        }
 
         this._attachEventListeners();
         if (this._rulerMove) window.removeEventListener('mousemove', this._rulerMove);
@@ -673,7 +716,7 @@ export class TimelineEditor {
 
         const markers = entries.map(entry => {
             const { time, data } = entry;
-            const who = data.solo || data.pickup || '';
+            const who = soloText(data.solo) || data.pickup || '';
             const part = data.part || '';
             const label = [part, who].filter(Boolean).join(' · ') || 'unnamed';
             const selected = this.data.selectedMarkerTime === time ? ' selected' : '';
@@ -691,11 +734,21 @@ export class TimelineEditor {
                     ${lines}
                     ${ticks.join('')}
                     ${markers}
-                    <div class="ruler-playhead" style="top:${pct(this.currentPlayingTime || 0)}%"><img class="ruler-rabbit" src="${RABBIT_URL}" alt="" draggable="false"><span class="ruler-playhead-tag">now <b>${this.formatTime(this.currentPlayingTime || 0).replace(/\.\d$/, '')}</b></span></div>
+                    <div class="ruler-playhead" style="top:${pct(this.currentPlayingTime || 0)}%">${RULER_CARROT}<img class="ruler-rabbit" src="${RABBIT_URL}" alt="" draggable="false"><span class="ruler-playhead-tag">now <b>${this.formatTime(this.currentPlayingTime || 0).replace(/\.\d$/, '')}</b></span></div>
                     <div class="ruler-hover" hidden><span class="ruler-hover-time"></span></div>
                 </div>
             </div>
         `;
+    }
+
+    /** The ruler's carrot says pause while the song plays, play when it doesn't. */
+    _showCarrot() {
+        const carrot = this.container && this.container.querySelector('.ruler-carrot');
+        if (!carrot) return;
+        const playing = !!(this.player && this.player.isPlaying && this.player.isPlaying());
+        carrot.classList.toggle('playing', playing);
+        carrot.title = playing ? 'Pause' : 'Play';
+        carrot.setAttribute('aria-label', carrot.title);
     }
 
     /**
@@ -752,7 +805,7 @@ export class TimelineEditor {
         };
 
         track.addEventListener('mousedown', (e) => {
-            if (e.target.closest('.ruler-marker, .ruler-rabbit')) return;
+            if (e.target.closest('.ruler-marker, .ruler-rabbit, .ruler-carrot')) return;
             dragging = true;
             moved = false;
             startY = e.clientY;
@@ -768,6 +821,19 @@ export class TimelineEditor {
          * natural thing to grab. It sets moved from the start -- this is a
          * seek, never a click, so the form does not open at the end.
          */
+        const carrot = track.querySelector('.ruler-carrot');
+        if (carrot) {
+            this._showCarrot();
+            carrot.addEventListener('click', (e) => {
+                e.stopPropagation();
+                if (this.player && this.player.togglePlay) {
+                    this.player.togglePlay();
+                    // Webamp settles a moment later; show what it settled on.
+                    setTimeout(() => this._showCarrot(), 150);
+                }
+            });
+        }
+
         const rabbit = track.querySelector('.ruler-rabbit');
         if (rabbit) {
             rabbit.addEventListener('mousedown', (e) => {
@@ -888,7 +954,7 @@ export class TimelineEditor {
             const seen = new Set();
             Object.values(this.data.workingData.timeline || {}).forEach(m => {
                 if (!m || typeof m !== 'object') return;
-                if (m.solo) seen.add(m.solo);
+                soloNames(m.solo).forEach(n => seen.add(n));
                 if (m.pickup) seen.add(m.pickup);
                 Object.keys(m.musicians || {}).forEach(n => { if (n !== 'band') seen.add(n); });
             });
@@ -964,8 +1030,8 @@ export class TimelineEditor {
             </label>
 
             <label class="mf-row">
-                <span title="Who is taking the solo from this moment">Soloist</span>
-                ${field('mf-solo', data.solo, 'nobody')}
+                <span title="Who is taking it from this moment. More than one? Separate the names with commas.">Soloist</span>
+                ${field('mf-solo', soloText(data.solo), 'nobody')}
             </label>
 
             <label class="mf-row">
@@ -1047,15 +1113,6 @@ export class TimelineEditor {
                     this.data.workingData.timeline[this.data._timeToKey(existingTime)] = marker;
                     this.data._notifyChange();
                     this._notifyTimelineChange();
-                    /*
-                     * The change re-renders the editor, which took the form
-                     * with it; a second click on the reopened form then
-                     * turned the part back off. Skyler, 2026-11-02: "the jam
-                     * section isn't copying over". Put the form back.
-                     */
-                    if (!this.container.querySelector('.marker-form')) {
-                        this.openMarkerForm(existingTime, existingTime);
-                    }
                 }
             });
         });
@@ -1123,8 +1180,69 @@ export class TimelineEditor {
             });
         }
 
+        box.querySelectorAll('input[list]').forEach(input => this._pickMenu(box, input));
+
         const solo = box.querySelector('.mf-solo');
         if (solo) solo.focus();
+    }
+
+    /**
+     * Every choice, whatever is in the box.
+     *
+     * Skyler, 11 Nov 2026: "when you click the drop down for soloist - no
+     * names come up". A datalist offers only what matches the box's text,
+     * so with "Justin Holmes" already in it, it offered Justin Holmes, or
+     * nothing. This menu lists everyone on a click or the down arrow, and
+     * narrows only to what you type.
+     */
+    _pickMenu(box, input) {
+        const list = input.list;
+        const options = list ? [...list.options].map(o => o.value) : [];
+        input.removeAttribute('list');
+        if (!options.length) return;
+
+        const menu = document.createElement('div');
+        menu.className = 'mf-menu';
+        menu.hidden = true;
+        box.appendChild(menu);
+
+        // Names before the last comma stay; the menu fills in the one after
+        // it, so a second soloist is picked the way the first was.
+        const head = () => {
+            const i = input.value.lastIndexOf(',');
+            return i === -1 ? '' : input.value.slice(0, i + 1) + ' ';
+        };
+        const tail = () => input.value.slice(head().length).trim();
+        const show = (filter) => {
+            const f = (filter || '').toLowerCase();
+            const shown = f ? options.filter(o => o.toLowerCase().includes(f)) : options;
+            if (!shown.length) { menu.hidden = true; return; }
+            menu.innerHTML = shown.map(o => `<div class="mf-menu-item${o === input.value ? ' on' : ''}"
+                data-value="${this._escapeHtml(o)}">${this._escapeHtml(o)}</div>`).join('');
+            const b = box.getBoundingClientRect();
+            const r = input.getBoundingClientRect();
+            menu.style.left = `${r.left - b.left}px`;
+            menu.style.top = `${r.bottom - b.top + 2}px`;
+            menu.style.width = `${r.width}px`;
+            menu.hidden = false;
+        };
+
+        input.addEventListener('click', () => show(''));
+        input.addEventListener('input', () => show(tail()));
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowDown') { e.preventDefault(); show(''); }
+        });
+        input.addEventListener('blur', () => { menu.hidden = true; });
+        // mousedown, not click: a click lands after the box has blurred.
+        menu.addEventListener('mousedown', (e) => {
+            const item = e.target.closest('.mf-menu-item');
+            if (!item) return;
+            e.preventDefault();
+            input.value = head() + item.dataset.value;
+            input.dispatchEvent(new Event('input', { bubbles: true }));
+            input.dispatchEvent(new Event('change', { bubbles: true }));
+            menu.hidden = true;
+        });
     }
 
 
@@ -1249,7 +1367,9 @@ export class TimelineEditor {
         if (box) {
             ['.mf-solo', '.mf-pickup'].forEach(sel => {
                 const f = box.querySelector(sel);
-                if (f && f.value === oldName) f.value = newName;
+                if (!f) return;
+                const names = soloNames(f.value);
+                if (names.includes(oldName)) f.value = names.map(n => (n === oldName ? newName : n)).join(', ');
             });
         }
 
@@ -1352,8 +1472,8 @@ export class TimelineEditor {
 
     _soloInstrument(data) {
         const changes = data.instrumentChanges || {};
-        if (data.solo && changes[data.solo]) return changes[data.solo];
-        return '';
+        const named = soloNames(data.solo).find(n => changes[n]);
+        return named ? changes[named] : '';
     }
 
     _musicianRow(name, data, inherited) {
@@ -1407,9 +1527,10 @@ export class TimelineEditor {
 
         // The soloist's own instrument change has its own field; showing it
         // here as well would mean editing it in two places.
-        if (rest.instrumentChanges && data.solo && rest.instrumentChanges[data.solo]) {
+        const soloists = soloNames(data.solo);
+        if (rest.instrumentChanges && soloists.some(n => rest.instrumentChanges[n])) {
             const others = { ...rest.instrumentChanges };
-            delete others[data.solo];
+            soloists.forEach(n => { delete others[n]; });
             if (Object.keys(others).length) rest.instrumentChanges = others;
             else delete rest.instrumentChanges;
         }
@@ -1484,22 +1605,26 @@ export class TimelineEditor {
             delete marker.musicians;
         }
 
-        const soloName = box.querySelector('.mf-solo').value.trim();
+        const soloists = soloNames(box.querySelector('.mf-solo').value);
         const instrument = box.querySelector('.mf-instrument').value.trim();
-        if (instrument && soloName) {
-            marker.instrumentChanges = { ...(marker.instrumentChanges || {}), [soloName]: instrument };
-            this._rememberMusician(soloName, instrument);
-        } else if (marker.instrumentChanges && soloName) {
-            // Cleared on purpose: take this person's change out, leave the rest.
-            delete marker.instrumentChanges[soloName];
+        if (instrument && soloists.length) {
+            // The instrument is what everyone taking it picks up here.
+            marker.instrumentChanges = { ...(marker.instrumentChanges || {}) };
+            soloists.forEach(n => {
+                marker.instrumentChanges[n] = instrument;
+                this._rememberMusician(n, instrument);
+            });
+        } else if (marker.instrumentChanges && soloists.length) {
+            // Cleared on purpose: take these people's changes out, leave the rest.
+            soloists.forEach(n => { delete marker.instrumentChanges[n]; });
             if (!Object.keys(marker.instrumentChanges).length) delete marker.instrumentChanges;
         }
 
         const part = box.querySelector('.mf-part.on');
         if (part) marker.part = part.dataset.part;
-        if (soloName) {
-            marker.solo = soloName;
-            this._rememberMusician(soloName);
+        if (soloists.length) {
+            marker.solo = soloValue(soloists);
+            soloists.forEach(n => this._rememberMusician(n));
         }
         const pickup = box.querySelector('.mf-pickup').value.trim();
         if (pickup) {
@@ -1531,7 +1656,7 @@ export class TimelineEditor {
 
         // Build marker info string (compact summary)
         let info = [];
-        if (data.solo) info.push(`solo: ${data.solo}`);
+        if (data.solo) info.push(`solo: ${soloText(data.solo)}`);
         if (data.pickup) info.push(`pickup: ${data.pickup}`);
         if (data.part) info.push(`part: ${data.part}`);
         // Show other keys briefly
@@ -2279,6 +2404,7 @@ export class TimelineEditor {
                     }, 700);
                 }
                 this._lastHeadTime = currentTime;
+                this._showCarrot();
             }
         }
     }

@@ -16,9 +16,16 @@ body {
     background: #f5f5f5;
 }
 
+/* The sidebar is as wide as Webamp and no wider (Justin, 11 Nov 2026):
+   the skin's 275px, 10px of gutter each side, and the 2px border. It
+   was 320px, and nothing in it needed the extra 23px on the right. */
+:root {
+    --rh-side-width: 297px;
+}
+
 .layout {
     display: grid;
-    grid-template-columns: 320px 1fr;
+    grid-template-columns: var(--rh-side-width) 1fr;
     height: 100vh;
     gap: 0;
     transition: grid-template-columns 0.3s ease;
@@ -29,7 +36,7 @@ body {
 }
 
 .layout.with-editor {
-    grid-template-columns: 320px 1fr 470px;
+    grid-template-columns: var(--rh-side-width) 1fr 470px;
 }
 
 .layout.minimized.with-editor {
@@ -196,7 +203,7 @@ body {
 }
 
 .player-container {
-    padding: 6px 10px;
+    padding: 4px 10px;
     position: relative;
 }
 
@@ -225,47 +232,26 @@ body:not(.bottom-bar) .data-section {
     padding-bottom: 6px;
 }
 
-/* The A/B switch. Deliberately plain and labelled with which layout
-   you are looking at, so a screenshot says which one it is. */
-.layout-ab-wrap {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 4px;
-    align-items: center;
-}
-
-/* In the sidebar it sits at the bottom left, under the song parts,
-   inside the sticky data section, so it is there whatever the
-   song's length. Skyler, 6 Nov 2026. */
-body:not(.bottom-bar) .layout-ab-wrap {
-    justify-content: flex-start;
-    margin-top: 6px;
-}
-
-.layout.minimized .layout-ab-wrap {
-    display: none;
-}
-
-/* In the bar layout the sidebar is the bar itself, so the switch
-   floats top right of the page, as it always has. */
-body.bottom-bar .layout-ab-wrap {
-    position: fixed;
-    top: 4px;
-    right: 4px;
-    z-index: 2000;
-    justify-content: flex-end;
-    max-width: calc(100vw - 8px);
+/* The layout switch: one small button, the shape of the other layout.
+   In the sidebar it sits at the right end of the Song Parts label, so
+   it takes no row the cards might need (Justin, 11 Nov 2026). */
+.data-section {
+    position: relative;
 }
 
 .layout-ab {
-    font: 600 11px/1 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-    padding: 5px 9px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    padding: 0;
     border: 1px solid #c3cbbb;
-    border-radius: 11px;
+    border-radius: 4px;
     background: #fffdf5;
-    color: #2d5016;
-    text-decoration: none;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+    color: #4a7c59;
+    cursor: pointer;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.1);
 }
 
 .layout-ab:hover {
@@ -274,18 +260,23 @@ body.bottom-bar .layout-ab-wrap {
     border-color: #3c6749;
 }
 
-/* Only shown once a person has overruled the window, so there is
-   always a way back to "decide for me". */
-.layout-ab-auto {
-    font-weight: 500;
+body:not(.bottom-bar) .layout-ab {
+    position: absolute;
+    top: 3px;
+    right: 4px;
 }
 
-/* A stored choice is overriding the window. Amber so it reads as a
-   state somebody set, rather than as the normal furniture. */
-.layout-ab-pinned,
-.layout-ab-pinned + .layout-ab-auto {
-    background: #fff6d8;
-    border-color: #e3d08a;
+.layout.minimized .layout-ab {
+    display: none;
+}
+
+/* In the bar layout the sidebar is the bar itself, so the switch
+   floats top right of the page, as it always has. */
+body.bottom-bar .layout-ab {
+    position: fixed;
+    top: 4px;
+    right: 4px;
+    z-index: 2000;
 }
 
 /* The YAML export, shown when the clipboard is refused or just so a
@@ -307,19 +298,30 @@ body.bottom-bar .layout-ab-wrap {
     white-space: pre;
 }
 
-/* Track title + recording info, shown when loaded via ?track=. */
+/* Track title + recording info, shown when loaded via ?track=. Tight:
+   every pixel above the cards is a pixel of ensemble lost when the
+   page is zoomed (Justin, 12 Nov 2026). */
 .song-info-header {
     text-align: center;
-    padding: 6px 4px 4px;
-    margin-bottom: 6px;
+    padding: 2px 4px 1px;
+    margin-bottom: 2px;
     border-bottom: 1px solid #e5e7e1;
+}
+
+.song-title-link {
+    color: inherit;
+    text-decoration: none;
+}
+
+.song-title-link:hover {
+    text-decoration: underline;
 }
 
 .song-title-display {
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    font-size: 18px;
+    font-size: 16px;
     line-height: 1.1;
-    margin: 0 0 3px;
+    margin: 0;
     color: #2d5016;
     font-weight: 700;
     letter-spacing: -0.015em;
@@ -330,7 +332,7 @@ body.bottom-bar .layout-ab-wrap {
     display: flex;
     align-items: center;
     gap: 6px;
-    margin: 4px 0 3px;
+    margin: 2px 0 1px;
 }
 
 .album-art {
@@ -374,11 +376,23 @@ body.bottom-bar .layout-ab-wrap {
 }
 
 .up-next {
+    display: block;
+    max-width: 100%;
+    padding: 0;
+    border: 0;
+    background: none;
+    font: inherit;
     font-size: 11px;
     color: #4a7c59;
+    text-align: left;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    cursor: pointer;
+}
+
+.up-next:hover {
+    text-decoration: underline;
 }
 
 .song-select {
@@ -401,15 +415,14 @@ body.bottom-bar .layout-ab-wrap {
     display: flex;
     align-items: center;
     gap: 8px;
-    margin-bottom: 6px;
+    margin-bottom: 2px;
     font-size: 13px;
     color: #555;
 }
 
 .inline-carrot {
     margin-left: auto;
-    margin-top: 8px;
-    align-self: flex-start;
+    align-self: center;
 }
 
 /* The slider and its knob are absolutely positioned against this box,
@@ -478,7 +491,7 @@ body.bottom-bar .layout-ab-wrap {
    this box by the player, which is why it was 410px tall. */
 .webamp-wrapper {
     height: 126px;
-    margin-bottom: 6px;
+    margin-bottom: 4px;
     position: relative;
 }
 
@@ -495,9 +508,20 @@ body.bottom-bar .layout-ab-wrap {
 }
 
 .data-section {
-    margin-top: 8px;
-    padding-top: 6px;
+    margin-top: 4px;
+    padding-top: 3px;
     border-top: 1px solid #4a7c59;
+}
+
+/* In the sidebar the label and the editor's pencil share a line; in the
+   bar the section is a flex row and both are items of it. */
+body:not(.bottom-bar) .data-section > .section-label {
+    display: inline-block;
+}
+
+body.bottom-bar .editor-pencil {
+    flex-shrink: 0;
+    margin-left: 0;
 }
 
 .section-label {
@@ -595,7 +619,10 @@ body.bottom-bar .layout-ab-wrap {
     border: none;
     overflow-y: auto;
     background: white;
-    padding: 1.2em 1.6em 2em;
+    /* No gutter of its own: the article sits snug against the player
+       (Justin, 11 Nov 2026). Its text keeps the air MonoBook's #content
+       gives it. */
+    padding: 0;
 }
 
 /* The pane is wiki content without the wiki's document, so it does
@@ -708,13 +735,13 @@ body:not(.bottom-bar) #ensemble-display {
     display: flex;
     flex-direction: column;
     gap: 2px;
-    width: 269px;
-    margin: 0 0 6px 10px;
+    width: 275px;
+    margin: 0 0 6px;
 }
 
 /* Sidebar leaves the grid flow (position:fixed below), so collapse
    the layout grid to a single main column. Otherwise the iframe
-   auto-flows into the now-empty 320px sidebar column. */
+   auto-flows into the now-empty sidebar column. */
 body.bottom-bar .layout,
 body.bottom-bar .layout.minimized {
     grid-template-columns: 1fr;
@@ -1271,6 +1298,18 @@ body.bottom-bar .data-section:has(.parts-chart.two-rows) {
         position: static;
     }
 
+    /* "Your rabbithole" is a tab in the bar. On a phone the bar is this
+       grid, and with no cell of its own the tab was auto-placed into the
+       first free one: the cover's column, over the title (Skyler, 12 Nov
+       2026). It takes the edit cell, free since the pencil moved to the
+       parts row, at the right of the track list. */
+    body.bottom-bar .walk-trail {
+        grid-area: edit;
+        justify-self: end;
+        align-self: center;
+        padding: 0 4px;
+    }
+
     body.bottom-bar .rabbithole-header img {
         display: block;
         width: 20px;
@@ -1360,7 +1399,9 @@ body.bottom-bar .data-section:has(.parts-chart.two-rows) {
         flex-direction: row;
         align-items: center;
         gap: 4px;
-        margin: 0 2px 2px 4px;
+        /* Off the screen's edge, where a thumb and a rounded corner
+           both get in the way (Skyler, 8 Nov 2026). */
+        margin: 0 14px 2px 4px;
     }
 
     /* "Follow artist", not "Auto-switch artist profiles".
@@ -1434,6 +1475,24 @@ body.bottom-bar .data-section:has(.parts-chart.two-rows) {
         overflow: hidden;
         text-overflow: ellipsis;
         max-width: 100%;
+        /* The card is 9.5px but the name kept its desktop 14px, so in
+           113px it showed four letters and an ellipsis (Skyler, 8 Nov
+           2026: "the player card text is too big"). */
+        font-size: 11px;
+    }
+
+    body.bottom-bar #ensemble-display .musician-card .musician-instrument {
+        font-size: 9px;
+    }
+
+    /* On a phone, 113px holds a name or a name and its instrument, not
+       both; the instrument is on the musician's page, the name is the
+       card. Only there: on a wider window in the bar the instruments
+       stay (Justin, 11 Nov 2026, zoomed in on a desktop). */
+    @media ( max-width: 760px ) {
+        body.bottom-bar #ensemble-display .musician-card .musician-instrument {
+            display: none;
+        }
     }
 
     body.bottom-bar .inline-carrot {
@@ -1453,7 +1512,8 @@ body.bottom-bar .data-section:has(.parts-chart.two-rows) {
     /* The label was eating 64px of a 390px strip and the part names
        were cut to two letters. The strip says what it is by being a
        row of song sections; it does not need to be told. */
-    body.bottom-bar .data-section .section-label {
+    body.bottom-bar .data-section .section-label,
+    body.bottom-bar .data-section .editor-pencil-label {
         display: none;
     }
 
@@ -1529,10 +1589,6 @@ body.bottom-bar .data-section:has(.parts-chart.two-rows) {
         font-size: 0;
     }
 
-    body.bottom-bar .song-title-display .editor-pencil {
-        font-size: 14px;
-    }
-
     body.bottom-bar .rabbithole-header {
         align-self: center;
     }
@@ -1577,15 +1633,12 @@ body.bottom-bar .data-section:has(.parts-chart.two-rows) {
    next to each other.
 
    Scoped to :not(.bottom-bar) so none of it can reach the bar. */
-@media (max-width: 1100px) {
-    /* 292, not narrower, and this is the hard floor: the Winamp skin
-       is 275px of fixed bitmap and does not scale. A column narrower
-       than that pushes the player out through the side of the
-       sidebar and the cards pile up under it. So "scoot it back" can
-       only buy the 28px between here and the old 320. */
-    body:not(.bottom-bar) .layout {
-        grid-template-columns: 292px 1fr;
-    }
+@media (max-width: 700px) {
+    /* Only a window this narrow with the sidebar chosen by hand reaches
+       here now: a phone gets the bar, and the sidebar is the default
+       down to 700px (AUTO_AT). The column is already the skin's own
+       width, the hard floor: the Winamp skin is 275px of fixed bitmap
+       and does not scale. */
 
     body:not(.bottom-bar) .layout.minimized {
         grid-template-columns: 44px 1fr;
@@ -1650,13 +1703,16 @@ body.bottom-bar #webamp div:has(> #main-window) {
     transform: translate(0px, 0px) !important;
 }
 
-@media (max-width: 1100px) {
-    body:not(.bottom-bar) #webamp div:has(> #main-window) {
-        transform: none !important;
-        position: relative !important;
-        left: 0 !important;
-        width: 100%;
-    }
+/* Webamp draws its window 10px in from its own corner (its layout's
+   offset), so in the sidebar the skin sat 20px from the edge while
+   everything else sat 10px in. In flow, it lines up. This used to hold
+   only under 1100px; it holds at every width now that the sidebar is
+   exactly the skin's width (Justin, 11 Nov 2026). */
+body:not(.bottom-bar) #webamp div:has(> #main-window) {
+    transform: none !important;
+    position: relative !important;
+    left: 0 !important;
+    width: 100%;
 }
 
 /* === The cards move when their order changes: what Packery was for === */
@@ -1761,17 +1817,22 @@ body.bottom-bar #webamp div:has(> #main-window) {
     }
 }
 
-/* The editor's way in: a pencil on the song's title (Justin, 7 Nov 2026). */
+/* The editor's way in: a pencil, on the Song Parts label since 12 Nov
+   2026 (on the song's title before, Justin, 7 Nov). Sizes in px: the
+   label is 10px uppercase, and the pencil is neither. */
 .editor-pencil {
-    margin-left: 6px;
+    margin-left: 8px;
     padding: 0 4px;
     border: 1px solid transparent;
     border-radius: 4px;
     background: none;
     color: #87a96b;
-    font-size: 0.8em;
-    line-height: 1.3;
-    vertical-align: 0.1em;
+    font-size: 12px;
+    font-weight: normal;
+    line-height: 1.2;
+    letter-spacing: normal;
+    text-transform: none;
+    vertical-align: -1px;
     cursor: pointer;
 }
 

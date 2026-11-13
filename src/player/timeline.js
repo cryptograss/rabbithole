@@ -190,7 +190,7 @@ export function dynamicWeight( name, arrangement, { baseWeights: base = {}, rece
 			default: return 6;
 		}
 	}
-	if ( arrangement && ( arrangement.solo === name || arrangement.soloist === name ) ) {
+	if ( soloistsOf( arrangement ).includes( name ) ) {
 		return 1;
 	}
 	if ( arrangement && arrangement.pickup === name ) {
@@ -218,10 +218,11 @@ export function cards( trackData, processed, time, { currentSolo = null, recentS
 	const base = baseWeights( trackData && trackData.ensemble );
 	const pickup = arrangement ? arrangement.pickup : null;
 	const features = arrangement ? arrangement.feature : null;
+	const solos = soloistsOf( arrangement );
 
 	const list = Object.keys( ( trackData && trackData.ensemble ) || {} ).map( ( name ) => {
 		const scene = features && features[ name ] ? features[ name ]
-			: currentSolo === name ? 'lead'
+			: currentSolo === name || solos.includes( name ) ? 'lead'
 				: pickup === name ? 'pickup'
 					: musicianStatus( processed, name, time ) === 'out' ? 'out'
 						: null;
@@ -242,9 +243,23 @@ export function cards( trackData, processed, time, { currentSolo = null, recentS
 	return list;
 }
 
-/** The soloist an arrangement names, or null. Null, never undefined, so "nobody" equals "nobody". */
+/*
+ * Everyone an arrangement names as taking it, in the chart's order. `solo`
+ * is one name, or a list of them: a cappella harmony on Reuben's Train is
+ * three people taking it at once, and the chart stars them all (Justin,
+ * 12 Nov 2026). An older chart may say `soloist`.
+ */
+export function soloistsOf( arrangement ) {
+	const solo = arrangement ? ( arrangement.solo || arrangement.soloist ) : null;
+	if ( ! solo ) {
+		return [];
+	}
+	return ( Array.isArray( solo ) ? solo : [ solo ] ).map( ( n ) => String( n ).trim() ).filter( Boolean );
+}
+
+/** The first soloist an arrangement names, or null. Null, never undefined, so "nobody" equals "nobody". */
 export function soloistOf( arrangement ) {
-	return arrangement ? ( arrangement.solo || arrangement.soloist || null ) : null;
+	return soloistsOf( arrangement )[ 0 ] || null;
 }
 
 /** mm:ss */

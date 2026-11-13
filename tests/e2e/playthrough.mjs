@@ -55,19 +55,22 @@ function look( page ) {
 			analyser.getByteFrequencyData( bins );
 			energy = bins.reduce( ( sum, v ) => sum + v, 0 );
 		}
-		// The bite is the black <g> in the carrot's mask that has the scalloped
-		// teeth (circles); the pause notches are black rects too, without them.
-		const bite = document.querySelector( '.carrot-btn mask g:has(circle) > rect' );
+		// What's gone of the carrot is a black rect in its mask, from its edge to
+		// the tip; with none of it gone there's no rect, and the carrot is whole.
+		const gone = document.querySelector( '.carrot-btn:not([hidden]) mask rect.carrot-gone' );
 		const name = ( card ) => ( card.querySelector( '.musician-name' ) || card ).textContent
 			.replace( /⭐/g, '' ).replace( /\(.*$/, '' ).trim();
 		return {
 			clock: /^\d{4}$/.test( digits ) ? Number( digits.slice( 0, 2 ) ) * 60 + Number( digits.slice( 2 ) ) : null,
 			audio: analyser ? analyser.context.state : null,
 			energy,
-			biteX: bite ? Number( bite.getAttribute( 'x' ) ) : null,
+			edgeX: gone ? Number( gone.getAttribute( 'x' ) ) : null,
 			lead: [ ...document.querySelectorAll( '.musician-card.lead' ) ].map( name ),
 			flourish: [ ...document.querySelectorAll( '.musician-card.flourish-active' ) ].map( name ),
-			pane: decodeURIComponent( location.pathname ).replace( /^.*\/wiki\//, '' ).replace( /_/g, ' ' ),
+			// The page in the pane: the address names it as ?page= (or, on the
+			// wiki itself, as /wiki/<title>).
+			pane: ( new URLSearchParams( location.search ).get( 'page' )
+				|| decodeURIComponent( location.pathname ).replace( /^.*\/wiki\//, '' ) ).replace( /_/g, ' ' ),
 		};
 	} );
 }
@@ -196,15 +199,18 @@ async function run() {
 		seen = await until( page, ( s ) => s.clock >= after + 2, 6 );
 		check( 'after a seek the clock keeps moving', seen.clock >= after + 2, `${ after } s, then ${ seen.clock } s` );
 
-		// The carrot: one bite per part behind you, and seeking back puts it back.
-		const late = seen.biteX;
+		// The carrot goes as the song goes: its edge moves from the tip toward
+		// the greens, and seeking back gives it back.
+		const late = seen.edgeX;
 		await chips.nth( 1 ).click();
-		seen = await until( page, ( s ) => s.biteX !== late, 4 );
-		check( 'one bite per part: back at part 2 the carrot is longer', late !== null && seen.biteX !== null && seen.biteX > late,
-			`bite edge x ${ late } at part ${ target + 1 }, ${ seen.biteX } at part 2` );
+		seen = await until( page, ( s ) => s.edgeX !== null && late !== null && s.edgeX > late, 4 );
+		const partTwo = seen.edgeX;
+		check( 'the carrot goes as the song goes: back at part 2 it is longer', late !== null && partTwo !== null && partTwo > late,
+			`edge x ${ late } at part ${ target + 1 }, ${ partTwo } at part 2` );
 		await chips.nth( 0 ).click();
-		seen = await until( page, ( s ) => s.biteX === null, 4 );
-		check( 'back at the start the carrot is whole', seen.biteX === null, `bite edge x ${ seen.biteX }` );
+		seen = await until( page, ( s ) => s.edgeX === null || s.edgeX > partTwo, 4 );
+		check( 'back at the start the carrot is (nearly) whole', seen.edgeX === null || seen.edgeX > partTwo,
+			`edge x ${ seen.edgeX }, was ${ partTwo } at part 2` );
 	}
 
 	// A flourish, when the song reaches it.

@@ -4,60 +4,61 @@
  * The pane is a shadow root, which is the whole trick: MediaWiki's own
  * stylesheet goes in with the content and cannot reach back out to restyle
  * the dock. Without it the wiki arrives naked, because a div full of
- * parsed wikitext inherits nothing. Three ways to wear it, switchable from
- * the pane itself: `content` (the article and nothing else), `header` (a
- * small header we own: title, a search that works, a way out), `skin`
- * (MonoBook's full chrome, fetched and injected). Injected HTML runs no
- * scripts, so on `skin` the pane itself answers MonoBook's search form
- * (WikiPane's submit listener), and the search box is a real one.
+ * parsed wikitext inherits nothing.
+ *
+ * The pane shows the article and nothing else. It used to offer three
+ * ways to wear the wiki (content, header, MonoBook's whole skin) from a
+ * selector at the top of the pane; that was scaffolding from building
+ * against a broken-looking backdrop, and the first thing a listener saw,
+ * unexplained. Taken out (Justin and Skyler, #rabbithole, 11 Nov 2026).
  */
-
-export const PANE_MODES = [ 'content', 'header', 'skin' ];
 
 /*
- * The same modules a real article page loads, in the same skin. The one
- * that matters most is ext.pickipediaContent.styles, the extension's own
- * stylesheet: it draws the proposal markers and the studio blocks.
+ * The same modules a real article page loads, in the same skin. The ones
+ * that matter most are the extensions' own stylesheets: pickipediaContent
+ * draws the studio blocks and the rows on a picker's page, and
+ * pickipediaVerification draws the proposal markers. Without the second
+ * every proposed line wore a bare "[unverified]" (Justin, 11 Nov 2026).
  */
-export const WIKI_STYLESHEETS = [
-	'/load.php?lang=en&modules=ext.pickipediaContent.styles%7Cskins.monobook.styles&only=styles&skin=monobook',
+const WIKI_STYLESHEETS = [
+	'/load.php?lang=en&modules=ext.pickipediaContent.styles%7Cext.pickipediaVerification.styles%7Cskins.monobook.styles&only=styles&skin=monobook',
 	'/load.php?lang=en&modules=site.styles&only=styles&skin=monobook',
 ];
 
-/** The element that stands in for <body> inside the shadow root, in skin mode. */
-export const SHADOW_BODY = 'mw-shadow-body';
-const SHADOW_HTML = 'mw-shadow-html';
-
-/**
- * MonoBook's layout is written against the document: `body .portlet`,
- * `body:not(.skin--responsive) #column-content`, `html { font-size }`.
- * A shadow root has no body and no html, so those rules never match, and
- * the chrome arrived unpositioned, piled under the article (Justin, 6 Nov
- * 2026). This rewrites the selectors to the stand-in elements skin mode
- * wraps the page in. Only a selector's own `body`/`html` token moves: one
- * at the start of a selector, or after a comma, or after the brace that
- * opens an @media block. `tbody`, `.body` and the like are untouched.
+/*
+ * The pane wears MonoBook's page, not only its article: the grey paper
+ * with the wave along the top, the white article box with its thin
+ * border, and the skin's own sans-serif at the skin's size. MonoBook
+ * puts those on <body>, which a shadow root has none of, so they are
+ * restated on :host. A plain white pane with the app's own font was
+ * jarring beside the wiki (Justin, 11 Nov 2026).
  */
-export function skinStyles( css ) {
-	return css.replace( /(^|[,{}])(\s*)(body|html)(?![-\w])/g, ( m, before, space, tag ) =>
-		before + space + '.' + ( tag === 'body' ? SHADOW_BODY : SHADOW_HTML ) );
-}
-
 export const PANE_STYLES = [
 	...WIKI_STYLESHEETS.map( ( href ) => '<link rel="stylesheet" href="' + href + '">' ),
 	'<style>',
-	':host { display: block; font-size: 14px; line-height: 1.5;',
-	'  color: #202122; font-family: -apple-system, BlinkMacSystemFont,',
-	'  "Segoe UI", Roboto, sans-serif; }',
+	':host { display: block; font-family: sans-serif; font-size: 11px;',
+	'  line-height: 1.5; color: #000; background: #f9f9f9',
+	'  url("/skins/MonoBook/resources/images/headbg.svg") 0 0 no-repeat;',
+	'  min-height: 100%; }',
 	'img { max-width: 100%; height: auto; }',
 	'table { max-width: 100%; }',
-	'.pane-title { font-size: 22px; font-weight: 700; color: #2d5016;',
-	'  margin: 0 0 .4em; border-bottom: 1px solid #e5e7e1;',
-	'  padding-bottom: .2em; }',
+	// MonoBook floats the article beside a sidebar column the pane has
+	// not got: the box sits in the pane with a margin of paper around it.
+	'#globalWrapper #column-content { float: none; margin: 0; width: auto; }',
+	'#globalWrapper #content.mw-body { margin: 10px; }',
+	'.pane-title { margin: 0 0 .4em; }',
+	// The title is a link out to the wiki, dressed as a title: the same
+	// colour, no underline until the pointer says so, a small ↗ beside it.
+	'.pane-title .pane-escape, .pane-title .pane-escape:visited { color: inherit; text-decoration: none; }',
+	'.pane-title .pane-escape:hover { text-decoration: underline; }',
+	'.pane-escape-mark { font-size: .55em; margin-left: .35em; vertical-align: super; color: #2d5016; }',
 	'.pane-loading { color: #6b7566; font-size: 13px; }',
-	'h2 { font-size: 18px; margin: 1em 0 .3em; }',
-	'h3 { font-size: 15px; margin: .8em 0 .3em; }',
 	'.mw-editsection { display: none; }',
+	// The "find a trail here" button of {{Listen in Rabbithole}} means
+	// nothing outside the player: a trail needs a "from". The template
+	// renders it display:none inline, and only the pane shows it (Justin,
+	// #rabbithole, 12 Nov 2026). !important, because inline wins otherwise.
+	'.pp-trail-rh { display: inline-flex !important; }',
 	'.pane-chrome { display: flex; align-items: center; gap: 8px;',
 	'  padding: 6px 8px; margin: -4px -4px 10px; background: #f3f5f1;',
 	'  border-bottom: 1px solid #d8ddd3; font-size: 13px;',
@@ -67,8 +68,6 @@ export const PANE_STYLES = [
 	'  font: inherit; }',
 	'.pane-chrome a { color: #2d5016; text-decoration: none; }',
 	'.pane-chrome a:hover { text-decoration: underline; }',
-	'.pane-mode { font: inherit; padding: 3px; border: 1px solid #c3cbbb;',
-	'  border-radius: 3px; background: #fff; }',
 	'.pane-results { list-style: none; padding: 0; margin: 0; }',
 	'.pane-results li { padding: 5px 0; border-bottom: 1px solid #eceee8; }',
 	'.pane-results a { font-weight: 600; }',
@@ -84,65 +83,50 @@ export function wikiPath( title ) {
 	return '/wiki/' + encodeURIComponent( title.replace( / /g, '_' ) ).replace( /%3A/g, ':' );
 }
 
-function modeSwitcher( current ) {
-	return '<select class="pane-mode" title="How much of the wiki to show">'
-		+ PANE_MODES.map( ( m ) => `<option value="${ m }"${ m === current ? ' selected' : '' }>${ m }</option>` ).join( '' )
-		+ '</select>';
+/*
+ * The app's own address with this page in the pane: /rabbithole/?track=<cid>&page=<title>.
+ * Keeps whatever else the query holds (the track above all), so a reload or a
+ * shared link lands back in the player, on this page, with the song. The pane
+ * used to push the wiki's own /wiki/<title>, which reloads as the plain wiki
+ * with no player at all (Justin, 11 Nov 2026).
+ */
+export function appAddress( title, from = window.location.href ) {
+	const url = new URL( from );
+	url.pathname = new URL( import.meta.env.BASE_URL || '/', url.origin ).pathname;
+	url.searchParams.set( 'page', title );
+	url.hash = '';
+	return url.pathname + url.search;
+}
+
+/*
+ * The article's title is the way out: it opens the same page on PickiPedia
+ * itself, in a new tab, so the song plays on. Inside the pane there was no
+ * telling how to escape to the regular wiki page (Justin, 12 Nov 2026).
+ * target=_blank is what tells the pane's click handler to leave it alone.
+ */
+function titleLink( title, parsed ) {
+	return '<a class="pane-escape" href="' + wikiPath( title ) + '" target="_blank" rel="noopener"'
+		+ ' title="Open on PickiPedia, in a new tab">'
+		+ ( parsed.displaytitle || escapeHtml( title ) ) + '<span class="pane-escape-mark" aria-hidden="true">\u2197</span></a>';
 }
 
 /** The article, wrapped in the containers MonoBook's rules hang off. */
 function article( title, parsed ) {
 	return '<div id="globalWrapper"><div id="column-content">'
 		+ '<div id="content" class="mw-body"><div class="mw-body-content">'
-		+ '<h1 class="pane-title firstHeading">' + ( parsed.displaytitle || escapeHtml( title ) ) + '</h1>'
+		+ '<h1 class="pane-title firstHeading">' + titleLink( title, parsed ) + '</h1>'
 		+ parsed.text
 		+ '</div></div></div></div>';
 }
 
-/**
- * The pane's body for a parsed article.
- *
- * @param {string} title
- * @param {{text: string, displaytitle?: string}} parsed From action=parse.
- * @param {string} mode One of PANE_MODES.
- * @param {string|null} fullPageHtml The real page's HTML, for `skin`, or null.
- * @param {string} skinCss The wiki's stylesheets as text, for `skin`: they go
- *   in rewritten (skinStyles) so MonoBook's body-scoped layout applies.
- */
-export function paneBody( title, parsed, mode, fullPageHtml = null, skinCss = '' ) {
-	const path = wikiPath( title );
-
-	if ( mode === 'skin' && fullPageHtml ) {
-		const doc = new DOMParser().parseFromString( fullPageHtml, 'text/html' );
-		const wrapper = doc.getElementById( 'globalWrapper' );
-		if ( wrapper ) {
-			wrapper.querySelectorAll( 'script, #siteNotice' ).forEach( ( el ) => el.remove() );
-			// The real page's body classes (skin-monobook, skin--responsive,
-			// ns-3008, action-view...) are what MonoBook's rules key off.
-			const bodyClasses = ( doc.body && doc.body.className ) || 'mediawiki skin-monobook';
-			return '<style>' + skinStyles( skinCss ) + '</style>'
-				+ '<div class="pane-chrome">' + modeSwitcher( mode )
-				+ '<span>MonoBook, as the wiki renders it</span></div>'
-				+ '<div class="' + SHADOW_HTML + '"><div class="' + SHADOW_BODY + ' ' + escapeHtml( bodyClasses ) + '">'
-				+ wrapper.outerHTML
-				+ '</div></div>';
-		}
-	}
-
-	if ( mode === 'header' ) {
-		return '<div class="pane-chrome">' + modeSwitcher( mode )
-			+ '<input class="pane-search" type="search" placeholder="Search PickiPedia" aria-label="Search PickiPedia">'
-			+ '<a href="' + path + '" target="_blank" rel="noopener">open ↗</a>'
-			+ '</div>' + article( title, parsed );
-	}
-
-	return '<div class="pane-chrome">' + modeSwitcher( mode )
-		+ '<span>article only</span></div>' + article( title, parsed );
+/** The pane's body for a parsed article: the article, nothing more. */
+export function paneBody( title, parsed ) {
+	return article( title, parsed );
 }
 
 /** Search results, in place of an article. */
-export function searchResults( text, hits, mode ) {
-	return '<div class="pane-chrome">' + modeSwitcher( mode )
+export function searchResults( text, hits ) {
+	return '<div class="pane-chrome">'
 		+ '<input class="pane-search" type="search" value="' + escapeHtml( text ) + '" placeholder="Search PickiPedia" aria-label="Search PickiPedia">'
 		+ '</div>'
 		+ '<div id="globalWrapper"><div id="column-content"><div id="content" class="mw-body"><div class="mw-body-content">'

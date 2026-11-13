@@ -1,11 +1,15 @@
 <script setup>
 /*
- * The A/B switch between the sidebar and the bar. Deliberately plain and
- * labelled with which layout you are looking at, so a screenshot says
- * which one it is. A stored choice is amber, and "use auto" is shown
- * whenever one exists: a setting you cannot see is a setting you cannot
- * undo. Bottom left of the sidebar, under the song parts (Skyler, 6 Nov
- * 2026); top right of the page in the bar.
+ * The switch between the sidebar and the bar: one small button, the
+ * shape of the layout it would move you to, with the words in its title.
+ * It sits on the Song Parts label's line in the sidebar, so it takes no
+ * row of its own: the sidebar's height is precious, and the cards must
+ * never be pushed into a scroll (Justin, 11 Nov 2026). Top right of the
+ * page in the bar. Not on a phone, which always gets the bar.
+ *
+ * It used to be two text pills, the second one "use auto", which undid a
+ * stored choice and let the window decide again. A choice you made is a
+ * choice; there is nothing to undo, so that is gone (Justin, 11 Nov).
  */
 import { computed } from 'vue';
 import { useLayoutStore } from '../stores/layout.js';
@@ -13,16 +17,16 @@ import { useLayoutStore } from '../stores/layout.js';
 const layout = useLayoutStore();
 
 const other = computed( () => ( layout.layout === 'sidebar' ? 'bar' : 'sidebar' ) );
-const label = computed( () => {
-	const name = layout.layout === 'sidebar' ? 'Sidebar' : 'Bottom bar';
-	const otherName = other.value === 'sidebar' ? 'sidebar' : 'bottom bar';
-	return ( layout.pinned ? name + ' (saved)' : name ) + ' — switch to ' + otherName;
-} );
+const label = computed( () => ( other.value === 'bar' ? 'Move the player to the bottom' : 'Move the player to the side' ) );
 </script>
 
 <template>
-	<div class="layout-ab-wrap">
-		<a id="layout-ab" class="layout-ab" :class="{ 'layout-ab-pinned': layout.pinned }" href="#" @click.prevent="layout.setLayout( other )">{{ label }}</a>
-		<a v-if="layout.pinned" id="layout-ab-auto" class="layout-ab layout-ab-auto" href="#" title="Go back to choosing by window size" @click.prevent="layout.setLayout( null )">use auto</a>
-	</div>
+	<button v-if="! layout.phone" id="layout-ab" type="button" class="layout-ab" :title="label" :aria-label="label"
+		@click="layout.setLayout( other )">
+		<svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true">
+			<rect x="0.5" y="0.5" width="13" height="13" rx="1.5" fill="none" stroke="currentColor" />
+			<rect v-if="other === 'bar'" x="0.5" y="9" width="13" height="4.5" rx="1" fill="currentColor" />
+			<rect v-else x="0.5" y="0.5" width="4.5" height="13" rx="1" fill="currentColor" />
+		</svg>
+	</button>
 </template>

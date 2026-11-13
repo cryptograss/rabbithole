@@ -848,6 +848,29 @@
 
 .marker-form-head strong { color: #2d5016; }
 
+/* Every name or instrument, on a click (see _pickMenu). */
+.mf-menu {
+    position: absolute;
+    z-index: 31;
+    max-height: 180px;
+    overflow-y: auto;
+    background: #fff;
+    border: 1px solid #4a7c59;
+    border-radius: 4px;
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.15);
+}
+
+.mf-menu[hidden] { display: none; }
+
+.mf-menu-item {
+    padding: 4px 8px;
+    cursor: pointer;
+}
+
+.mf-menu-item:hover { background: #eef5e9; }
+
+.mf-menu-item.on { font-weight: 600; color: #2d5016; }
+
 .mf-time {
     width: 72px;
     font-family: ui-monospace, Menlo, Consolas, monospace;
@@ -1192,6 +1215,36 @@
 .ruler-playhead.running .ruler-rabbit {
     animation: ruler-rabbit-hop 0.42s ease-in-out infinite;
 }
+
+/* A carrot over the rabbit: play and pause from the ruler (Skyler). It
+   rides the playhead with the rabbit, and holds still while the rabbit hops.
+   The ruler leaves room above the song's start, so at 0:00 the carrot and
+   the rabbit are not cut off by the top of the ruler. */
+.ruler-track { margin-top: 56px; }
+
+.ruler-carrot {
+    position: absolute;
+    left: -8px;
+    bottom: 26px;
+    width: 30px;
+    height: 30px;
+    padding: 2px;
+    border: none;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.85);
+    box-shadow: 0 0 0 1px #e0e0e0;
+    cursor: pointer;
+    line-height: 0;
+    pointer-events: auto;
+    z-index: 2;
+}
+
+.ruler-carrot:hover { transform: scale(1.12); }
+.ruler-carrot-greens path { fill: #4a7c59; stroke: #3a6847; stroke-width: 0.6; }
+.ruler-carrot-body { fill: #ff6b35; stroke: #ff6b35; stroke-width: 3; stroke-linejoin: round; }
+.ruler-carrot-notches { fill: #fff; display: none; }
+.ruler-carrot.playing .ruler-carrot-body { fill: #e55a2b; stroke: #e55a2b; }
+.ruler-carrot.playing .ruler-carrot-notches { display: inline; }
 
 @keyframes ruler-rabbit-hop {
     0%, 100% { transform: translateY(0) rotate(0deg); }

@@ -10,15 +10,26 @@ import { computed } from 'vue';
 import { useSongStore } from '../stores/song.js';
 import { usePlayerStore } from '../stores/player.js';
 import { useLayoutStore } from '../stores/layout.js';
+import { usePaneStore } from '../stores/pane.js';
+import { wikiPath } from '../wiki/pane-html.js';
 import DemoSongSelect from './DemoSongSelect.vue';
 
 const songs = useSongStore();
 const player = usePlayerStore();
 const layout = useLayoutStore();
+const pane = usePaneStore();
 
 const song = computed( () => songs.current );
 const tracks = computed( () => ( songs.album ? songs.album.tracks.slice().sort( ( a, b ) => ( a.track_number || 0 ) - ( b.track_number || 0 ) ) : [] ) );
 const upNextText = computed( () => ( player.upNext.length ? 'Up next: ' + player.upNext.map( ( s ) => s.title ).join( ' · ' ) : '' ) );
+
+/** The song's own page, for the title's href; the click opens it in the pane. */
+const songHref = computed( () => wikiPath( song.value.title ? 'Song:' + song.value.title : song.value._metadataTitle || '' ) );
+
+function backToSong() {
+	layout.stopFollowing();
+	pane.openSong( song.value );
+}
 
 function onTrackPick( e ) {
 	songs.goToTrack( e.target.value );
@@ -33,18 +44,12 @@ function onArtError() {
 
 <template>
 	<div v-if="song" id="song-info-header" class="song-info-header">
-		<!-- The way into the timeline editor is a pencil on the title of what
-			it edits, not a button with its own space in the player (Justin,
-			7 Nov 2026), named in small print so it reads as more than a
-			doodle (Skyler, 8 Nov). -->
-		<h2 id="song-title-display" class="song-title-display">{{ song.title || 'Untitled' }}<button
-			id="editor-toggle-btn"
-			class="editor-pencil"
-			:class="{ active: layout.editorOpen }"
-			:title="layout.editorOpen ? 'Close the timeline editor' : 'Edit this song\'s timeline'"
-			:aria-label="layout.editorOpen ? 'Close the timeline editor' : 'Edit this song\'s timeline'"
-			@click="layout.editorOpen = !layout.editorOpen"
-		>✎<span class="editor-pencil-label">edit timeline</span></button></h2>
+		<!-- The title is the way back to the song's page once the pane has
+			followed the pickers away from it (Justin, 11 Nov 2026). The
+			editor's pencil used to sit on it and took a line of its own
+			under a two-line title; it is on the Song Parts label now. -->
+		<h2 id="song-title-display" class="song-title-display"><a id="song-title-link" class="song-title-link" :href="songHref"
+			title="Back to this song's page" @click.prevent="backToSong">{{ song.title || 'Untitled' }}</a></h2>
 		<div v-if="songs.album || !songs.lockedToTrack" id="album-row" class="album-row">
 			<img
 				v-if="songs.album && songs.artUrl"
@@ -71,6 +76,7 @@ function onArtError() {
 		<div id="recording-metadata" class="recording-metadata">
 			<span v-for="p in songs.metadataParts" :key="p">{{ p }}</span>
 		</div>
-		<div v-if="upNextText" id="up-next" class="up-next">{{ upNextText }}</div>
+		<button v-if="upNextText" id="up-next" type="button" class="up-next" title="Play it now"
+			@click="player.model && player.model.playNext()">{{ upNextText }}</button>
 	</div>
 </template>
