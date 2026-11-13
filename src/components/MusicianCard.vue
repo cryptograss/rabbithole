@@ -33,7 +33,7 @@ const style = computed( () => {
 		return null;
 	}
 	const glow = glowShadows( fx.color, fx.intensity );
-	return { '--glow-min': glow.min, '--glow-max': glow.max, '--pulse': fx.pulse + 's' };
+	return { '--glow-max': glow.max, '--pulse': fx.pulse + 's', '--cycles': fx.cycles };
 } );
 
 const label = computed( () => ( props.card.star ? '⭐ ' : '' ) + props.card.name );

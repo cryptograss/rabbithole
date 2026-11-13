@@ -33,7 +33,7 @@ const ensembleStyle = computed( () => {
 		return null;
 	}
 	const glow = glowShadows( bandFlash.value.color, bandFlash.value.intensity );
-	return { '--glow-min': glow.min, '--glow-max': glow.max, '--pulse': bandFlash.value.pulse + 's' };
+	return { '--glow-max': glow.max, '--pulse': bandFlash.value.pulse + 's', '--cycles': bandFlash.value.cycles };
 } );
 
 function effectsFor( name ) {
