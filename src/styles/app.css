@@ -90,6 +90,43 @@ body {
     border-radius: 3px;
 }
 
+/* Who is signed in, in the corner (Skyler, 13 Nov 2026). The name links
+   to their user page; signed out, it is a way to log in. */
+.rh-account {
+    margin-left: auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: white;
+    font-size: 10.5px;
+    text-decoration: none;
+    display: flex;
+    align-items: center;
+    gap: 3px;
+}
+.rh-account:hover { text-decoration: underline; }
+.rh-account-dot {
+    flex: none;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #d9f5c8;
+    box-shadow: 0 0 0 1px rgba(0,0,0,0.15);
+}
+.rh-account.signed-out {
+    background: #fff4d6;
+    color: #7a4b00;
+    font-weight: 600;
+    padding: 1px 7px;
+    border-radius: 3px;
+}
+.rh-account + .minimize-btn { margin-left: 0; flex: none; }
+/* Room for a name: the header's items sit a little closer than they did. */
+body:not(.bottom-bar) .layout:not(.minimized) .rabbithole-header { gap: 6px; padding-left: 10px; padding-right: 8px; }
+.layout.minimized .rh-account { display: none; }
+body.bottom-bar .rh-account { margin-left: 0; max-width: 100%; font-size: 10px; }
+
 .minimize-btn {
     margin-left: auto;
     background: rgba(255,255,255,0.2);
