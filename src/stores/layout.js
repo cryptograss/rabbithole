@@ -5,8 +5,8 @@
  * column costs width, a bottom bar costs height, and a screen always has
  * more of one than the other. Wide gets the sidebar, narrow gets the bar.
  *
- * The sidebar is the skin's 297px, so it holds down to a 700px window,
- * which leaves the article 400px. That was 1100px, and zooming a desktop
+ * The sidebar is the skin's 277px, so it holds down to a 700px window,
+ * which leaves the article over 400px. That was 1100px, and zooming a desktop
  * browser in moved the player to the bottom far too soon (Justin, 11 Nov
  * 2026: "I'd like to be able to zoom in more and have the player remain
  * on the side").
