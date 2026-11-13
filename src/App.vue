@@ -21,6 +21,7 @@ import RabbitholeHeader from './components/RabbitholeHeader.vue';
 import MiniPlayer from './components/MiniPlayer.vue';
 import SongInfo from './components/SongInfo.vue';
 import FollowSwitch from './components/FollowSwitch.vue';
+import TimelineView from './components/TimelineView.vue';
 import WebampDock from './components/WebampDock.vue';
 import Ensemble from './components/Ensemble.vue';
 import SongParts from './components/SongParts.vue';
@@ -128,7 +129,8 @@ onBeforeUnmount( () => {
 </script>
 
 <template>
-	<div class="layout" :class="{ minimized: !layout.isBar && layout.minimized, 'with-editor': layout.editorOpen }">
+	<div class="layout" :class="{ minimized: !layout.isBar && layout.minimized, 'with-editor': layout.editorOpen,
+		'with-timeline': layout.showTimeline && layout.timelineView, 'with-timeline-tab': layout.showTimeline && !layout.timelineView }">
 		<div id="rabbithole-sidebar">
 			<RabbitholeHeader />
 
@@ -178,5 +180,6 @@ onBeforeUnmount( () => {
 		<WikiPane />
 
 		<EditorPanel v-if="layout.editorOpen" />
+		<TimelineView v-else-if="layout.showTimeline" />
 	</div>
 </template>

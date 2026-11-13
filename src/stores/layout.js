@@ -20,7 +20,7 @@
  */
 
 import { defineStore } from 'pinia';
-import { ref, computed } from 'vue';
+import { ref, computed, watch } from 'vue';
 
 import { INITIAL_PARAMS } from '../initial-params.js';
 import { useMediaQuery } from '../composables/media-query.js';
@@ -62,6 +62,34 @@ function writeStored( choice ) {
 	}
 }
 
+const TIMELINE_KEY = 'rabbitholeTimelineView';
+const LABELS_KEY = 'rabbitholeTimelineLabels';
+
+function readFlag( key, fallback ) {
+	try {
+		const v = window.localStorage.getItem( key );
+		return v === null ? fallback : v === 'on';
+	} catch ( e ) {
+		return fallback;
+	}
+}
+
+function readLabels() {
+	try {
+		return window.localStorage.getItem( LABELS_KEY ) === 'name' ? 'name' : 'instrument';
+	} catch ( e ) {
+		return 'instrument';
+	}
+}
+
+function writeFlag( key, on ) {
+	try {
+		window.localStorage.setItem( key, on ? 'on' : 'off' );
+	} catch ( e ) {
+		// Private mode, or storage full: the choice holds for this page.
+	}
+}
+
 export const useLayoutStore = defineStore( 'layout', () => {
 	const urlChoice = INITIAL_PARAMS.get( 'layout' );
 	if ( urlChoice === 'auto' ) {
@@ -92,6 +120,31 @@ export const useLayoutStore = defineStore( 'layout', () => {
 	 */
 	const follow = ref( true );
 
+	/*
+	 * The timeline beside the page, read-only, with the rabbit running down
+	 * it (TimelineView.vue): open unless folded away, and the choice kept.
+	 * Shown in the sidebar layout while the editor is closed; the bar and a
+	 * phone have no room for a column (Justin, 13 Nov 2026).
+	 */
+	const timelineView = ref( readFlag( TIMELINE_KEY, true ) );
+	watch( timelineView, ( v ) => writeFlag( TIMELINE_KEY, v ) );
+	// Under 1000px the page beside it would be squeezed below ~540px.
+	const roomy = useMediaQuery( '(min-width: 1000px)' );
+	const showTimeline = computed( () => roomy.value && ! isBar.value && ! phone.value && ! editorOpen.value );
+	/*
+	 * What the timeline's labels say: the instrument, or the picker's name.
+	 * Instruments unless chosen otherwise (Justin, #rabbithole, 13 Nov
+	 * 2026); the choice kept in the browser.
+	 */
+	const timelineLabels = ref( readLabels() );
+	watch( timelineLabels, ( v ) => {
+		try {
+			window.localStorage.setItem( LABELS_KEY, v );
+		} catch ( e ) {
+			// The choice holds for this page.
+		}
+	} );
+
 	function setLayout( choice ) {
 		saved.value = choice;
 		fromUrl.value = null;
@@ -120,7 +173,7 @@ export const useLayoutStore = defineStore( 'layout', () => {
 
 	return {
 		layout, isBar, narrow, phone, auto, pinned, saved,
-		minimized, collapsed, editorOpen, follow,
+		minimized, collapsed, editorOpen, follow, timelineView, showTimeline, timelineLabels,
 		setLayout, toggleDock, openDock, stopFollowing,
 	};
 } );
