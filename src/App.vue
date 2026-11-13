@@ -10,7 +10,7 @@
  */
 import { watch, watchEffect, onMounted, onBeforeUnmount } from 'vue';
 
-import { INITIAL_PARAMS } from './initial-params.js';
+import { INITIAL_PARAMS, cameToListen } from './initial-params.js';
 import { useLayoutStore } from './stores/layout.js';
 import { useSongStore } from './stores/song.js';
 import { usePaneStore } from './stores/pane.js';
@@ -91,6 +91,17 @@ function openPaneForStart() {
 	} else {
 		pane.open( 'Justin Holmes', { push: false } );
 	}
+}
+
+// A Listen button brought them here: the song plays as soon as the player
+// stands (cameToListen says which addresses are a button's).
+if ( cameToListen( INITIAL_PARAMS ) ) {
+	const stop = watch( () => player.ready, ( ready ) => {
+		if ( ready ) {
+			player.model.play();
+			stop();
+		}
+	}, { immediate: true } );
 }
 
 onMounted( async () => {
