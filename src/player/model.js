@@ -45,6 +45,20 @@ export function sameRecording( a, b ) {
 // bug.
 export const SPOTLIGHT_MAX_SECONDS = 4;
 
+/**
+ * A glow lasts whole pulses, so it always ends dark. Asked for 2s at a 1.5s
+ * pulse, it used to glow once and then get cut off a third of the way into
+ * the next: lit, then half-lit, then gone (Skyler, Paint Exchange, 13 Nov
+ * 2026). The nearest whole number of pulses to what was asked, no more than
+ * the cap allows, and never fewer than one.
+ *
+ * @returns {{cycles: number, seconds: number}}
+ */
+export function wholePulses( asked, pulse, max = SPOTLIGHT_MAX_SECONDS ) {
+	const cycles = Math.max( 1, Math.min( Math.round( asked / pulse ), Math.floor( max / pulse ) ) );
+	return { cycles, seconds: cycles * pulse };
+}
+
 let effectIds = 0;
 
 export class WebampPlayer {
@@ -490,35 +504,45 @@ export class WebampPlayer {
 			return;
 		}
 		if ( arrangement.flourish ) {
+			const pulse = arrangement.flourishPulseSpeed || 1.2;
+			const { cycles, seconds } = wholePulses( arrangement.flourishDuration || 1.5, pulse );
 			this._addEffect( {
 				kind: 'flourish',
 				target: arrangement.flourish,
 				color: arrangement.flourishColor || 'coral',
 				intensity: ( arrangement.flourishIntensity || 0.7 ) * 0.6,
-				pulse: arrangement.flourishPulseSpeed || 1.2,
-			}, Math.min( arrangement.flourishDuration || 1.5, SPOTLIGHT_MAX_SECONDS ) );
+				pulse,
+				cycles,
+			}, seconds );
 		}
 		if ( arrangement.spotlight ) {
 			// A card highlight, not a blackout: the other players recede to
 			// 0.55 rather than vanish, and the page is untouched (Skyler:
 			// "it should highlight the name subtly").
 			const asked = ( arrangement.spotlightBlackout || 3 ) + ( arrangement.spotlightGlow || 2 );
+			const pulse = 1.5;
+			const { cycles, seconds } = wholePulses( asked, pulse );
 			this._addEffect( {
 				kind: 'spotlight',
 				target: arrangement.spotlight,
 				color: arrangement.spotlightColor || 'coral',
 				intensity: 0.9,
-				pulse: 1.5,
-			}, Math.min( asked, SPOTLIGHT_MAX_SECONDS ) );
+				pulse,
+				cycles,
+			}, seconds );
 		}
 		if ( arrangement.bandFlash ) {
+			// Never capped (it never was), but whole pulses like the rest.
+			const pulse = arrangement.bandFlashPulseSpeed || 0.6;
+			const { cycles, seconds } = wholePulses( arrangement.bandFlashDuration || 0.8, pulse, Infinity );
 			this._addEffect( {
 				kind: 'bandFlash',
 				target: null,
 				color: arrangement.bandFlashColor || 'coral',
 				intensity: arrangement.bandFlashIntensity || 0.5,
-				pulse: arrangement.bandFlashPulseSpeed || 0.6,
-			}, arrangement.bandFlashDuration || 0.8 );
+				pulse,
+				cycles,
+			}, seconds );
 		}
 	}
 

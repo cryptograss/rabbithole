@@ -1763,25 +1763,29 @@ body:not(.bottom-bar) #webamp div:has(> #main-window) {
 
 /* === Effects: a flourish or spotlight on a card, a flash on the band ===
 
-   The player model says which effect a card wears and for how long; the
-   card sets --glow-min, --glow-max and --pulse from the effect's colour and
-   intensity, and these keyframes read them. */
+   The player model says which effect a card wears, how fast it pulses and
+   for how many pulses; the card sets --glow-max, --pulse and --cycles from
+   it, and these keyframes read them. A glow plays a whole number of
+   pulses, and each pulse starts and ends at the card's own look (no 0% or
+   100% frame: the browser fills those from the card, a lead's green glow
+   included), so when the effect lets go there is nothing half-lit to snap
+   off (Skyler, 13 Nov 2026: "they highlight and look like it's half
+   lighting right after"). */
 @keyframes rh-pulse {
-    0%, 100% { box-shadow: none; }
     50% { box-shadow: var(--glow-max); }
 }
 
+/* A spotlight holds at its peak a moment longer than a flourish does. */
 @keyframes rh-spot {
-    0%, 100% { box-shadow: var(--glow-min); }
-    50% { box-shadow: var(--glow-max); }
+    35%, 65% { box-shadow: var(--glow-max); }
 }
 
 .musician-card.flourish-active {
-    animation: rh-pulse var(--pulse, 1.2s) ease-in-out infinite;
+    animation: rh-pulse var(--pulse, 1.2s) ease-in-out var(--cycles, 1);
 }
 
 .musician-card.spotlight-active {
-    animation: rh-spot var(--pulse, 1.5s) ease-in-out infinite;
+    animation: rh-spot var(--pulse, 1.5s) ease-in-out var(--cycles, 1);
 }
 
 /* Everyone else steps back half a pace while somebody is in the spotlight. */
@@ -1799,7 +1803,7 @@ body:not(.bottom-bar) #webamp div:has(> #main-window) {
 
 #ensemble-display.band-flash-active {
     overflow: visible;
-    animation: rh-pulse var(--pulse, 0.6s) ease-in-out infinite;
+    animation: rh-pulse var(--pulse, 0.6s) ease-in-out var(--cycles, 1);
 }
 
 #ensemble-display.flash .musician-card {

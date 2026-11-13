@@ -6,7 +6,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 vi.mock( '../../src/player/webamp-global.js', () => ( { default: () => class {} } ) );
 
-import { WebampPlayer, sameRecording } from '../../src/player/model.js';
+import { WebampPlayer, sameRecording, wholePulses } from '../../src/player/model.js';
 
 const SWORDS = {
 	title: 'Swords to Ploughshares',
@@ -108,6 +108,24 @@ describe( 'the player model', () => {
 		expect( model.state.effects.filter( ( e ) => e.kind === 'flourish' ) ).toHaveLength( 1 );
 		vi.advanceTimersByTime( 1600 );
 		expect( model.state.effects.filter( ( e ) => e.kind === 'flourish' ) ).toHaveLength( 0 );
+	} );
+
+	it( 'lasts whole pulses, so a glow ends dark rather than half-lit', () => {
+		// Paint Exchange's own asks (Skyler, 13 Nov 2026).
+		expect( wholePulses( 2, 1.5 ) ).toEqual( { cycles: 1, seconds: 1.5 } );
+		expect( wholePulses( 1.5, 1 ) ).toEqual( { cycles: 2, seconds: 2 } );
+		expect( wholePulses( 7, 2.5 ) ).toEqual( { cycles: 1, seconds: 2.5 } );
+		expect( wholePulses( 8.5, 1.5 ) ).toEqual( { cycles: 2, seconds: 3 } );
+		// One pulse longer than the cap still plays once, whole.
+		expect( wholePulses( 5, 4.5 ) ).toEqual( { cycles: 1, seconds: 4.5 } );
+		expect( wholePulses( 0.8, 0.6, Infinity ) ).toEqual( { cycles: 1, seconds: 0.6 } );
+	} );
+
+	it( 'tells the card how many pulses to play, matching how long it holds', () => {
+		const { model } = wired();
+		model._tick( 10.1 );
+		const flourish = model.state.effects.find( ( e ) => e.kind === 'flourish' );
+		expect( flourish.seconds ).toBeCloseTo( flourish.cycles * flourish.pulse );
 	} );
 
 	it( 'keeps the soloist while paused: the cards render from time, not status', () => {
