@@ -14,7 +14,7 @@ import { usePaneStore } from '../stores/pane.js';
 import { useLayoutStore } from '../stores/layout.js';
 import { PANE_STYLES, escapeHtml } from '../wiki/pane-html.js';
 import { listenRequest, playTrackInDock, queueTrack, trailToHere } from '../wiki/queue.js';
-import { titleFromHref, leavesTheApp } from '../wiki/pane-links.js';
+import { linkIn, titleFromHref, leavesTheApp } from '../wiki/pane-links.js';
 import { usePickerStore } from '../stores/picker.js';
 
 const pane = usePaneStore();
@@ -33,16 +33,17 @@ async function onClick( e ) {
 		}
 		return;
 	}
-	const a = e.composedPath().find( ( el ) => el.tagName === 'A' );
-	if ( ! a ) {
+	const link = linkIn( e.composedPath() );
+	if ( ! link ) {
 		return;
 	}
-	if ( a.target === '_blank' ) {
+	const { el: a, href } = link;
+	if ( link.newTab ) {
 		// Asked for a new tab, by the pane's own title above all: the
 		// browser does that itself, and the song plays on here.
 		return;
 	}
-	const listen = listenRequest( a.getAttribute( 'href' ) );
+	const listen = listenRequest( href );
 	if ( listen ) {
 		e.preventDefault();
 		if ( listen.action === 'trail' ) {
@@ -54,7 +55,6 @@ async function onClick( e ) {
 		}
 		return;
 	}
-	const href = a.getAttribute( 'href' );
 	const title = titleFromHref( href );
 	if ( title ) {
 		e.preventDefault();
@@ -63,10 +63,11 @@ async function onClick( e ) {
 		return;
 	}
 	if ( leavesTheApp( href ) ) {
-		// An edit form, a history page, a Special page: the wiki's own
-		// pages, which the pane cannot hold (injected HTML runs no
-		// scripts). They open in a new tab, so the song and an open
-		// timeline editor stay where they are (Skyler, 6 Nov 2026).
+		// An edit form, a history page, a Special page, the big
+		// connectome graph: the wiki's own pages, which the pane cannot
+		// hold (injected HTML runs no scripts). They open in a new tab,
+		// so the song and an open timeline editor stay where they are
+		// (Skyler, 6 Nov 2026).
 		e.preventDefault();
 		window.open( new URL( href, window.location.origin ).href, '_blank', 'noopener' );
 	}
