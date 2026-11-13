@@ -17,10 +17,13 @@ body {
 }
 
 /* The sidebar is as wide as Webamp and no wider (Justin, 11 Nov 2026):
-   the skin's 275px, 10px of gutter each side, and the 2px border. It
-   was 320px, and nothing in it needed the extra 23px on the right. */
+   the skin's 275px and the 2px border. It was 320px, then 297px with
+   10px of gutter each side of the skin; the player and the cards now
+   meet the sidebar's edges, and only the lines of text keep a small
+   inset (Justin and Skyler, 13 Nov 2026: every pixel of the player's
+   space has to earn its keep). */
 :root {
-    --rh-side-width: 297px;
+    --rh-side-width: 277px;
 }
 
 .layout {
@@ -220,6 +223,14 @@ body:not(.bottom-bar) #rabbithole-sidebar {
 body:not(.bottom-bar) .player-container {
     height: auto;
     flex: 1 0 auto;
+    padding: 4px 0;
+}
+
+/* The skin and the cards run edge to edge; the lines of text (the
+   title, the switch, the hops, the song parts) keep 6px off the edge. */
+body:not(.bottom-bar) .player-container > :not(.webamp-wrapper):not(#ensemble-display) {
+    padding-left: 6px;
+    padding-right: 6px;
 }
 
 /* And the strip stays in sight when the sidebar is taller than the
