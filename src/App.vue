@@ -137,10 +137,6 @@ onBeforeUnmount( () => {
 			<MiniPlayer v-if="!layout.isBar" />
 
 			<div class="player-container">
-				<!-- In the bar the title, cover and selector are the bar's
-				     own; in the sidebar they head the page beside it. -->
-				<SongInfo v-if="layout.isBar" />
-
 				<div class="toggle-row auto-switch-row">
 					<FollowSwitch />
 				</div>
@@ -179,13 +175,15 @@ onBeforeUnmount( () => {
 			</div>
 		</div>
 
-		<!-- Beside the sidebar, what is playing heads the page: the title,
-		     the cover and the selector in one line at the top right, where
-		     there is height to spare. Under the title in the sidebar they
-		     cost the player three lines, and the cards went off the bottom
-		     of the window (Justin and Skyler, 13 Nov 2026). -->
+		<!-- What is playing heads the page it is about, in either layout:
+		     the title, the cover and the selector in one line at the top,
+		     where there is height to spare. In the sidebar they cost the
+		     player three lines and the cards went off the bottom of the
+		     window (Justin and Skyler, 13 Nov 2026); in the bar they took
+		     250px of a row the ensemble was starving in, so two of six
+		     cards showed (Skyler, 14 Nov 2026). The dock is controls. -->
 		<div class="pane-column">
-			<SongInfo v-if="!layout.isBar" />
+			<SongInfo />
 			<WikiPane />
 		</div>
 
