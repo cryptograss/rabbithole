@@ -1873,9 +1873,12 @@ body.bottom-bar:has(.parts-chart.two-rows) {
     body.bottom-bar .inline-carrot {
         display: block;
         grid-area: play;
-        justify-self: end;
+        /* Centred in the switch's column, so it sits over the switch
+           rather than off to its right (Skyler, 14 Nov 2026: "may
+           look more balanced"). */
+        justify-self: center;
         align-self: center;
-        margin: 0 4px;
+        margin: 0;
     }
 
     body.bottom-bar .inline-carrot svg {
