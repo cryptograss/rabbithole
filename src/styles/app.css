@@ -1232,12 +1232,11 @@ body.bottom-bar .song-info-header {
     body.bottom-bar .song-info-header {
         width: 250px;
         display: grid;
-        grid-template-columns: 34px minmax(0, 1fr);
+        grid-template-columns: 34px minmax(0, 1fr) auto;
         grid-template-areas:
-            "art title"
-            "art album"
-            "art record"
-            "meta meta";
+            "art title  record"
+            "art album  album"
+            "meta meta  meta";
         column-gap: 6px;
         row-gap: 2px;
         text-align: left;
@@ -1254,6 +1253,10 @@ body.bottom-bar .song-info-header {
         align-self: end;
         margin: 0;
         font-size: 16px;
+        min-width: 0;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
     }
 
     body.bottom-bar .song-info-header .album-art {
@@ -1272,9 +1275,14 @@ body.bottom-bar .song-info-header {
         font-size: 12px;
     }
 
+    /* Beside the title, not under it: a line of its own was a fourth row
+       in a dock where height is the scarce thing, and it read as a second
+       title (Skyler, 14 Nov 2026). The title gives way first -- it has the
+       ellipsis -- because the record's name is short and whole or useless. */
     body.bottom-bar .song-info-header .record-line {
         grid-area: record;
-        align-self: start;
+        align-self: end;
+        justify-self: end;
         min-width: 0;
         white-space: nowrap;
         overflow: hidden;
