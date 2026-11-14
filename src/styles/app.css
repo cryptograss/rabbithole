@@ -1620,13 +1620,22 @@ body.bottom-bar:has(.parts-chart.two-rows) {
         display: none;
     }
 
-    /* The song's line heads the page on a phone too, but at 390px it
-       is one line for four things: the studio and date say nothing
-       the article does not, and the record is a tap away on the
-       song's page. The title, the cover and the track list stay. */
-    body.bottom-bar .pane-column .recording-metadata,
-    body.bottom-bar .pane-column .record-line {
+    /* The song's line heads the page on a phone too. The studio and
+       date go -- the article says them -- but the record's name
+       stays: it is how you get back to 4masks from a song, and
+       Skyler looked for it there (14 Nov 2026). Four things do not
+       fit one 390px line, so the line wraps: the title and the
+       record above, the cover and the track list below. The list
+       keeps its full width, because a clipped track name is what
+       this layout has already been fixed for twice. */
+    body.bottom-bar .pane-column .recording-metadata {
         display: none;
+    }
+
+    body.bottom-bar .pane-column .song-info-header {
+        flex-wrap: wrap;
+        justify-content: flex-start;
+        row-gap: 0;
     }
 
     /* The switch keeps its words -- it is the one control in the
