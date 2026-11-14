@@ -28,7 +28,7 @@ function onLogo() {
 
 <template>
 	<div id="rabbithole-header" class="rabbithole-header">
-		<img :src="rabbit" alt="Rabbithole" style="cursor: pointer" @click="onLogo">
+		<img :src="rabbit" alt="Rabbithole" @click="onLogo">
 		<h1>rabbithole</h1>
 		<span class="alpha">BETA</span>
 		<a v-if="account.name" class="rh-account" :href="userHref" target="_blank" rel="noopener"

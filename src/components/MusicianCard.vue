@@ -6,6 +6,10 @@ const props = defineProps( {
 	card: { type: Object, required: true },
 	effects: { type: Array, default: () => [] },
 	dim: { type: Boolean, default: false },
+	// This is the picker being chased: the rabbit is on their card, so
+	// the chase is visible wherever the pane has wandered to (Justin's
+	// point 12, 13 Nov 2026).
+	chased: { type: Boolean, default: false },
 } );
 defineEmits( [ 'select' ] );
 
@@ -23,6 +27,7 @@ const classes = computed( () => [
 		'spotlight-active': !! spotlight.value,
 		flash: flash.value,
 		'fx-dim': props.dim,
+		chased: props.chased,
 	},
 ] );
 
@@ -50,7 +55,7 @@ const label = computed( () => ( props.card.star ? '⭐ ' : '' ) + props.card.nam
 	>
 		<!-- The instrument never breaks across lines: "(5-string banjo)" is one
 			thing, and split it reads as two (Justin, 7 Nov 2026). -->
-		<div class="musician-name">{{ label + ( card.instrument ? ' ' : '' ) }}<span v-if="card.instrument" class="musician-instrument">({{ card.instrument }})</span></div>
+		<div class="musician-name"><span v-if="chased" class="chasing-rabbit" title="Chasing them: their songs play one after another">🐇</span>{{ label + ( card.instrument ? ' ' : '' ) }}<span v-if="card.instrument" class="musician-instrument">({{ card.instrument }})</span></div>
 		<div class="chartifact-line">{{ card.engineer ? 'Engineer' : 'Chartifact "0x1234ff" owned by cryptograss.eth' }}</div>
 	</div>
 </template>

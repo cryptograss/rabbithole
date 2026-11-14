@@ -1,0 +1,20 @@
+/*
+ * The trail: how the player got from the song it started on to the page
+ * being read, hop by hop. It wore its styles as a style attribute built
+ * in JavaScript; they belong here, where the chase's do.
+ */
+
+.pp-trail {
+	margin: .6em 0;
+	padding: .6em .8em;
+	border: 1px solid #c9d3c3;
+	border-left: 4px solid #4a7c59;
+	background: #f6f8f4;
+	font-size: 13px;
+	line-height: 1.5;
+}
+
+.pp-trail ol {
+	margin: .4em 0 0;
+	padding-left: 1.4em;
+}

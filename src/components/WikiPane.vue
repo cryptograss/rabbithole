@@ -2,37 +2,52 @@
 /*
  * The wiki, in a box we own.
  *
- * The pane store decides what the box holds: an HTML string, replaced
- * whole. This component puts it in a shadow root, so MediaWiki's styles
- * go in with the content and cannot reach the dock, and listens once, on
- * the root, for what happens inside: a link to another page stays in the
- * pane and stops the follow; a Listen button hands its track to the
- * player; the mode switcher and the search box do what they say.
+ * The box is a shadow root, so MediaWiki's styles go in with the content
+ * and cannot reach the dock. What goes in it is rendered by Vue, through
+ * a Teleport into the root: the article's wrappers, the title, the chase
+ * and the trail are components (src/components/pane/), and the one piece
+ * of injected HTML is the article the wiki parsed for us. Until 14 Nov
+ * 2026 the whole pane was a string built in JavaScript, with widgets
+ * inserted afterwards by hand and clicks read off data- attributes
+ * (Justin: hard to read and to reason about).
+ *
+ * The root still listens once, for what happens inside the wiki's own
+ * HTML, where there is nothing for Vue to bind to: a link to another page
+ * stays in the pane and stops the chase; a Listen button hands its track
+ * to the player.
  */
-import { ref, watch, onMounted } from 'vue';
+import { ref, watch, onMounted, computed } from 'vue';
 import { usePaneStore } from '../stores/pane.js';
 import { useLayoutStore } from '../stores/layout.js';
-import { PANE_STYLES, escapeHtml } from '../wiki/pane-html.js';
+import { usePickerStore } from '../stores/picker.js';
+import { adoptPaneStyles } from '../wiki/pane-styles.js';
 import { listenRequest, playTrackInDock, queueTrack, trailToHere } from '../wiki/queue.js';
 import { linkIn, titleFromHref, leavesTheApp } from '../wiki/pane-links.js';
-import { usePickerStore } from '../stores/picker.js';
+import PaneArticle from './pane/PaneArticle.vue';
+import PaneChaseOffer from './pane/PaneChaseOffer.vue';
+import PaneChasePill from './pane/PaneChasePill.vue';
+import PaneNotice from './pane/PaneNotice.vue';
+import PaneSearch from './pane/PaneSearch.vue';
+import PaneTrail from './pane/PaneTrail.vue';
 
 const pane = usePaneStore();
 const layout = useLayoutStore();
 const picker = usePickerStore();
 const host = ref( null );
-let shadow = null;
+/* Where Vue renders: a div of our own inside the shadow root, made once. */
+const inside = ref( null );
+
+const view = computed( () => pane.view );
+/*
+ * Chasing a picker, shown in one of two places and never both: the pill
+ * beside their name in the title while they are being chased, or the one
+ * line offering the chase on their page (Justin's points 10 and 13).
+ * Neither has anywhere to go on a page that is not an article.
+ */
+const offer = computed( () => ( view.value.kind === 'article' && picker.offer ? picker.offer : null ) );
+const chasing = computed( () => !! offer.value && picker.following === offer.value.name );
 
 async function onClick( e ) {
-	const followBtn = e.composedPath().find( ( el ) => el.dataset && ( el.dataset.follow || el.dataset.unfollow ) );
-	if ( followBtn ) {
-		if ( followBtn.dataset.follow ) {
-			await picker.follow( followBtn.dataset.follow );
-		} else {
-			picker.stop();
-		}
-		return;
-	}
 	const link = linkIn( e.composedPath() );
 	if ( ! link ) {
 		return;
@@ -73,107 +88,60 @@ async function onClick( e ) {
 	}
 }
 
-function onKeydown( e ) {
-	const el = e.composedPath()[ 0 ];
-	if ( e.key === 'Enter' && el && el.classList && el.classList.contains( 'pane-search' ) ) {
-		layout.stopFollowing();
-		pane.search( el.value );
-	}
+function onSearch( text ) {
+	layout.stopFollowing();
+	pane.search( text );
 }
 
-function trailPanel( trail ) {
-	const div = document.createElement( 'div' );
-	div.className = 'pp-trail';
-	div.setAttribute( 'style', 'margin:.6em 0; padding:.6em .8em; border:1px solid #c9d3c3; '
-		+ 'border-left:4px solid #4a7c59; background:#f6f8f4; font-size:13px; line-height:1.5;' );
-	div.innerHTML = '<strong>Down the rabbithole from ' + escapeHtml( trail.from.replace( /^Song:/, '' ) )
-		+ '</strong><ol style="margin:.4em 0 0; padding-left:1.4em;">'
-		+ trail.hops.map( ( hop ) => '<li>' + escapeHtml( hop.via )
-			+ ( hop.instrument ? ' <em>(' + escapeHtml( hop.instrument ) + ')</em>' : '' )
-			+ ' played on both — to <strong>' + escapeHtml( hop.to.replace( /^Song:/, '' ) ) + '</strong></li>' ).join( '' )
-		+ '</ol>';
-	return div;
-}
-
-const first = ( name ) => name.split( ' ' )[ 0 ];
-const songName = ( song ) => escapeHtml( song.replace( /^Song:/, '' ) );
-
-/*
- * On a picker's page, one line: what following them does, and the song it
- * plays next, named before you press anything (Justin, 7 Nov 2026).
- */
-function followPanel( offer ) {
-	const div = document.createElement( 'div' );
-	div.className = 'pp-follow';
-	div.setAttribute( 'style', 'margin:.6em 0; padding:.5em .8em; border:1px solid #f0c9a8; '
-		+ 'border-left:4px solid #ff6b35; background:#fff8f2; font-size:13px; line-height:1.5;' );
-	const name = escapeHtml( offer.name );
-	const button = ( attr, label ) => ' <button ' + attr + ' style="margin-left:.4em; padding:.1em .7em; '
-		+ 'border:1px solid #4a7c59; border-radius:4px; background:#4a7c59; color:#fff; font-size:12px; cursor:pointer;">'
-		+ label + '</button>';
-	if ( picker.following === offer.name ) {
-		div.innerHTML = '🐇 <strong>Following ' + name + '.</strong> '
-			+ ( offer.next ? 'Plays next: <strong>' + songName( offer.next.song ) + '</strong>.'
-				: 'No more songs of theirs to play.' )
-			+ button( 'data-unfollow="1"', 'Stop following' );
-	} else if ( offer.next ) {
-		div.innerHTML = '🐇 <strong>Follow ' + name + '</strong>: after this song, play the songs '
-			+ escapeHtml( first( offer.name ) ) + ' is on, one after another. First up: <strong>'
-			+ songName( offer.next.song ) + '</strong>.'
-			+ button( 'data-follow="' + name + '"', 'Follow ' + escapeHtml( first( offer.name ) ) );
-	} else {
-		div.innerHTML = '🐇 ' + name + ' isn\'t on another song with a recording yet, so there\'s nobody to follow.';
-	}
-	return div;
-}
-
-function showFollow() {
-	if ( ! shadow ) {
-		return;
-	}
-	shadow.querySelectorAll( '.pp-follow' ).forEach( ( el ) => el.remove() );
-	if ( picker.offer ) {
-		const body = shadow.querySelector( '.mw-body-content' ) || shadow;
-		body.insertBefore( followPanel( picker.offer ), body.firstChild );
-	}
-}
-
-function render() {
-	if ( ! shadow ) {
-		return;
-	}
-	shadow.innerHTML = PANE_STYLES + pane.html;
-	if ( host.value ) {
-		host.value.scrollTop = 0;
-	}
-	showTrail();
-	showFollow();
-}
-
-function showTrail() {
-	if ( ! shadow ) {
-		return;
-	}
-	shadow.querySelectorAll( '.pp-trail' ).forEach( ( el ) => el.remove() );
-	if ( pane.trail ) {
-		const body = shadow.querySelector( '.mw-body-content' ) || shadow;
-		body.insertBefore( trailPanel( pane.trail ), body.firstChild );
-	}
+function onChase( name ) {
+	picker.follow( name );
 }
 
 onMounted( () => {
-	shadow = host.value.shadowRoot || host.value.attachShadow( { mode: 'open' } );
+	const shadow = host.value.shadowRoot || host.value.attachShadow( { mode: 'open' } );
+	adoptPaneStyles( shadow );
+	const root = document.createElement( 'div' );
+	root.className = 'pane-root';
+	shadow.append( root );
 	shadow.addEventListener( 'click', onClick );
-	shadow.addEventListener( 'keydown', onKeydown );
-	render();
+	inside.value = root;
 } );
 
-watch( () => pane.revision, render );
-watch( () => pane.trail, showTrail );
+// A new page starts at the top of it, as turning a page does.
+watch( () => view.value, () => {
+	if ( host.value ) {
+		host.value.scrollTop = 0;
+	}
+} );
+
 watch( () => pane.shown, ( title ) => picker.look( title ), { immediate: true } );
-watch( () => [ picker.offer, picker.following ], showFollow );
 </script>
 
 <template>
 	<div id="pickipedia-frame" ref="host" class="pickipedia-frame"></div>
+	<Teleport v-if="inside" :to="inside">
+		<PaneSearch
+			v-if="view.kind === 'search'"
+			:text="view.text"
+			:hits="view.hits"
+			@search="onSearch"
+		/>
+		<PaneNotice
+			v-else-if="view.kind === 'loading' || view.kind === 'failed'"
+			:kind="view.kind"
+			:title="view.title"
+		/>
+		<PaneArticle
+			v-else-if="view.kind === 'article'"
+			:title="view.title"
+			:text="view.text"
+			:displaytitle="view.displaytitle"
+		>
+			<template #title>
+				<PaneChasePill v-if="chasing" :name="offer.name" @stop="picker.stop()" />
+			</template>
+			<PaneChaseOffer v-if="offer && ! chasing && offer.next" :name="offer.name" @chase="onChase" />
+			<PaneTrail v-if="pane.trail" :trail="pane.trail" />
+		</PaneArticle>
+	</Teleport>
 </template>

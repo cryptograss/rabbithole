@@ -1,0 +1,169 @@
+/*
+ * The wiki pane, inside its shadow root.
+ *
+ * This sheet is adopted by the shadow root (see wiki/pane-styles.js), not
+ * loaded by the page: none of it can reach the dock, and the dock's own
+ * rules cannot reach in. It was a list of quoted strings in a JS module
+ * until 14 Nov 2026, when Justin said what everyone was thinking.
+ *
+ * MonoBook's own stylesheets come in beside it, as <link>s, because they
+ * are the wiki's files and are fetched from the wiki.
+ */
+
+/*
+ * The pane wears MonoBook's page, not only its article: the grey paper
+ * with the wave along the top, the white article box with its thin
+ * border, and the skin's own sans-serif at the skin's size. MonoBook puts
+ * those on <body>, which a shadow root has none of, so they are restated
+ * on :host. A plain white pane with the app's own font was jarring beside
+ * the wiki (Justin, 11 Nov 2026).
+ */
+:host {
+	display: block;
+	font-family: sans-serif;
+	font-size: 11px;
+	line-height: 1.5;
+	color: #000;
+	background: #f9f9f9 url("/skins/MonoBook/resources/images/headbg.svg") 0 0 no-repeat;
+	min-height: 100%;
+	/* The pane is the container the record box asks about, below. */
+	container-type: inline-size;
+}
+
+/*
+ * A float needs room beside it. The record box is 20em wide; in a pane
+ * narrower than about twice that, the text beside it came out a word to a
+ * line, "On the record" stacked four high (Justin, zoomed in,
+ * #rabbithole, 12 Nov 2026). The stylesheet's own rule for that asks the
+ * window's width, which a pane in a wide window never meets, so the pane
+ * asks its own.
+ */
+@container (max-width: 560px) {
+	.pp-record-box {
+		float: none;
+		width: auto;
+		margin: 0 0 1em;
+	}
+}
+
+img {
+	max-width: 100%;
+	height: auto;
+}
+
+table {
+	max-width: 100%;
+}
+
+/* MonoBook floats the article beside a sidebar column the pane has not
+   got: the box sits in the pane with a margin of paper around it. */
+#globalWrapper #column-content {
+	float: none;
+	margin: 0;
+	width: auto;
+}
+
+#globalWrapper #content.mw-body {
+	margin: 10px;
+}
+
+.pane-title {
+	margin: 0 0 .4em;
+}
+
+/* The title is a link out to the wiki, dressed as a title: the same
+   colour, no underline until the pointer says so, a small ↗ beside it. */
+.pane-title .pane-escape,
+.pane-title .pane-escape:visited {
+	color: inherit;
+	text-decoration: none;
+}
+
+.pane-title .pane-escape:hover {
+	text-decoration: underline;
+}
+
+.pane-escape-mark {
+	font-size: .55em;
+	margin-left: .35em;
+	vertical-align: super;
+	color: #2d5016;
+}
+
+.pane-loading {
+	color: #6b7566;
+	font-size: 13px;
+}
+
+.mw-editsection {
+	display: none;
+}
+
+/* The "find a trail here" button of {{Listen in Rabbithole}} means
+   nothing outside the player: a trail needs a "from". The template
+   renders it display:none inline, and only the pane shows it (Justin,
+   #rabbithole, 12 Nov 2026). !important, because inline wins otherwise. */
+.pp-trail-rh {
+	display: inline-flex !important;
+}
+
+/* The search bar, when the pane is showing results rather than a page. */
+.pane-chrome {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 6px 8px;
+	margin: -4px -4px 10px;
+	background: #f3f5f1;
+	border-bottom: 1px solid #d8ddd3;
+	font-size: 13px;
+	position: sticky;
+	top: 0;
+	z-index: 5;
+}
+
+.pane-chrome .pane-search {
+	flex: 1 1 auto;
+	min-width: 60px;
+	padding: 4px 6px;
+	border: 1px solid #c3cbbb;
+	border-radius: 3px;
+	font: inherit;
+}
+
+.pane-chrome a {
+	color: #2d5016;
+	text-decoration: none;
+}
+
+.pane-chrome a:hover {
+	text-decoration: underline;
+}
+
+.pane-results {
+	list-style: none;
+	padding: 0;
+	margin: 0;
+}
+
+.pane-results li {
+	padding: 5px 0;
+	border-bottom: 1px solid #eceee8;
+}
+
+.pane-results a {
+	font-weight: 600;
+}
+
+.pane-results .snippet {
+	color: #5a6354;
+	font-size: 12px;
+}
+
+/* The article's own nodes, inside the element that carries the wiki's
+   HTML: display:contents takes that element out of the layout, so they
+   lay out as children of .mw-body-content, exactly as they did when the
+   pane was built as one string. */
+.pane-wikitext {
+	display: contents;
+}

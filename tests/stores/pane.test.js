@@ -42,7 +42,7 @@ describe( 'the wiki pane', () => {
 		pending[ 'Justin Holmes' ]();
 		await second;
 		expect( pane.shown ).toBe( 'Justin Holmes' );
-		expect( pane.html ).toContain( '<p>Justin Holmes</p>' );
+		expect( pane.view ).toMatchObject( { kind: 'article', title: 'Justin Holmes', text: '<p>Justin Holmes</p>' } );
 
 		// Maddie's request was aborted when Justin's was made; whatever
 		// happens to it now, the pane is Justin's.
@@ -51,7 +51,7 @@ describe( 'the wiki pane', () => {
 		}
 		await first;
 		expect( pane.shown ).toBe( 'Justin Holmes' );
-		expect( pane.html ).toContain( '<p>Justin Holmes</p>' );
+		expect( pane.view.text ).toContain( '<p>Justin Holmes</p>' );
 		expect( new URLSearchParams( location.search ).get( 'page' ) ).toBe( 'Justin Holmes' );
 	} );
 
@@ -77,7 +77,7 @@ describe( 'the wiki pane', () => {
 		const pane = usePaneStore();
 		await pane.open( 'Nobody At All' );
 		expect( pane.wanted ).toBeNull();
-		expect( pane.html ).toContain( 'Could not load' );
+		expect( pane.view ).toEqual( { kind: 'failed', title: 'Nobody At All' } );
 		await pane.open( 'Nobody At All' );
 		expect( globalThis.fetch ).toHaveBeenCalledTimes( 2 );
 	} );

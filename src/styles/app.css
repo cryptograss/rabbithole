@@ -184,6 +184,8 @@ body {
 .rabbithole-header img {
     width: 28px;
     height: 28px;
+    /* It is the way back to the song that is playing, so it says so. */
+    cursor: pointer;
 }
 
 .rabbithole-header h1 {
@@ -496,6 +498,37 @@ body.bottom-bar .layout-ab {
     letter-spacing: -0.015em;
 }
 
+/* The record the song is on, under the title: its own page's name, bold
+   and blue, with the same ↩ the title wears. Blue and not the app's green
+   because the pane beside it is the wiki, where that is what a link looks
+   like -- and a link is what people have to see this is (Skyler, 14 Nov
+   2026). */
+.record-line {
+    font-size: 12px;
+    line-height: 1.2;
+    margin: 2px 0 0;
+}
+
+.record-link {
+    color: #0645ad;
+    font-weight: 700;
+    text-decoration: none;
+}
+
+.record-link:hover {
+    text-decoration: underline;
+}
+
+.record-link-out {
+    font-size: 0.85em;
+    margin-left: 4px;
+    color: #7fa0d4;
+}
+
+.record-link:hover .record-link-out {
+    color: #0645ad;
+}
+
 /* Cover and the rest of the record, under the title. */
 .album-row {
     display: flex;
@@ -639,8 +672,18 @@ body.bottom-bar .pane-column {
     text-overflow: ellipsis;
 }
 
-.pane-column .album-row {
+.pane-column .record-line {
     order: 4;
+    flex: 0 1 auto;
+    min-width: 0;
+    margin: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.pane-column .album-row {
+    order: 5;
     flex: 0 0 auto;
     margin: 0;
 }
@@ -809,6 +852,18 @@ body.bottom-bar .editor-pencil {
     opacity: 0.4;
 }
 
+/* The picker being chased: the rabbit on their card, so the chase is
+   visible wherever the pane has wandered to (Justin, 13 Nov 2026). The
+   card keeps whatever else it is wearing; this is one mark, not a
+   second scene. */
+.chasing-rabbit {
+    margin-right: 4px;
+}
+
+.musician-card.chased {
+    border-color: #87a96b;
+}
+
 .musician-name {
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     font-weight: 600;
@@ -830,19 +885,43 @@ body.bottom-bar .editor-pencil {
     color: #888;
 }
 
+/* The chart is a window, never more than two rows tall, onto a strip of
+   blocks that is as long as the song. The row you are in sits at the top
+   of it, the row after it below; the strip slides by a whole row, and the
+   slide is what says the song is moving forward (Justin, 13 Nov 2026,
+   3b). Rows and the slide are set by SongParts.vue, which measures them
+   rather than counting: auto-fill decides how many blocks go in a row. */
 .parts-chart {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 4px;
+    --parts-row: 20px;
+    --parts-gap: 4px;
+    --parts-block: 26px;
+    --parts-rows: 1;
+    --parts-columns: 1;
+    --parts-offset: 0px;
+    overflow: hidden;
     padding: 3px 0;
+    height: calc(var(--parts-rows) * var(--parts-row) + (var(--parts-rows) - 1) * var(--parts-gap));
+}
+
+.parts-strip {
+    display: grid;
+    grid-template-columns: repeat(var(--parts-columns), minmax(0, 1fr));
+    gap: var(--parts-gap);
+    transform: translateY(calc(-1 * var(--parts-offset)));
+    transition: transform 420ms cubic-bezier(0.22, 0.61, 0.36, 1);
 }
 
 .part-box {
-    padding: 3px 6px;
+    cursor: pointer;
+    height: var(--parts-row);
+    line-height: calc(var(--parts-row) - 2px);
+    text-align: center;
     border: 1px solid #ddd;
     border-radius: 3px;
     font-size: 11px;
     color: #666;
+    overflow: hidden;
+    white-space: nowrap;
 }
 
 .part-box.active {
@@ -1191,11 +1270,11 @@ body.bottom-bar .song-info-header {
     body.bottom-bar .song-info-header {
         width: 250px;
         display: grid;
-        grid-template-columns: 34px minmax(0, 1fr);
+        grid-template-columns: 34px minmax(0, 1fr) auto;
         grid-template-areas:
-            "art title"
-            "art album"
-            "meta meta";
+            "art title  record"
+            "art album  album"
+            "meta meta  meta";
         column-gap: 6px;
         row-gap: 2px;
         text-align: left;
@@ -1212,6 +1291,10 @@ body.bottom-bar .song-info-header {
         align-self: end;
         margin: 0;
         font-size: 16px;
+        min-width: 0;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
     }
 
     body.bottom-bar .song-info-header .album-art {
@@ -1228,6 +1311,20 @@ body.bottom-bar .song-info-header {
         margin: 0;
         padding: 2px 6px;
         font-size: 12px;
+    }
+
+    /* Beside the title, not under it: a line of its own was a fourth row
+       in a dock where height is the scarce thing, and it read as a second
+       title (Skyler, 14 Nov 2026). The title gives way first -- it has the
+       ellipsis -- because the record's name is short and whole or useless. */
+    body.bottom-bar .song-info-header .record-line {
+        grid-area: record;
+        align-self: end;
+        justify-self: end;
+        min-width: 0;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
     }
 
     body.bottom-bar .song-info-header .recording-metadata {
@@ -1357,11 +1454,11 @@ body.bottom-bar .section-label {
    no durations attached — that is a change in the player module, not
    in this stylesheet. */
 body.bottom-bar .parts-chart {
+    --parts-row: 24px;
+    --parts-gap: 3px;
+    --parts-block: 30px;
     flex: 1 1 auto;
-    flex-wrap: nowrap;
-    gap: 3px;
     padding: 0;
-    height: 24px;
     min-width: 0;
 }
 
@@ -1370,11 +1467,8 @@ body.bottom-bar .parts-chart {
    at a glance the strip should look like a bar of music, not a row
    of labels. */
 body.bottom-bar .parts-chart .part-box {
-    flex: 1 1 0;
     min-width: 0;
-    height: 24px;
     padding: 0;
-    line-height: 23px;
     text-align: center;
     font-size: 11px;
     font-weight: 600;
@@ -1400,19 +1494,7 @@ body.bottom-bar .parts-chart .part-box.active {
     color: #fff;
 }
 
-/* A long song on two rows, each the same number of blocks, so the
-   second row still lines up under the first as the rest of the song. */
-body.bottom-bar .parts-chart.two-rows {
-    flex-wrap: wrap;
-    height: auto;
-    row-gap: 3px;
-}
-
-body.bottom-bar .parts-chart.two-rows .part-box {
-    flex: 0 0 calc((100% - (var(--parts-per-row) - 1) * 3px) / var(--parts-per-row));
-}
-
-/* And the bar grows by a row to hold it: 24 more pixels on the dock,
+/* The bar grows by a row to hold it: 24 more pixels on the dock,
    the strip, and the padding that keeps the player clear of it. */
 body.bottom-bar:has(.parts-chart.two-rows) {
     --rh-strip-extra: 24px;
@@ -1535,6 +1617,15 @@ body.bottom-bar .data-section:has(.parts-chart.two-rows) {
        as it does everywhere else; it just moves to the top right. */
     body.bottom-bar .song-info-header {
         display: contents;
+    }
+
+    /* The record's name does not get a line of the dock on a phone:
+       the rows here are counted out against the skin's 116px, and a
+       fourth one pushes the song parts off the screen. The title is
+       the way back that fits; the record is a tap further, on the
+       song's page. */
+    body.bottom-bar .record-line {
+        display: none;
     }
 
     body.bottom-bar .song-title-display {
@@ -2072,6 +2163,10 @@ body:not(.bottom-bar) #webamp div:has(> #main-window) {
 }
 
 @media (prefers-reduced-motion: reduce) {
+    .parts-strip {
+        transition: none;
+    }
+
     .cards-move,
     .musician-card.flourish-active,
     .musician-card.spotlight-active,

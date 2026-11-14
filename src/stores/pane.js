@@ -18,25 +18,24 @@ import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
 
 import * as wiki from '../wiki/api.js';
-import { paneBody, searchResults, loadingBody, failedBody, appAddress } from '../wiki/pane-html.js';
+import { appAddress } from '../wiki/urls.js';
 
 export const usePaneStore = defineStore( 'pane', () => {
 	const wanted = ref( null );
 	const shown = ref( null );
-	/** The HTML inside the shadow root. A string: the component injects it. */
-	const html = ref( '' );
-	/** How many times html has been replaced, so a repeat of the same string still re-renders. */
-	const revision = ref( 0 );
+	/*
+	 * What the pane is showing, as a thing rather than as markup: an
+	 * article (the wiki's parsed HTML, with its title), a word that it is
+	 * loading or could not, or a search and its hits. The components
+	 * render it; until 14 Nov 2026 the store built the HTML itself and the
+	 * pane had no idea what it was holding.
+	 */
+	const view = ref( { kind: 'empty' } );
 	const loading = ref( false );
 	/** A trail drawn from what is playing to the song being read about. */
 	const trail = ref( null );
 
 	let request = null;
-
-	function setHtml( value ) {
-		html.value = value;
-		revision.value += 1;
-	}
 
 	async function open( title, { push = true, force = false } = {} ) {
 		if ( ! title ) {
@@ -63,7 +62,7 @@ export const usePaneStore = defineStore( 'pane', () => {
 		// article with "Loading" and then the next article is two layouts
 		// and a flash where one will do.
 		if ( ! shown.value ) {
-			setHtml( loadingBody( title ) );
+			view.value = { kind: 'loading', title };
 		}
 		loading.value = true;
 
@@ -72,7 +71,7 @@ export const usePaneStore = defineStore( 'pane', () => {
 			if ( ! latest() ) {
 				return;
 			}
-			setHtml( paneBody( title, parsed ) );
+			view.value = { kind: 'article', title, text: parsed.text || '', displaytitle: parsed.displaytitle || '' };
 			shown.value = title;
 			loading.value = false;
 			if ( push ) {
@@ -90,7 +89,7 @@ export const usePaneStore = defineStore( 'pane', () => {
 			loading.value = false;
 			wanted.value = null;
 			console.warn( 'Could not open', title, err );
-			setHtml( failedBody( title ) );
+			view.value = { kind: 'failed', title };
 		}
 	}
 
@@ -100,7 +99,7 @@ export const usePaneStore = defineStore( 'pane', () => {
 			return;
 		}
 		const hits = await wiki.search( q );
-		setHtml( searchResults( q, hits ) );
+		view.value = { kind: 'search', text: q, hits };
 		shown.value = null;
 		wanted.value = null;
 	}
@@ -125,5 +124,5 @@ export const usePaneStore = defineStore( 'pane', () => {
 	/** The title of the song page on screen, or null if the pane shows something else. */
 	const shownSongTitle = computed( () => ( shown.value && shown.value.startsWith( 'Song:' ) ? shown.value : null ) );
 
-	return { wanted, shown, html, revision, loading, trail, shownSongTitle, open, openSong, search };
+	return { wanted, shown, view, loading, trail, shownSongTitle, open, openSong, search };
 } );
