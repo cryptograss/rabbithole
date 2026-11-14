@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 
-import { cameToListen } from '../src/initial-params.js';
+import { cameToListen, cameToEdit } from '../src/initial-params.js';
 
 /*
  * A Listen button lands at ?track=<cid> and the song plays; the app's own
@@ -19,5 +19,25 @@ describe( 'cameToListen', () => {
 	it( 'is not the front door', () => {
 		expect( cameToListen( new URLSearchParams( '' ) ) ).toBe( false );
 		expect( cameToListen( new URLSearchParams( '?page=Justin+Holmes' ) ) ).toBe( false );
+	} );
+} );
+
+/*
+ * "chart it in Rabbithole", from a song page's {{Studio cut}}: the editor
+ * opens with the page (14 Nov 2026).
+ */
+describe( 'cameToEdit', () => {
+	it( 'is action=edit', () => {
+		expect( cameToEdit( new URLSearchParams( '?track=QmS3QEZ&action=edit' ) ) ).toBe( true );
+	} );
+
+	it( 'is not another action, nor none', () => {
+		expect( cameToEdit( new URLSearchParams( '?track=QmS3QEZ&action=trail' ) ) ).toBe( false );
+		expect( cameToEdit( new URLSearchParams( '?track=QmS3QEZ' ) ) ).toBe( false );
+		expect( cameToEdit( new URLSearchParams( '' ) ) ).toBe( false );
+	} );
+
+	it( 'still plays the song: an edit link is a Listen address too', () => {
+		expect( cameToListen( new URLSearchParams( '?track=QmS3QEZ&action=edit' ) ) ).toBe( true );
 	} );
 } );

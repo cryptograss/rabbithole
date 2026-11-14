@@ -31,3 +31,18 @@ export const PAGE_URL = typeof window !== 'undefined' ? window.location.href : '
 export function cameToListen( params ) {
 	return ( params.has( 'track' ) || params.has( 'record' ) ) && ! params.has( 'page' );
 }
+
+/**
+ * Whether the address came to edit the chart: ?track=<cid>&action=edit.
+ *
+ * The link a song page offers beside the chart it is about — "chart it in
+ * Rabbithole", from {{Studio cut}} (14 Nov 2026). Somebody who clicked it
+ * came to edit, so the editor opens with the page rather than waiting
+ * behind the ✎.
+ *
+ * @param {URLSearchParams} params
+ * @return {boolean}
+ */
+export function cameToEdit( params ) {
+	return params.get( 'action' ) === 'edit';
+}
