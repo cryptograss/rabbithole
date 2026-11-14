@@ -137,7 +137,9 @@ onBeforeUnmount( () => {
 			<MiniPlayer v-if="!layout.isBar" />
 
 			<div class="player-container">
-				<SongInfo />
+				<!-- In the bar the title, cover and selector are the bar's
+				     own; in the sidebar they head the page beside it. -->
+				<SongInfo v-if="layout.isBar" />
 
 				<div class="toggle-row auto-switch-row">
 					<FollowSwitch />
@@ -177,7 +179,15 @@ onBeforeUnmount( () => {
 			</div>
 		</div>
 
-		<WikiPane />
+		<!-- Beside the sidebar, what is playing heads the page: the title,
+		     the cover and the selector in one line at the top right, where
+		     there is height to spare. Under the title in the sidebar they
+		     cost the player three lines, and the cards went off the bottom
+		     of the window (Justin and Skyler, 13 Nov 2026). -->
+		<div class="pane-column">
+			<SongInfo v-if="!layout.isBar" />
+			<WikiPane />
+		</div>
 
 		<EditorPanel v-if="layout.editorOpen" />
 		<TimelineView v-else-if="layout.showTimeline" />
