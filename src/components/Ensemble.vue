@@ -15,12 +15,14 @@ import { computed } from 'vue';
 import { usePlayerStore } from '../stores/player.js';
 import { usePaneStore } from '../stores/pane.js';
 import { useLayoutStore } from '../stores/layout.js';
+import { usePickerStore } from '../stores/picker.js';
 import { glowShadows } from '../player/glow.js';
 import MusicianCard from './MusicianCard.vue';
 
 const player = usePlayerStore();
 const pane = usePaneStore();
 const layout = useLayoutStore();
+const picker = usePickerStore();
 
 const sorted = computed( () => player.cards.slice().sort( ( a, b ) => a.weight - b.weight || a.name.localeCompare( b.name ) ) );
 
@@ -62,6 +64,7 @@ function select( name ) {
 			:card="card"
 			:effects="effectsFor( card.name )"
 			:dim="!!spotlight && spotlight.target !== card.name"
+			:chased="picker.following === card.name"
 			@select="select( card.name )"
 		/>
 	</TransitionGroup>
