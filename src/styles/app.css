@@ -809,6 +809,18 @@ body.bottom-bar .editor-pencil {
     opacity: 0.4;
 }
 
+/* The picker being chased: the rabbit on their card, so the chase is
+   visible wherever the pane has wandered to (Justin, 13 Nov 2026). The
+   card keeps whatever else it is wearing; this is one mark, not a
+   second scene. */
+.chasing-rabbit {
+    margin-right: 4px;
+}
+
+.musician-card.chased {
+    border-color: #87a96b;
+}
+
 .musician-name {
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     font-weight: 600;

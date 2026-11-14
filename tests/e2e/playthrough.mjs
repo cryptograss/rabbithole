@@ -239,16 +239,29 @@ async function run() {
 	seen = await look( page );
 	check( 'pressing the carrot again pauses', seen.clock === paused.clock, `${ paused.clock } s, then ${ seen.clock } s` );
 
-	// Follow a picker: their card, then their page offers to follow them.
+	// Chase a picker: their card, then their page offers the chase.
 	const card = page.locator( '.musician-card' ).filter( { hasNotText: seen.pane } ).first();
 	const picker = ( await card.locator( '.musician-name' ).textContent() ).replace( /⭐/g, '' ).replace( /\(.*$/, '' ).trim();
 	await card.click();
 	seen = await until( page, ( s ) => s.pane === picker, 8 );
 	check( `a card opens that person's page: ${ picker }`, seen.pane === picker, `pane: ${ seen.pane }` );
-	const follow = page.locator( '[data-follow]' );
-	await follow.first().waitFor( { timeout: 8000 } ).catch( () => {} );
-	const offer = ( await follow.count() ) ? ( await follow.first().evaluate( ( b ) => b.parentElement.textContent ) ) : '';
-	check( `their page offers to follow ${ picker }, naming the next song`, /First up:/.test( offer ), offer.replace( /\s+/g, ' ' ).trim().slice( 0, 140 ) || 'no Follow button' );
+	const chase = page.locator( '[data-chase]' );
+	await chase.first().waitFor( { timeout: 8000 } ).catch( () => {} );
+	const offer = ( await chase.count() ) ? ( await chase.first().evaluate( ( b ) => b.parentElement.textContent ) ) : '';
+	check( `their page offers to chase ${ picker }, in one line`, new RegExp( 'Chase ' ).test( offer ) && ! /First up:/.test( offer ),
+		offer.replace( /\s+/g, ' ' ).trim().slice( 0, 140 ) || 'no Chase button' );
+
+	// Taking the chase puts the pill beside their name, and no box above it.
+	if ( await chase.count() ) {
+		await chase.first().click();
+		const pill = page.locator( '.pp-chasing' );
+		await pill.first().waitFor( { timeout: 8000 } ).catch( () => {} );
+		check( `chasing ${ picker } shows the pill beside their name, not a box`,
+			( await pill.count() ) > 0 && ( await page.locator( '.pp-chase' ).count() ) === 0 );
+		check( 'and the rabbit is on their card in the ensemble',
+			( await page.locator( '.musician-card.chased .chasing-rabbit' ).count() ) > 0 );
+		await pill.first().click();   // stop chasing, so the rest of the run is as it was
+	}
 
 	// Tapping a card is steering the pane yourself, so Follow the solo turns off; a new song
 	// opens its page only while it's on (#32: "a person reading something keeps reading").

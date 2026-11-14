@@ -13,6 +13,7 @@ import { ref, watch, onMounted } from 'vue';
 import { usePaneStore } from '../stores/pane.js';
 import { useLayoutStore } from '../stores/layout.js';
 import { PANE_STYLES, escapeHtml } from '../wiki/pane-html.js';
+import { CHASE_STYLES, chaseOfferHtml, chasePillHtml } from '../wiki/chase.js';
 import { listenRequest, playTrackInDock, queueTrack, trailToHere } from '../wiki/queue.js';
 import { linkIn, titleFromHref, leavesTheApp } from '../wiki/pane-links.js';
 import { usePickerStore } from '../stores/picker.js';
@@ -24,10 +25,10 @@ const host = ref( null );
 let shadow = null;
 
 async function onClick( e ) {
-	const followBtn = e.composedPath().find( ( el ) => el.dataset && ( el.dataset.follow || el.dataset.unfollow ) );
-	if ( followBtn ) {
-		if ( followBtn.dataset.follow ) {
-			await picker.follow( followBtn.dataset.follow );
+	const chaseBtn = e.composedPath().find( ( el ) => el.dataset && ( el.dataset.chase || el.dataset.unchase ) );
+	if ( chaseBtn ) {
+		if ( chaseBtn.dataset.chase ) {
+			await picker.follow( chaseBtn.dataset.chase );
 		} else {
 			picker.stop();
 		}
@@ -95,46 +96,32 @@ function trailPanel( trail ) {
 	return div;
 }
 
-const first = ( name ) => name.split( ' ' )[ 0 ];
-const songName = ( song ) => escapeHtml( song.replace( /^Song:/, '' ) );
-
 /*
- * On a picker's page, one line: what following them does, and the song it
- * plays next, named before you press anything (Justin, 7 Nov 2026).
+ * Chasing a picker, shown in one of two places and never both: the pill
+ * beside their name in the title while they are being chased, or the one
+ * line offering the chase on their page. chase.js writes both; this only
+ * puts them where they go (Justin's points 10 and 13, 13 Nov 2026).
  */
-function followPanel( offer ) {
-	const div = document.createElement( 'div' );
-	div.className = 'pp-follow';
-	div.setAttribute( 'style', 'margin:.6em 0; padding:.5em .8em; border:1px solid #f0c9a8; '
-		+ 'border-left:4px solid #ff6b35; background:#fff8f2; font-size:13px; line-height:1.5;' );
-	const name = escapeHtml( offer.name );
-	const button = ( attr, label ) => ' <button ' + attr + ' style="margin-left:.4em; padding:.1em .7em; '
-		+ 'border:1px solid #4a7c59; border-radius:4px; background:#4a7c59; color:#fff; font-size:12px; cursor:pointer;">'
-		+ label + '</button>';
-	if ( picker.following === offer.name ) {
-		div.innerHTML = '🐇 <strong>Following ' + name + '.</strong> '
-			+ ( offer.next ? 'Plays next: <strong>' + songName( offer.next.song ) + '</strong>.'
-				: 'No more songs of theirs to play.' )
-			+ button( 'data-unfollow="1"', 'Stop following' );
-	} else if ( offer.next ) {
-		div.innerHTML = '🐇 <strong>Follow ' + name + '</strong>: after this song, play the songs '
-			+ escapeHtml( first( offer.name ) ) + ' is on, one after another. First up: <strong>'
-			+ songName( offer.next.song ) + '</strong>.'
-			+ button( 'data-follow="' + name + '"', 'Follow ' + escapeHtml( first( offer.name ) ) );
-	} else {
-		div.innerHTML = '🐇 ' + name + ' isn\'t on another song with a recording yet, so there\'s nobody to follow.';
-	}
-	return div;
-}
-
-function showFollow() {
+function showChase() {
 	if ( ! shadow ) {
 		return;
 	}
-	shadow.querySelectorAll( '.pp-follow' ).forEach( ( el ) => el.remove() );
-	if ( picker.offer ) {
+	shadow.querySelectorAll( '.pp-chase, .pp-chasing' ).forEach( ( el ) => el.remove() );
+	const offer = picker.offer;
+	if ( ! offer ) {
+		return;
+	}
+	if ( picker.following === offer.name ) {
+		const title = shadow.querySelector( '.pane-title' );
+		if ( title ) {
+			title.insertAdjacentHTML( 'beforeend', chasePillHtml( offer.name ) );
+		}
+		return;
+	}
+	const html = chaseOfferHtml( offer );
+	if ( html ) {
 		const body = shadow.querySelector( '.mw-body-content' ) || shadow;
-		body.insertBefore( followPanel( picker.offer ), body.firstChild );
+		body.insertAdjacentHTML( 'afterbegin', html );
 	}
 }
 
@@ -142,12 +129,12 @@ function render() {
 	if ( ! shadow ) {
 		return;
 	}
-	shadow.innerHTML = PANE_STYLES + pane.html;
+	shadow.innerHTML = PANE_STYLES + CHASE_STYLES + pane.html;
 	if ( host.value ) {
 		host.value.scrollTop = 0;
 	}
 	showTrail();
-	showFollow();
+	showChase();
 }
 
 function showTrail() {
@@ -171,7 +158,7 @@ onMounted( () => {
 watch( () => pane.revision, render );
 watch( () => pane.trail, showTrail );
 watch( () => pane.shown, ( title ) => picker.look( title ), { immediate: true } );
-watch( () => [ picker.offer, picker.following ], showFollow );
+watch( () => [ picker.offer, picker.following ], showChase );
 </script>
 
 <template>
