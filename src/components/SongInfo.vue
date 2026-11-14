@@ -34,7 +34,7 @@ function backToSong() {
 	pane.openSong( song.value );
 }
 
-function backToRecord() {
+function openRecord() {
 	layout.stopFollowing();
 	pane.open( songs.recordPage );
 }
@@ -62,9 +62,10 @@ function onArtError() {
 			record was only ever a cover and a tooltip; the name of it is
 			what people look for (Skyler, 14 Nov 2026). Blue, because the
 			page beside it is the wiki, and that is what a link looks like
-			there. -->
+			there, and ↗ rather than the title's ↩: you have likely never
+			been to the record's page, so there is no going back to it. -->
 		<div v-if="songs.recordPage" id="record-line" class="record-line"><a id="record-link" class="record-link" :href="recordHref"
-			title="Back to this record's page" @click.prevent="backToRecord">{{ songs.recordPage }}<span class="record-link-back" aria-hidden="true">↩</span></a></div>
+			title="Open this record's page" @click.prevent="openRecord">{{ songs.recordPage }}<span class="record-link-out" aria-hidden="true">↗</span></a></div>
 		<div v-if="songs.album || !songs.lockedToTrack" id="album-row" class="album-row">
 			<img
 				v-if="songs.album && songs.artUrl"

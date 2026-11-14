@@ -517,13 +517,13 @@ body.bottom-bar .layout-ab {
     text-decoration: underline;
 }
 
-.record-link-back {
+.record-link-out {
     font-size: 0.85em;
     margin-left: 4px;
     color: #7fa0d4;
 }
 
-.record-link:hover .record-link-back {
+.record-link:hover .record-link-out {
     color: #0645ad;
 }
 
