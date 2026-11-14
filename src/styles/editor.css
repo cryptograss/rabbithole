@@ -673,8 +673,9 @@
    clipped they were simply cut off. Clipping happens at the padding
    edge, so padding is the room. Skyler, 2026-10-25. */
 .timeline-ruler {
+    --ruler-label-room: 30px;
     flex: 0 0 158px;
-    padding: 30px 0 10px;
+    padding: var(--ruler-label-room) 0 10px;
     overflow: hidden;
 }
 
@@ -1218,16 +1219,30 @@
 
 /* A carrot over the rabbit: play and pause from the ruler (Skyler). It
    rides the playhead with the rabbit, and holds still while the rabbit hops.
-   The ruler leaves room above the song's start, so at 0:00 the carrot and
-   the rabbit are not cut off by the top of the ruler. */
-.ruler-track { margin-top: 56px; }
+
+   Two things hold. The carrot clears the rabbit's head at the top of its
+   hop (7px), so the two never touch -- the lift is measured from the line,
+   where the rabbit's ears reach 24px. And the room above the song's start
+   is exactly how far the carrot reaches above the line, so at 0:00 neither
+   is cut off by the top of the ruler: the ruler's own padding, for the
+   first label, counts toward that room. Skyler, 14 Nov 2026: the carrot sat
+   on the rabbit's ears. */
+.timeline-ruler {
+    --ruler-carrot-size: 30px;
+    --ruler-carrot-lift: 44px;
+}
+
+.ruler-track {
+    margin-top: calc(var(--ruler-carrot-lift) + var(--ruler-carrot-size)
+                     - var(--ruler-label-room));
+}
 
 .ruler-carrot {
     position: absolute;
     left: -8px;
-    bottom: 26px;
-    width: 30px;
-    height: 30px;
+    bottom: var(--ruler-carrot-lift);
+    width: var(--ruler-carrot-size);
+    height: var(--ruler-carrot-size);
     padding: 2px;
     border: none;
     border-radius: 50%;
@@ -1423,9 +1438,10 @@
 }
 
 .timeline-editor.view-only .timeline-ruler {
+    --ruler-label-room: 24px;
     flex: 1 1 auto;
     height: 100%;
     max-height: none;
     overflow-y: auto;
-    padding: 24px 0 10px;
+    padding: var(--ruler-label-room) 0 10px;
 }
