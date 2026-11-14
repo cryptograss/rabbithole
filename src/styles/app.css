@@ -1190,10 +1190,35 @@ body.bottom-bar #ensemble-display {
     overflow-y: auto;
 }
 
+/* The cards take the room the song's line gave back (Skyler, 14 Nov
+   2026: "we can make those player cards bigger now"). 160px is where
+   a card starts, not where it stops: three to a row at the bar's
+   548px, grown to fill it, and two or one when the editor panel takes
+   the width away. A fixed width left 60px of the row empty and the
+   names reading small and far apart. */
 body.bottom-bar #ensemble-display .musician-card {
-    flex: 0 0 auto;
-    width: 160px;
-    padding: 4px 8px;
+    flex: 1 1 160px;
+    max-width: 100%;
+    padding: 7px 10px;
+}
+
+body.bottom-bar #ensemble-display .musician-card .musician-name {
+    font-size: 15px;
+}
+
+/* The instrument on its own line, so every card is the same two lines
+   tall. Beside the name it fitted "Maddie Denton (fiddle)" and wrapped
+   "Kyle Tuttle (5-string banjo)", which made the top row 52px and the
+   bottom row 32 -- the ragged look Skyler saw.
+
+   Fenced to the wide bar: narrower than that the cards are a single
+   column beside the player, where a second line each is six lines the
+   116px box does not have. */
+@media (min-width: 1101px) {
+    body.bottom-bar #ensemble-display .musician-card .musician-instrument {
+        display: block;
+        font-size: 12px;
+    }
 }
 
 /* === Zone 99: Rabbithole header (RIGHT) — fixed size, never shrinks === */
