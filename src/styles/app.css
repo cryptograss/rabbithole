@@ -830,19 +830,42 @@ body.bottom-bar .editor-pencil {
     color: #888;
 }
 
+/* The chart is a window, never more than two rows tall, onto a strip of
+   blocks that is as long as the song. The row you are in sits at the top
+   of it, the row after it below; the strip slides by a whole row, and the
+   slide is what says the song is moving forward (Justin, 13 Nov 2026,
+   3b). Rows and the slide are set by SongParts.vue, which measures them
+   rather than counting: auto-fill decides how many blocks go in a row. */
 .parts-chart {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 4px;
+    --parts-row: 20px;
+    --parts-gap: 4px;
+    --parts-block: 26px;
+    --parts-rows: 1;
+    --parts-columns: 1;
+    --parts-offset: 0px;
+    overflow: hidden;
     padding: 3px 0;
+    height: calc(var(--parts-rows) * var(--parts-row) + (var(--parts-rows) - 1) * var(--parts-gap));
+}
+
+.parts-strip {
+    display: grid;
+    grid-template-columns: repeat(var(--parts-columns), minmax(0, 1fr));
+    gap: var(--parts-gap);
+    transform: translateY(calc(-1 * var(--parts-offset)));
+    transition: transform 420ms cubic-bezier(0.22, 0.61, 0.36, 1);
 }
 
 .part-box {
-    padding: 3px 6px;
+    height: var(--parts-row);
+    line-height: calc(var(--parts-row) - 2px);
+    text-align: center;
     border: 1px solid #ddd;
     border-radius: 3px;
     font-size: 11px;
     color: #666;
+    overflow: hidden;
+    white-space: nowrap;
 }
 
 .part-box.active {
@@ -1357,11 +1380,11 @@ body.bottom-bar .section-label {
    no durations attached — that is a change in the player module, not
    in this stylesheet. */
 body.bottom-bar .parts-chart {
+    --parts-row: 24px;
+    --parts-gap: 3px;
+    --parts-block: 30px;
     flex: 1 1 auto;
-    flex-wrap: nowrap;
-    gap: 3px;
     padding: 0;
-    height: 24px;
     min-width: 0;
 }
 
@@ -1370,11 +1393,8 @@ body.bottom-bar .parts-chart {
    at a glance the strip should look like a bar of music, not a row
    of labels. */
 body.bottom-bar .parts-chart .part-box {
-    flex: 1 1 0;
     min-width: 0;
-    height: 24px;
     padding: 0;
-    line-height: 23px;
     text-align: center;
     font-size: 11px;
     font-weight: 600;
@@ -1400,19 +1420,7 @@ body.bottom-bar .parts-chart .part-box.active {
     color: #fff;
 }
 
-/* A long song on two rows, each the same number of blocks, so the
-   second row still lines up under the first as the rest of the song. */
-body.bottom-bar .parts-chart.two-rows {
-    flex-wrap: wrap;
-    height: auto;
-    row-gap: 3px;
-}
-
-body.bottom-bar .parts-chart.two-rows .part-box {
-    flex: 0 0 calc((100% - (var(--parts-per-row) - 1) * 3px) / var(--parts-per-row));
-}
-
-/* And the bar grows by a row to hold it: 24 more pixels on the dock,
+/* The bar grows by a row to hold it: 24 more pixels on the dock,
    the strip, and the padding that keeps the player clear of it. */
 body.bottom-bar:has(.parts-chart.two-rows) {
     --rh-strip-extra: 24px;
@@ -2072,6 +2080,10 @@ body:not(.bottom-bar) #webamp div:has(> #main-window) {
 }
 
 @media (prefers-reduced-motion: reduce) {
+    .parts-strip {
+        transition: none;
+    }
+
     .cards-move,
     .musician-card.flourish-active,
     .musician-card.spotlight-active,
