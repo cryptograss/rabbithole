@@ -60,6 +60,13 @@ function constructed() {
  * the pane can replace its whole content without replacing its styles.
  */
 export function adoptPaneStyles( root ) {
+	// A shadow root outlives the component that made it: attachShadow on an
+	// element that already has one is an error, so the pane reuses it, and
+	// dressing it twice would stack a second copy of every sheet.
+	if ( root.__paneStyled ) {
+		return;
+	}
+	root.__paneStyled = true;
 	const made = constructed();
 	if ( made && 'adoptedStyleSheets' in root ) {
 		root.adoptedStyleSheets = [ ...root.adoptedStyleSheets, ...made ];
