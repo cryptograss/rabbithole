@@ -1613,8 +1613,8 @@ body.bottom-bar:has(.parts-chart.two-rows) {
            overflowed its row and painted over the song parts. */
         grid-template-rows: auto auto 116px;
         grid-template-areas:
-            "art title switch header"
-            "art sel   edit   edit"
+            "art title play   header"
+            "art sel   switch edit"
             "row row   row    row";
         /* Whatever the phone thinks about text size, the dock is
            laid out in the sizes written here. iOS inflates text in
@@ -1761,14 +1761,17 @@ body.bottom-bar:has(.parts-chart.two-rows) {
        watch that happen. */
     body.bottom-bar .auto-switch {
         grid-area: switch;
-        justify-self: end;
+        justify-self: start;
         align-self: center;
         flex-direction: row;
         align-items: center;
         gap: 4px;
-        /* Next to the logo now, which already keeps clear of the
-           screen's rounded corner (Skyler, 8 and 13 Nov 2026). */
-        margin: 2px 6px 0 4px;
+        /* Beside the track list on the second line (Skyler, 14 Nov
+           2026), with the hops tab after it. The switch and the tab
+           ran into each other the last time they shared a line (13
+           Nov) because they shared one cell; they have a column each
+           now, and the list is what gives way. */
+        margin: 0 6px 0 6px;
     }
 
     /* "Follow artist", not "Auto-switch artist profiles".
@@ -1862,8 +1865,22 @@ body.bottom-bar:has(.parts-chart.two-rows) {
         }
     }
 
+    /* The carrot plays the song, so it sits on the line that says
+       which song: beside the title, where the follow switch was
+       (Skyler, 14 Nov 2026). It was hidden here while the switch had
+       that cell. 38px, not the wide bar's 56: the two control rows
+       share 76px of a dock whose height is the scarce thing. */
     body.bottom-bar .inline-carrot {
-        display: none;
+        display: block;
+        grid-area: play;
+        justify-self: end;
+        align-self: center;
+        margin: 0 4px;
+    }
+
+    body.bottom-bar .inline-carrot svg {
+        width: 38px;
+        height: 38px;
     }
 
     /* Neither toggle row is a box here: one holds the switch, the
