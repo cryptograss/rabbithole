@@ -1358,6 +1358,25 @@ body.bottom-bar .auto-switch {
         margin: 0 14px;
     }
 
+    /* The switch sits on the bar's centre line, in line with the
+       carrot and the hops tab, and its caption hangs under it
+       (Skyler, 14 Nov 2026). Centring the switch and its caption as
+       one block put the switch itself 14px above that line, because
+       the caption is two lines tall and the switch is one. Hung, the
+       caption is out of the flow, so what gets centred is the switch
+       -- no offset to keep in step with the wording. */
+    body.bottom-bar .auto-switch {
+        position: relative;
+    }
+
+    body.bottom-bar .auto-switch-caption {
+        position: absolute;
+        top: calc(100% + 3px);
+        left: 50%;
+        transform: translateX(-50%);
+        width: max-content;
+    }
+
     body.bottom-bar .toggle-row {
         margin: 0 6px;
     }
