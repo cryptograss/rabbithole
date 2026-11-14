@@ -1,8 +1,8 @@
 /**
  * What the wiki says, read right.
  */
-import { describe, it, expect } from 'vitest';
-import { interpretEditResponse, extractMetadata, pickEncoding, audioInFolder, metadataYaml, sameOrigin, isCharted, songPageFrom, cidFromRedirect } from '../../src/wiki/api.js';
+import { describe, it, expect, vi } from 'vitest';
+import { interpretEditResponse, extractMetadata, pickEncoding, audioInFolder, metadataYaml, sameOrigin, isCharted, songPageFrom, cidFromRedirect, recordPageOf, recordPagesOf } from '../../src/wiki/api.js';
 
 /*
  * "Saved" means the wiki made a revision. MediaWiki answers result: Success
@@ -161,5 +161,32 @@ describe( 'cidFromRedirect', () => {
 	it( 'has nothing for a page that is no redirect, or redirects elsewhere', () => {
 		expect( cidFromRedirect( { query: { pages: { '-1': { missing: true } } } } ) ).toBeNull();
 		expect( cidFromRedirect( { query: { redirects: [ { from: name, to: 'Song:Reuben\'s Train' } ] } } ) ).toBeNull();
+	} );
+} );
+
+/*
+ * Nothing on a release says which page is about it; the only edge is the
+ * link from the record page to the release. Three things want that page --
+ * the cover, the name to show under the title, the records a cut belongs
+ * to -- and they ask the wiki once between them (Skyler, 14 Nov 2026).
+ */
+describe( 'the page a record goes by', () => {
+	it( 'is the page that links the release, asked once', async () => {
+		const fetched = [];
+		globalThis.fetch = vi.fn( async ( url ) => {
+			fetched.push( url );
+			return { ok: true, json: async () => ( { query: { backlinks: [ { title: '4masks' }, { title: 'Justin Myles Holmes' } ] } } ) };
+		} );
+
+		expect( await recordPageOf( 'QmRecordOne' ) ).toBe( '4masks' );
+		expect( await recordPagesOf( 'QmRecordOne' ) ).toEqual( [ '4masks', 'Justin Myles Holmes' ] );
+		expect( fetched ).toHaveLength( 1 );
+		expect( fetched[ 0 ] ).toContain( 'Release%3AQmRecordOne' );
+	} );
+
+	it( 'is nothing when no page links it, and nothing for no release', async () => {
+		globalThis.fetch = vi.fn( async () => ( { ok: true, json: async () => ( { query: { backlinks: [] } } ) } ) );
+		expect( await recordPageOf( 'QmRecordTwo' ) ).toBeNull();
+		expect( await recordPageOf( null ) ).toBeNull();
 	} );
 } );
