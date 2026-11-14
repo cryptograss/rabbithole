@@ -351,6 +351,33 @@ export async function loadAlbum( parentCid ) {
 	return { cid: parentCid, title: album.title || '', tracks: album.tracks };
 }
 
+const recordPagesForRelease = {};
+
+/**
+ * The record's own pages: the articles that carry a Release, found by its
+ * backlinks ({{Record release}} on [[4masks]] names Release:QmUWtV…).
+ * Nothing on a release says which page is about it, so the link back is
+ * the only edge there is. Asked once per release; three things want it
+ * (the cover, the name to show, the records a cut belongs to) and one
+ * question answers all three.
+ */
+export function recordPagesOf( releaseCid ) {
+	if ( recordPagesForRelease[ releaseCid ] === undefined ) {
+		recordPagesForRelease[ releaseCid ] = api( {
+			action: 'query', list: 'backlinks', bltitle: 'Release:' + releaseCid, blnamespace: '0', bllimit: '5',
+		} ).then( ( back ) => ( back.query?.backlinks || [] ).map( ( b ) => b.title ) );
+	}
+	return recordPagesForRelease[ releaseCid ];
+}
+
+/** The page a record goes by -- [[4masks]] -- or null if nothing links it. */
+export async function recordPageOf( releaseCid ) {
+	if ( ! releaseCid ) {
+		return null;
+	}
+	return ( await recordPagesOf( releaseCid ) )[ 0 ] || null;
+}
+
 /**
  * Cover art, the long way round, because the release schema has no field
  * for it: the record page links to the release, so the backlink finds the
@@ -359,8 +386,7 @@ export async function loadAlbum( parentCid ) {
  * from its own $wgServer. The honest fix is an art field on the release.
  */
 export async function findAlbumArt( parentCid ) {
-	const back = await api( { action: 'query', list: 'backlinks', bltitle: 'Release:' + parentCid, blnamespace: '0', bllimit: '5' } );
-	const recordPage = back.query?.backlinks?.[ 0 ]?.title;
+	const recordPage = await recordPageOf( parentCid );
 	if ( ! recordPage ) {
 		return null;
 	}
@@ -427,10 +453,9 @@ export async function performerResults() {
 const recordsForCid = {};
 
 /**
- * The names the record a track is on goes by: the record page that carries
- * its parent Release ({{Record release}} on [[4masks]] names
- * Release:QmUWtV…, so the backlink finds the page, as findAlbumArt does),
- * and the Release's own title ("Justin Myles Holmes - 4masks (RC1)"). The
+ * The names the record a track is on goes by: the page that carries its
+ * parent Release (recordPagesOf), and the Release's own title
+ * ("Justin Myles Holmes - 4masks (RC1)"). The
  * Studio cut credits name the record page, so that is the one that matters.
  * Empty when the track stands alone or nobody can say. Asked once per CID.
  */
@@ -442,12 +467,10 @@ export function recordsOf( cid ) {
 				if ( ! release || ! release.parent_release ) {
 					return [];
 				}
-				const parent = 'Release:' + release.parent_release;
-				const [ album, back ] = await Promise.all( [
-					fetchYamlPage( parent ),
-					api( { action: 'query', list: 'backlinks', bltitle: parent, blnamespace: '0', bllimit: '5' } ),
+				const [ album, names ] = await Promise.all( [
+					fetchYamlPage( 'Release:' + release.parent_release ),
+					recordPagesOf( release.parent_release ).then( ( p ) => p.slice() ),
 				] );
-				const names = ( back.query?.backlinks || [] ).map( ( b ) => b.title );
 				if ( album && album.title ) {
 					names.push( album.title );
 				}

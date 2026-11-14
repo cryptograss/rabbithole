@@ -37,8 +37,10 @@ export const useSongStore = defineStore( 'song', () => {
 
 	const current = computed( () => player.song || initial.value );
 
-	// The record: title, running order, cover.
+	// The record: title, running order, cover, and the page it goes by.
 	const album = ref( null );
+	/** The record's own page on the wiki ([[4masks]]), the way back to it. */
+	const recordPage = ref( null );
 	const artUrl = ref( null );
 	const artFailed = ref( false );
 	const notice = ref( '' );
@@ -207,6 +209,7 @@ export const useSongStore = defineStore( 'song', () => {
 		}
 
 		album.value = null;
+		recordPage.value = null;
 		artUrl.value = null;
 		artFailed.value = false;
 		try {
@@ -216,8 +219,9 @@ export const useSongStore = defineStore( 'song', () => {
 			}
 			album.value = a;
 			if ( a ) {
-				const art = await wiki.findAlbumArt( a.cid );
+				const [ page, art ] = await Promise.all( [ wiki.recordPageOf( a.cid ), wiki.findAlbumArt( a.cid ) ] );
 				if ( current.value === song ) {
+					recordPage.value = page;
 					artUrl.value = art;
 				}
 			}
@@ -228,7 +232,7 @@ export const useSongStore = defineStore( 'song', () => {
 
 	return {
 		initial, loading, loadError, charted, lockedToTrack, current,
-		album, artUrl, artFailed, notice, metadataParts, queuedCids,
+		album, recordPage, artUrl, artFailed, notice, metadataParts, queuedCids,
 		boot, pickTrack, fetchTrack, playCid, queueCid, queueRecordRest, goToTrack,
 	};
 } );

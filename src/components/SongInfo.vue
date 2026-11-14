@@ -26,9 +26,17 @@ const upNextText = computed( () => ( player.upNext.length ? 'Up next: ' + player
 /** The song's own page, for the title's href; the click opens it in the pane. */
 const songHref = computed( () => wikiPath( song.value.title ? 'Song:' + song.value.title : song.value._metadataTitle || '' ) );
 
+/** The record's own page, for the record link's href. */
+const recordHref = computed( () => wikiPath( songs.recordPage || '' ) );
+
 function backToSong() {
 	layout.stopFollowing();
 	pane.openSong( song.value );
+}
+
+function backToRecord() {
+	layout.stopFollowing();
+	pane.open( songs.recordPage );
 }
 
 function onTrackPick( e ) {
@@ -50,6 +58,13 @@ function onArtError() {
 			under a two-line title; it is on the Song Parts label now. -->
 		<h2 id="song-title-display" class="song-title-display"><a id="song-title-link" class="song-title-link" :href="songHref"
 			title="Back to this song's page" @click.prevent="backToSong">{{ song.title || 'Untitled' }}<span class="song-title-back" aria-hidden="true">↩</span></a></h2>
+		<!-- The record the song is on, and the way back to its page. The
+			record was only ever a cover and a tooltip; the name of it is
+			what people look for (Skyler, 14 Nov 2026). Blue, because the
+			page beside it is the wiki, and that is what a link looks like
+			there. -->
+		<div v-if="songs.recordPage" id="record-line" class="record-line"><a id="record-link" class="record-link" :href="recordHref"
+			title="Back to this record's page" @click.prevent="backToRecord">{{ songs.recordPage }}<span class="record-link-back" aria-hidden="true">↩</span></a></div>
 		<div v-if="songs.album || !songs.lockedToTrack" id="album-row" class="album-row">
 			<img
 				v-if="songs.album && songs.artUrl"

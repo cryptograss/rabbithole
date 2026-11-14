@@ -496,6 +496,37 @@ body.bottom-bar .layout-ab {
     letter-spacing: -0.015em;
 }
 
+/* The record the song is on, under the title: its own page's name, bold
+   and blue, with the same ↩ the title wears. Blue and not the app's green
+   because the pane beside it is the wiki, where that is what a link looks
+   like -- and a link is what people have to see this is (Skyler, 14 Nov
+   2026). */
+.record-line {
+    font-size: 12px;
+    line-height: 1.2;
+    margin: 2px 0 0;
+}
+
+.record-link {
+    color: #0645ad;
+    font-weight: 700;
+    text-decoration: none;
+}
+
+.record-link:hover {
+    text-decoration: underline;
+}
+
+.record-link-back {
+    font-size: 0.85em;
+    margin-left: 4px;
+    color: #7fa0d4;
+}
+
+.record-link:hover .record-link-back {
+    color: #0645ad;
+}
+
 /* Cover and the rest of the record, under the title. */
 .album-row {
     display: flex;
@@ -639,8 +670,18 @@ body.bottom-bar .pane-column {
     text-overflow: ellipsis;
 }
 
-.pane-column .album-row {
+.pane-column .record-line {
     order: 4;
+    flex: 0 1 auto;
+    min-width: 0;
+    margin: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.pane-column .album-row {
+    order: 5;
     flex: 0 0 auto;
     margin: 0;
 }
@@ -1195,6 +1236,7 @@ body.bottom-bar .song-info-header {
         grid-template-areas:
             "art title"
             "art album"
+            "art record"
             "meta meta";
         column-gap: 6px;
         row-gap: 2px;
@@ -1228,6 +1270,15 @@ body.bottom-bar .song-info-header {
         margin: 0;
         padding: 2px 6px;
         font-size: 12px;
+    }
+
+    body.bottom-bar .song-info-header .record-line {
+        grid-area: record;
+        align-self: start;
+        min-width: 0;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
     }
 
     body.bottom-bar .song-info-header .recording-metadata {
@@ -1535,6 +1586,15 @@ body.bottom-bar .data-section:has(.parts-chart.two-rows) {
        as it does everywhere else; it just moves to the top right. */
     body.bottom-bar .song-info-header {
         display: contents;
+    }
+
+    /* The record's name does not get a line of the dock on a phone:
+       the rows here are counted out against the skin's 116px, and a
+       fourth one pushes the song parts off the screen. The title is
+       the way back that fits; the record is a tap further, on the
+       song's page. */
+    body.bottom-bar .record-line {
+        display: none;
     }
 
     body.bottom-bar .song-title-display {
