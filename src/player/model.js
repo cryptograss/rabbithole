@@ -159,7 +159,6 @@ export class WebampPlayer {
 		if ( node && node.parentNode !== container ) {
 			container.appendChild( node );
 		}
-		container.style.position = 'relative';
 		// Webamp turns a wheel over its window into volume, so scrolling the
 		// page past the player changed the volume instead (Justin, 11 Nov
 		// 2026). The wheel is the page's: it is stopped here, on the way

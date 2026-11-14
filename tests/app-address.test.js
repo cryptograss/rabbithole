@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 
-import { appAddress } from '../src/wiki/pane-html.js';
+import { appAddress } from '../src/wiki/urls.js';
 
 // The app's path is vite's base: /rabbithole/ in a build, / under vitest.
 const base = new URL( import.meta.env.BASE_URL || '/', 'https://pickipedia.xyz' ).pathname;

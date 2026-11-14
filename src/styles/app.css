@@ -184,6 +184,8 @@ body {
 .rabbithole-header img {
     width: 28px;
     height: 28px;
+    /* It is the way back to the song that is playing, so it says so. */
+    cursor: pointer;
 }
 
 .rabbithole-header h1 {
@@ -910,6 +912,7 @@ body.bottom-bar .editor-pencil {
 }
 
 .part-box {
+    cursor: pointer;
     height: var(--parts-row);
     line-height: calc(var(--parts-row) - 2px);
     text-align: center;

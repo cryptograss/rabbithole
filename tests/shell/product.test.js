@@ -12,11 +12,20 @@
  * They read files as text on purpose: these cost nothing to run.
  */
 import { describe, it, expect } from 'vitest';
-import { readFileSync, readdirSync, existsSync } from 'fs';
+import { readFileSync, readdirSync, existsSync, statSync } from 'fs';
 import { resolve } from 'path';
 
 const root = resolve( __dirname, '../..' );
 const read = ( p ) => readFileSync( resolve( root, p ), 'utf8' );
+
+/** Every file under a directory of the source, directories walked through. */
+function filesUnder( dir ) {
+	return readdirSync( resolve( root, dir ) ).flatMap( ( name ) => (
+		statSync( resolve( root, dir, name ) ).isDirectory()
+			? filesUnder( dir + '/' + name )
+			: [ dir + '/' + name ]
+	) );
+}
 
 describe( 'which file is the product', () => {
 	it( 'is index.html, the app, and nothing else is a shell', () => {
@@ -42,12 +51,16 @@ describe( 'which file is the product', () => {
 } );
 
 describe( 'stylesheets', () => {
-	const main = read( 'src/main.js' );
-
 	it( 'are all loaded by the app', () => {
+		// The app's own sheets are imported by main.js; the pane's are
+		// imported as text by the module that adopts them into its shadow
+		// root, where a <link> in the page would never reach. Either way a
+		// sheet nobody imports is a sheet nobody loads.
+		const source = [ 'src/main.js', ...filesUnder( 'src/wiki' ), ...filesUnder( 'src/components' ) ]
+			.map( read ).join( '\n' );
 		const sheets = readdirSync( resolve( root, 'src/styles' ) ).filter( ( f ) => f.endsWith( '.css' ) );
 		for ( const sheet of sheets ) {
-			expect( main, `${ sheet } is in src/styles but nothing imports it` ).toContain( `./styles/${ sheet }` );
+			expect( source, `${ sheet } is in src/styles but nothing imports it` ).toContain( `styles/${ sheet }` );
 		}
 	} );
 
@@ -77,11 +90,7 @@ describe( 'no timers coordinate the shell', () => {
 	// The audit's finding, pinned: components and stores wait for state,
 	// never for a clock. Effects (model.js) are the one place a duration is
 	// a duration, and the flash on a Listen button (queue.js) is a label.
-	const files = [
-		'src/App.vue',
-		...readdirSync( resolve( root, 'src/components' ) ).map( ( f ) => 'src/components/' + f ),
-		...readdirSync( resolve( root, 'src/stores' ) ).map( ( f ) => 'src/stores/' + f ),
-	];
+	const files = [ 'src/App.vue', ...filesUnder( 'src/components' ), ...filesUnder( 'src/stores' ) ];
 
 	it.each( files )( '%s has no setTimeout, setInterval or MutationObserver', ( file ) => {
 		expect( read( file ) ).not.toMatch( /setTimeout\(|setInterval\(|MutationObserver/ );

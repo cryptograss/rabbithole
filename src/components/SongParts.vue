@@ -120,7 +120,6 @@ onBeforeUnmount( () => {
 				class="part-box"
 				:class="{ active: i === player.partIndex }"
 				title="Jump to this part"
-				style="cursor: pointer"
 				@click="player.seekToPart( i )"
 			>{{ part }}</div>
 		</div>

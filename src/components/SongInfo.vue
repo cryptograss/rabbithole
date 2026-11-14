@@ -11,7 +11,7 @@ import { useSongStore } from '../stores/song.js';
 import { usePlayerStore } from '../stores/player.js';
 import { useLayoutStore } from '../stores/layout.js';
 import { usePaneStore } from '../stores/pane.js';
-import { wikiPath } from '../wiki/pane-html.js';
+import { wikiPath } from '../wiki/urls.js';
 import DemoSongSelect from './DemoSongSelect.vue';
 
 const songs = useSongStore();
