@@ -580,6 +580,79 @@ body.bottom-bar .layout-ab {
     margin-bottom: 0;
 }
 
+/* The page's column. Beside the sidebar it is headed by what is playing
+   (App.vue): one line at the top right, the title, then the cover and the
+   selector. In the bar the column is not a box at all, and the page sits
+   in the grid as it did. */
+.pane-column {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    min-height: 0;
+    height: 100vh;
+}
+
+.pane-column .pickipedia-frame {
+    flex: 1 1 auto;
+    min-height: 0;
+    height: auto;
+}
+
+body.bottom-bar .pane-column {
+    display: contents;
+}
+
+.pane-column .song-info-header {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 4px 12px;
+    min-width: 0;
+    margin: 0;
+    padding: 4px 10px;
+    text-align: left;
+    background: #f6f8f4;
+    border-bottom: 1px solid #c9d3c3;
+}
+
+/* What gives when the line is short: the recording's details first, then
+   the title; the cover and the selector keep their size. */
+.pane-column .recording-metadata,
+.pane-column .up-next {
+    flex: 0 10 auto;
+    min-width: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.pane-column .recording-metadata { order: 1; }
+.pane-column .up-next { order: 2; }
+
+.pane-column .song-title-display {
+    order: 3;
+    flex: 0 1 auto;
+    min-width: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.pane-column .album-row {
+    order: 4;
+    flex: 0 0 auto;
+    margin: 0;
+}
+
+.pane-column .album-row .song-select,
+.pane-column .album-track-select {
+    flex: 0 0 auto;
+    width: 200px;
+    padding: 3px 6px;
+    font-size: 12px;
+}
+
 .toggle-row {
     display: flex;
     align-items: center;
