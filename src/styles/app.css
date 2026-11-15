@@ -23,6 +23,21 @@ body {
    inset (Justin and Skyler, 13 Nov 2026: every pixel of the player's
    space has to earn its keep). */
 :root {
+    /*
+     * The colours, in one place. The white and the green are Justin's and
+     * they stay; the blue and the walnut are the little bit of each he
+     * asked for, to break up "too much white and puke green" (item 26,
+     * #rabbithole, 15 Nov 2026). Carrot orange is an accent and stays
+     * rare on purpose, which is why it is used in two places and not ten.
+     */
+    --rh-green: #4a7c59;
+    --rh-green-deep: #2d5016;
+    /* Ink blue: a mode that is on, and the wiki's own link colour beside it. */
+    --rh-blue: #2f5d8c;
+    /* Walnut: the rails, the hairlines and the small print. */
+    --rh-brown: #6b4f3a;
+    --rh-brown-soft: #cbbba9;
+    --rh-carrot: #e8730c;
     --rh-side-width: 277px;
     /* The one bar across the top (Justin's item 17). Written here because
        everything under it is sized against it: the dock, the page, the
@@ -192,6 +207,10 @@ body {
    at the middle of the bar however long the song's title is. */
 .rabbithole-header {
     background: linear-gradient(135deg, #9db89a 0%, #87a96b 100%);
+    /* A walnut line under the green, the width of the window: it puts an
+       edge on the bar and is the first of the two colours item 26 asks
+       for. */
+    border-bottom: 2px solid var(--rh-brown);
     padding: 0 8px;
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
@@ -569,7 +588,7 @@ body.bottom-bar .layout-ab {
 }
 
 .record-link {
-    color: #0645ad;
+    color: var(--rh-blue);
     font-weight: 700;
     text-decoration: none;
 }
@@ -581,11 +600,11 @@ body.bottom-bar .layout-ab {
 .record-link-out {
     font-size: 0.85em;
     margin-left: 4px;
-    color: #7fa0d4;
+    color: #8fa8c4;
 }
 
 .record-link:hover .record-link-out {
-    color: #0645ad;
+    color: var(--rh-blue);
 }
 
 /* Cover and the rest of the record, under the title. */
@@ -624,15 +643,17 @@ body.bottom-bar .layout-ab {
     cursor: pointer;
 }
 
+/* Where and when it was cut, and by whose hand: liner notes, so they are
+   printed in walnut rather than in grey (item 26). */
 .recording-metadata {
     font-size: 11px;
-    color: #666;
+    color: var(--rh-brown);
     font-style: italic;
 }
 
 .recording-metadata span + span::before {
     content: " · ";
-    color: #bbb;
+    color: var(--rh-brown-soft);
     font-style: normal;
 }
 
@@ -856,8 +877,10 @@ body.bottom-bar .pane-column {
     border-radius: 50%;
 }
 
+/* A mode that is on is blue, not green: on a green bar, green-on-green
+   said nothing (item 26). */
 .toggle-switch input:checked + .toggle-slider {
-    background-color: #4a7c59;
+    background-color: var(--rh-blue);
 }
 
 .toggle-switch input:checked + .toggle-slider:before {
@@ -1025,23 +1048,26 @@ body {
     transition: transform 420ms cubic-bezier(0.22, 0.61, 0.36, 1);
 }
 
+/* The chart's parts, in walnut on white: the grey strip was the flattest
+   thing on the page, and the part playing reads as green against it
+   (item 26). */
 .part-box {
     cursor: pointer;
     height: var(--parts-row);
     line-height: calc(var(--parts-row) - 2px);
     text-align: center;
-    border: 1px solid #ddd;
+    border: 1px solid var(--rh-brown-soft);
     border-radius: 3px;
     font-size: 11px;
-    color: #666;
+    color: #6b5a4a;
     overflow: hidden;
     white-space: nowrap;
 }
 
 .part-box.active {
-    background: #4a7c59;
+    background: var(--rh-green);
     color: white;
-    border-color: #4a7c59;
+    border-color: var(--rh-green-deep);
 }
 
 /* Was an iframe. It is a div now: same box, same name, so every

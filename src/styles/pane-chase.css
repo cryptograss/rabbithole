@@ -58,3 +58,38 @@
 .pp-chasing:hover .pp-chasing-stop {
 	display: inline;
 }
+
+/*
+ * The chased picker, in the page's own ensemble (Justin's item 25).
+ *
+ * The Studio cut box is a two-column grid, so the row is marked by
+ * marking both of its cells: a green wash the width of the row, a walnut
+ * rail down its left edge, and the word itself beside the name. Only a
+ * chase marks it; a quest hands you a picker for one song and says so
+ * with the rabbit on their card.
+ */
+.pp-players-who.pp-players-chased,
+.pp-players-what.pp-players-chased {
+	background: #eef5ea;
+}
+
+.pp-players-who.pp-players-chased {
+	border-left: 3px solid #6b4f3a;
+	padding-left: 5px;
+	margin-left: -8px;
+	font-weight: 600;
+}
+
+.pp-players-chasing {
+	margin-left: .5em;
+	padding: 0 .45em;
+	border: 1px solid #b7cdb0;
+	border-radius: 999px;
+	background: #fff;
+	color: #2d5016;
+	font-size: .72em;
+	font-weight: 600;
+	letter-spacing: .02em;
+	white-space: nowrap;
+	vertical-align: middle;
+}

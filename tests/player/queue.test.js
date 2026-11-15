@@ -48,7 +48,16 @@ function fakeWebamp() {
 		store: {
 			getState: () => state,
 			subscribe( fn ) { listeners.add( fn ); return () => listeners.delete( fn ); },
-			dispatch() {},
+			// The one action the model dispatches at the playlist, applied
+			// as Webamp's own reducer applies it.
+			dispatch( action ) {
+				if ( action && action.type === 'REMOVE_TRACKS' ) {
+					const gone = new Set( action.ids );
+					state.playlist.trackOrder = state.playlist.trackOrder.filter( ( id ) => ! gone.has( id ) );
+					gone.forEach( ( id ) => delete state.tracks[ id ] );
+					notify();
+				}
+			},
 		},
 		getMediaStatus: () => state.media.status,
 		onWillClose() {},
@@ -97,6 +106,30 @@ describe( 'the queue is the playlist', () => {
 		model.enqueue( VICTORY );
 		webamp.advance();
 		expect( model.state.song.title ).toBe( 'Victory' );
+	} );
+
+	it( 'takes one recording out of the queue and leaves the rest alone', () => {
+		// What the rabbithole lined up by itself gets out of the way of a
+		// song a person asked for; their own queue stays (re, 15 Nov 2026).
+		const { model, webamp } = wired();
+		model.enqueue( VICTORY );
+		model.enqueue( CICADA );
+		expect( model.dropFromQueue( 'QmVictory' ) ).toEqual( [ 2 ] );
+		expect( model.state.upNext.map( ( s ) => s.title ) ).toEqual( [ 'Cicada Song' ] );
+		expect( model.state.song.title ).toBe( 'Swords to Ploughshares' );
+		expect( webamp.state.playlist.currentTrack ).toBe( 1 );
+	} );
+
+	it( 'never drops the song playing, nor one it was never given', () => {
+		const { model, webamp } = wired();
+		model.enqueue( VICTORY );
+		const seen = [];
+		webamp.store.dispatch = ( action ) => seen.push( action );
+		expect( model.dropFromQueue( 'QmSwords' ) ).toEqual( [] );
+		expect( model.dropFromQueue( 'QmNotHere' ) ).toEqual( [] );
+		expect( model.dropFromQueue( null ) ).toEqual( [] );
+		expect( seen ).toEqual( [] );
+		expect( model.state.upNext.map( ( s ) => s.title ) ).toEqual( [ 'Victory' ] );
 	} );
 
 	it( 'leaves the chart alone for a track it never handed Webamp', () => {

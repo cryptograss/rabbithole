@@ -1,18 +1,34 @@
 /**
- * Chasing a picker: after this song, play the songs one musician is on,
- * one after another.
+ * Who the rabbithole follows to the next song: the picker you chose, or
+ * the one the song chose for you.
  *
- * Justin, 7 Nov 2026: "It's not obvious how to follow a picker, nor what
- * song will play next if I do." So the offer is made where you meet a
- * picker, on their page, and it names the song before you take it. The
- * songs come from the wiki's performer graph (Has performer), the same one
- * the rabbithole trail walks. Each is queued in Webamp's playlist one at a
- * time, the next one when the last one starts, so the queue always shows
- * what plays next and nothing piles up.
+ * One setting, two states (Justin, #rabbithole, 15 Nov 2026, items 27
+ * and 28):
+ *
+ * - A *chase* is aimed at a picker you picked. Their songs play, one after
+ *   another, until you stop. Justin, 7 Nov 2026: "It's not obvious how to
+ *   follow a picker, nor what song will play next if I do." So the offer
+ *   is made where you meet a picker, on their page, and it names the song
+ *   before you take it.
+ * - A *quest* is the rest of the time, which is most of it: every song
+ *   hands you one of its own band, and that picker's next song is what
+ *   plays when this one ends. A picker whose every song this rabbithole
+ *   has already played is passed over, unless that is true of the whole
+ *   band, when there is nowhere new to go and any of them will do.
+ *
+ * Either way one song is lined up behind what is playing, never more, so a
+ * song that ends goes to the next song, no matter what (item 28). When
+ * neither a chase nor a quest can name one -- a picker played out, a band
+ * played out -- any charted track this rabbithole has not heard does.
+ *
+ * The songs come from the wiki's performer graph (Has performer), the same
+ * one the rabbithole trail walks. What has played comes from the walk
+ * (stores/walk.js): it is the record of this rabbithole, and it outlives a
+ * refresh.
  */
 
 import { defineStore } from 'pinia';
-import { ref, watch } from 'vue';
+import { computed, ref, watch } from 'vue';
 
 import { recordsOn } from '../trail.js';
 import { recordsOf } from '../wiki/api.js';
@@ -73,29 +89,99 @@ export async function firstPlayable( songsOf, {
 	return null;
 }
 
+/** One of them, at random: a quest is not a running order. */
+export function anyOf( list ) {
+	return list[ Math.floor( Math.random() * list.length ) ];
+}
+
+/**
+ * Who this song hands you: one of its own band, not the one the song
+ * before handed you, and not a picker whose every song this rabbithole
+ * has already played -- unless that is true of the whole band, when the
+ * rabbithole has nowhere new to go and any of them will do (Justin's item
+ * 27, 15 Nov 2026).
+ *
+ * Pure: the band's names in, one name out.
+ *
+ * @param {string[]} names The band, as the chart names them.
+ * @param {Object} [options]
+ * @param {?string} [options.last] Who the song before handed you.
+ * @param {Function} [options.unplayed] Has this picker a song still to play?
+ * @param {Function} [options.choose] Which of the candidates; random by default.
+ * @return {?string} The picker, or null when there is no band to ask.
+ */
+export function questPick( names, { last = null, unplayed = () => true, choose = anyOf } = {} ) {
+	const others = names.filter( ( name ) => name !== last );
+	// A band of one hands you the same picker again rather than nobody.
+	const band = others.length ? others : names;
+	const fresh = band.filter( unplayed );
+	const from = fresh.length ? fresh : band;
+	return from.length ? choose( from ) : null;
+}
+
+/**
+ * Something to play after this one when nothing else can name it: a
+ * charted track this rabbithole has not heard, else any other track at
+ * all. The floor under item 28 -- "if you're listening to a song in
+ * Rabbithole, and the song ends, it always, no matter what, needs to go
+ * to the next song".
+ *
+ * Pure.
+ *
+ * @param {Array} tracks Every charted track: {cid, title, album}.
+ * @param {Object} [options]
+ * @param {?string} [options.currentCid] What is playing, which is not next.
+ * @param {Set} [options.playedCids] What this rabbithole has played.
+ * @param {Function} [options.choose] Which of the candidates; random by default.
+ * @return {?Object} The track, or null when there is no other one.
+ */
+export function anotherTrack( tracks, { currentCid = null, playedCids = new Set(), choose = anyOf } = {} ) {
+	const others = ( tracks || [] ).filter( ( t ) => t && t.cid && t.cid !== currentCid );
+	const fresh = others.filter( ( t ) => ! playedCids.has( t.cid ) );
+	const from = fresh.length ? fresh : others;
+	return from.length ? choose( from ) : null;
+}
+
 export const usePickerStore = defineStore( 'picker', () => {
 	const player = usePlayerStore();
 	const songs = useSongStore();
 	const walk = useWalkStore();
 
-	/** Who is being followed, or null. */
+	/** 'chase' once you have chosen a picker, 'quest' the rest of the time. */
+	const mode = ref( 'quest' );
+	/** Who is being followed to the next song: your pick, or the song's. */
 	const following = ref( null );
 	/** What following them has queued: {song, cid}, or null. */
 	const next = ref( null );
+	/**
+	 * The recording the rabbithole queued on its own account, by CID: a
+	 * chase's next song, a quest's pick, or the charted track the floor
+	 * reached for. One field, because what matters about all three is the
+	 * same thing -- it is ours, so it is ours to withdraw when a person
+	 * asks for a song by hand (re, #rabbithole, 15 Nov 2026: the floor's
+	 * pick was not recorded, and Play next landed behind it).
+	 */
+	const ours = ref( null );
 	/**
 	 * What following the picker on screen would play next:
 	 * {name, next: {song, cid} | null}, or null when the page is not a picker's.
 	 */
 	const offer = ref( null );
-	/** Every recording that has been on, by CID. */
-	const playedCids = new Set();
+
+	/**
+	 * Every recording this rabbithole has played, by CID. The walk is the
+	 * one record of that, so there is no second list to keep: it already
+	 * holds every recording that has been on, the first one too, and it
+	 * survives a refresh.
+	 */
+	const playedCids = computed( () => new Set( walk.hops.map( ( hop ) => hop.cid ) ) );
 
 	const currentCid = () => ( songs.current && songs.current._trackCid ) || null;
 
 	async function nextFor( name ) {
 		const graph = await performerGraph();
 		return firstPlayable( graph.plays[ name ] || [], {
-			currentCid: currentCid(), playedCids, queuedCids: songs.queuedCids, cidOf: songCid,
+			currentCid: currentCid(), playedCids: playedCids.value, queuedCids: songs.queuedCids, cidOf: songCid,
 			recordsOf, recordsOn: ( song ) => recordsOn( graph, song, name ),
 		} );
 	}
@@ -113,7 +199,10 @@ export const usePickerStore = defineStore( 'picker', () => {
 			offer.value = null;
 			return;
 		}
-		if ( following.value === name ) {
+		// Being chased, their page says so and offers to stop. Handed to you
+		// by a quest, it still offers the chase, which is a different thing:
+		// a quest moves on at the end of the song, a chase does not.
+		if ( mode.value === 'chase' && following.value === name ) {
 			offer.value = { name, next: next.value };
 			return;
 		}
@@ -123,6 +212,20 @@ export const usePickerStore = defineStore( 'picker', () => {
 		}
 	}
 
+	/**
+	 * Queue a recording on the rabbithole's own account. Everything the
+	 * app lines up goes through here, so there is one place that knows
+	 * what is ours and one place that records it.
+	 */
+	async function queueOurs( cid ) {
+		if ( await songs.queueCid( cid ) ) {
+			ours.value = cid;
+			return true;
+		}
+		return false;
+	}
+
+	/** Line up the followed picker's next song, and remember it. */
 	async function queueNext() {
 		const name = following.value;
 		next.value = await nextFor( name );
@@ -130,21 +233,101 @@ export const usePickerStore = defineStore( 'picker', () => {
 			// Marked before it is queued, so however soon it starts, the
 			// walk knows it came by following this picker.
 			walk.mark( next.value.cid, viaPicker( await performerGraph(), next.value.song, name ) );
-			await songs.queueCid( next.value.cid );
+			await queueOurs( next.value.cid );
 		}
 		if ( offer.value && offer.value.name === following.value ) {
 			offer.value = { name: following.value, next: next.value };
 		}
 	}
 
+	let questing = 0;
+	/**
+	 * This song's turn to choose: one of its band, and their next song
+	 * behind this one. Asked again for every song, so the picker changes
+	 * as the songs do.
+	 */
+	async function quest() {
+		const mine = ++questing;
+		const band = player.cards.map( ( card ) => card.name );
+		const graph = await performerGraph();
+		// Only a picker the graph knows has anywhere to lead.
+		const known = band.filter( ( name ) => ( graph.plays[ name ] || [] ).length );
+		const nexts = new Map();
+		for ( const name of known ) {
+			nexts.set( name, await nextFor( name ) );
+		}
+		if ( mine !== questing || mode.value !== 'quest' ) {
+			return;
+		}
+		const name = questPick( known, {
+			last: following.value,
+			unplayed: ( who ) => !! nexts.get( who ),
+		} );
+		following.value = name;
+		next.value = null;
+		const theirs = name ? nexts.get( name ) : null;
+		// One song behind this one, never more: a record playing through, or
+		// a trail queued to here, is already the answer to what comes next.
+		if ( theirs && ! songs.queuedCids.length ) {
+			walk.mark( theirs.cid, viaPicker( graph, theirs.song, name ) );
+			if ( await queueOurs( theirs.cid ) ) {
+				next.value = theirs;
+			}
+		}
+	}
+
+	/**
+	 * What the rabbithole lined up by itself gets out of the way: a person
+	 * asking for a song by hand means that song, next (item 15). A chase
+	 * or a quest lines another up when the next song starts, so nothing is
+	 * lost by standing aside, and what the person queued is untouched (re,
+	 * #rabbithole, 15 Nov 2026: stopping a chase used to take the whole
+	 * queue with it).
+	 */
+	function giveWay() {
+		if ( ours.value && player.model ) {
+			player.model.dropFromQueue( ours.value );
+		}
+		if ( next.value && next.value.cid === ours.value ) {
+			next.value = null;
+		}
+		ours.value = null;
+	}
+
+	/**
+	 * Nothing lined up behind what is playing: put something there, so the
+	 * song that ends goes to the next song (item 28). The rest of the
+	 * record, where one is playing through, is already that.
+	 *
+	 * The charted list is waited for rather than read where it stands: on
+	 * a visit from a Listen link it arrives a moment after the song does,
+	 * and a floor that read it too early found nothing and left the song
+	 * to end in silence (re, 15 Nov 2026).
+	 */
+	async function lineUpSomething() {
+		if ( songs.queuedCids.length || songs.recordRest.length ) {
+			return;
+		}
+		const track = anotherTrack( await songs.chartedList(), {
+			currentCid: currentCid(), playedCids: playedCids.value,
+		} );
+		if ( track && ! songs.queuedCids.length ) {
+			await queueOurs( track.cid );
+		}
+	}
+
 	/*
-	 * Following starts the picker's next song at once when nothing is
+	 * A chase starts the picker's next song at once when nothing is
 	 * playing. Queued behind a song that had already ended, it waited for
 	 * an end that had come and gone: "Following Jake Stargel. Plays next:
 	 * Barlow's Jig", and then nothing (Justin, 11 Nov 2026). A paused song
-	 * is still the song you're on, so following waits for it.
+	 * is still the song you're on, so a chase waits for it.
 	 */
 	async function chase( name ) {
+		// Chasing somebody is "their songs next": the quest's own pick
+		// stands aside, and anything the person queued stays put.
+		giveWay();
+		mode.value = 'chase';
 		following.value = name;
 		await queueNext();
 		if ( next.value && player.status === 'STOPPED' ) {
@@ -152,25 +335,40 @@ export const usePickerStore = defineStore( 'picker', () => {
 		}
 	}
 
+	/** Stop chasing: the songs choose again, starting with this one. */
 	function stop() {
+		giveWay();
+		mode.value = 'quest';
 		following.value = null;
-		next.value = null;
+		return quest().then( lineUpSomething );
 	}
 
-	// Every song that has been on counts as played, the first one too, so
-	// following never lines up something you just heard.
-	watch( currentCid, ( cid ) => {
-		if ( cid ) {
-			playedCids.add( cid );
+	/*
+	 * A recording started. A chase lines up the chased picker's next song
+	 * as soon as the one it queued begins, so the queue shows what plays
+	 * next and nothing piles up. A quest hands this song's band to the
+	 * next song. Either way something is behind it by the time it ends.
+	 */
+	watch( () => player.song && player.song._trackCid, async ( cid ) => {
+		if ( ! cid ) {
+			return;
 		}
+		if ( cid === ours.value ) {
+			ours.value = null;
+		}
+		if ( mode.value === 'chase' ) {
+			// One song ahead and no more: the chase lines up another when
+			// the one it queued starts, or when it has none -- which is
+			// where a Play next left it, having asked the chase to stand
+			// aside.
+			if ( following.value && ( ! next.value || cid === next.value.cid ) ) {
+				await queueNext();
+			}
+		} else {
+			await quest();
+		}
+		await lineUpSomething();
 	}, { immediate: true } );
 
-	// The song following queued has started: line up the picker's next one.
-	watch( () => player.song && player.song._trackCid, ( cid ) => {
-		if ( following.value && next.value && cid === next.value.cid ) {
-			queueNext();
-		}
-	} );
-
-	return { following, next, offer, look, chase, stop };
+	return { mode, following, next, ours, offer, look, chase, stop, giveWay };
 } );

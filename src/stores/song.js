@@ -30,8 +30,31 @@ export const useSongStore = defineStore( 'song', () => {
 	const initial = ref( null );
 	const loading = ref( true );
 	const loadError = ref( null );
-	/** Every track with a chart on the wiki: the song selector's list. */
+	/**
+	 * Every track with a chart on the wiki: the song selector's list, and
+	 * what the rabbithole falls back to when a chase and a quest have both
+	 * run out (Justin's item 28). It used to be fetched only when the
+	 * address named no track, since only the selector wanted it; on a
+	 * visit from a Listen link the list was empty and the fallback had
+	 * nothing to reach for (re, #rabbithole, 15 Nov 2026).
+	 */
 	const charted = ref( [] );
+	let chartedPromise = null;
+
+	/** The charted list, when it arrives. Asked of the wiki once. */
+	function chartedList() {
+		if ( ! chartedPromise ) {
+			chartedPromise = wiki.chartedTracks().then( ( list ) => {
+				charted.value = list;
+				return list;
+			} ).catch( ( err ) => {
+				console.warn( 'Could not list the charted songs:', err );
+				chartedPromise = null;
+				return [];
+			} );
+		}
+		return chartedPromise;
+	}
 	/** Locked to one track by ?track=, or one record by ?record=: the song selector stays hidden. */
 	const lockedToTrack = computed( () => !! trackParam || !! recordParam );
 
@@ -69,11 +92,9 @@ export const useSongStore = defineStore( 'song', () => {
 	/** Load the track named in the URL, or the default song. */
 	async function boot() {
 		loading.value = true;
-		if ( ! trackParam && ! recordParam ) {
-			wiki.chartedTracks().then( ( list ) => {
-				charted.value = list;
-			} ).catch( ( err ) => console.warn( 'Could not list the charted songs:', err ) );
-		}
+		// However the visit arrived, the rabbithole needs to know what it
+		// can play; the track loads without waiting for the answer.
+		chartedList();
 		loadError.value = null;
 		try {
 			if ( recordParam ) {
@@ -238,7 +259,7 @@ export const useSongStore = defineStore( 'song', () => {
 
 	return {
 		initial, loading, loadError, charted, lockedToTrack, current,
-		album, recordPage, artUrl, artFailed, notice, metadataParts, queuedCids,
-		boot, pickTrack, fetchTrack, playCid, queueCid, queueRecordRest, goToTrack,
+		album, recordPage, artUrl, artFailed, notice, metadataParts, queuedCids, recordRest,
+		boot, pickTrack, fetchTrack, playCid, queueCid, queueRecordRest, goToTrack, chartedList,
 	};
 } );

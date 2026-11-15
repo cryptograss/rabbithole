@@ -25,6 +25,7 @@ import { usePlayerStore } from '../stores/player.js';
 import { adoptPaneStyles } from '../wiki/pane-styles.js';
 import { listenRequest, openTrack, playTrackInDock, queueTrack, trailToHere } from '../wiki/queue.js';
 import { linkIn, titleFromHref, leavesTheApp } from '../wiki/pane-links.js';
+import { markChased } from '../wiki/pane-ensemble.js';
 import PaneArticle from './pane/PaneArticle.vue';
 import PaneChaseOffer from './pane/PaneChaseOffer.vue';
 import PaneChasePill from './pane/PaneChasePill.vue';
@@ -49,7 +50,18 @@ const view = computed( () => pane.view );
  * Neither has anywhere to go on a page that is not an article.
  */
 const offer = computed( () => ( view.value.kind === 'article' && picker.offer ? picker.offer : null ) );
-const chasing = computed( () => !! offer.value && picker.following === offer.value.name );
+const chasing = computed( () => (
+	!! offer.value && picker.mode === 'chase' && picker.following === offer.value.name
+) );
+/*
+ * The article, with the chased picker marked in the page's own ensemble
+ * (Justin's item 25). Only a chase marks it: a quest hands you a picker
+ * for the length of one song and says so with the rabbit on their card,
+ * which is not the page saying you are chasing them.
+ */
+const article = computed( () => (
+	picker.mode === 'chase' ? markChased( view.value.text, picker.following ) : view.value.text
+) );
 
 /**
  * What a Listen button in the pane asks for.
@@ -155,7 +167,7 @@ watch( () => pane.shown, ( title ) => picker.look( title ), { immediate: true } 
 		<PaneArticle
 			v-else-if="view.kind === 'article'"
 			:title="view.title"
-			:text="view.text"
+			:text="article"
 			:displaytitle="view.displaytitle"
 		>
 			<!-- Beside their name, and never both: the pill while they are
