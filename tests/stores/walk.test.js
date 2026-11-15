@@ -104,9 +104,11 @@ describe( 'revive and stored', () => {
 		expect( revive( '{"cid":"Qa"}' ) ).toEqual( { current: [], past: [] } );
 	} );
 
-	// A walk stored() can't read is the walk a fresh browser has: null. It
-	// must come back as an empty walk, not throw (blu, 15 Nov: it was an
-	// assignment to a const, and every write swallowed the TypeError).
+	// A walk stored() can't read - null, junk, or no current - comes back
+	// as an empty walk, never a throw: stored() is revive()'s mirror. (blu,
+	// 15 Nov: it was an assignment to a const. The app's own walk was safe
+	// behind revive(), but a cold `vite` start's dependency scan failed on
+	// it, on re's read.)
 	it( 'stores nothing as an empty walk', () => {
 		expect( JSON.parse( stored( null ) ) ).toEqual( { current: [], past: [] } );
 		expect( JSON.parse( stored( 'junk' ) ) ).toEqual( { current: [], past: [] } );
