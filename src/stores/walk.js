@@ -260,7 +260,7 @@ export function revive( raw ) {
  * @return {string} What goes into localStorage.
  */
 export function stored( walk ) {
-	const state = Array.isArray( walk ) ? { current: walk, past: [] } : walk;
+	let state = Array.isArray( walk ) ? { current: walk, past: [] } : walk;
 	if ( ! state || ! Array.isArray( state.current ) ) {
 		state = { current: [], past: [] };
 	}
