@@ -50,7 +50,7 @@ export function markerWho(data, ensemble, by = 'name') {
     return names.map(n => playing[n] || n).join(', ');
 }
 
-import { loadPeaks, loadServerPeaks, drawWaveform } from './waveform.js';
+import { loadPeaks, loadServerPeaks, drawWaveform, WAVE_INK, WAVE_INK_QUIET } from './waveform.js';
 import { partTimes, fitGrid, gridLines, snapTime, planSnap } from './section-grid.js';
 
 // The rabbit that runs down the ruler as the song plays.
@@ -605,7 +605,8 @@ export class TimelineEditor {
             // whichever canvas is there now.
             const c = this.container.querySelector('.ruler-wave');
             const track = this.container.querySelector('.ruler-track');
-            if (c && track) drawWaveform(c, peaks, parseFloat(track.dataset.duration) || 0, perSecond);
+            if (c && track) drawWaveform(c, peaks, parseFloat(track.dataset.duration) || 0, perSecond,
+                this.viewOnly ? WAVE_INK_QUIET : WAVE_INK);
         };
         const setState = (state) => {
             const r = this.container.querySelector('.timeline-ruler');
