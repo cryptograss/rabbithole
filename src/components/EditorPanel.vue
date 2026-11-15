@@ -122,7 +122,7 @@ async function save() {
 	saving.value = true;
 	status.value = { kind: '', html: '' };
 	try {
-		const result = await saveMetadata( current._metadataTitle, metadataYaml( data.workingData, current ) );
+		const result = await saveMetadata( current._metadataTitle, metadataYaml( data.savingData(), current ) );
 		if ( result.kind === 'login' ) {
 			// The edits are kept in this browser, and Special:UserLogin
 			// returns into Rabbithole with the editor open: sign in and
@@ -165,7 +165,7 @@ async function exportYaml() {
 	if ( ! data ) {
 		return;
 	}
-	const yaml = metadataYaml( data.workingData, song.value );
+	const yaml = metadataYaml( data.savingData(), song.value );
 	let copied = false;
 	try {
 		await navigator.clipboard.writeText( yaml );

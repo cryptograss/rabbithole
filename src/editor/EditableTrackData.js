@@ -10,6 +10,7 @@
  */
 
 import { processTimeline } from '../player/timeline.js';
+import { sectionShape, sectionize } from './sections.js';
 
 const BACKUP_INTERVAL = 10000; // Auto-backup every 10 seconds
 const STORAGE_KEY_PREFIX = 'rabbithole-editor-';
@@ -42,6 +43,13 @@ export function flattenSections(trackData) {
 
 export class EditableTrackData {
     constructor(trackData, options = {}) {
+        /*
+         * The shape the chart arrived in. A chart written in sections is
+         * edited in seconds and saved in sections again, so that a record
+         * made around a click keeps saying so (Justin, 15 Nov 2026).
+         */
+        this.sections = sectionShape(trackData);
+
         // Store deep copies to prevent mutation
         this.originalData = this._deepClone(flattenSections(trackData));
         this.workingData = this._deepClone(this.originalData);
@@ -404,6 +412,17 @@ export class EditableTrackData {
      * answered. Pass what it answered: { revisionId } for a new revision,
      * { unchanged: true } when it already had this text.
      */
+    /**
+     * The chart as it should be written: in the sections it came in, when
+     * they still say exactly what the editor holds, and in seconds when
+     * they cannot. Nothing is changed to keep the sections: sectionize
+     * resolves its own answer and compares it before handing it back.
+     */
+    savingData() {
+        const sectioned = this.sections && sectionize(this.workingData.timeline, this.sections);
+        return sectioned ? { ...this.workingData, timeline: sectioned } : this.workingData;
+    }
+
     markSaved(outcome = {}) {
         this.lastSave = outcome;
         this.originalData = this._deepClone(this.workingData);
