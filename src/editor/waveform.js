@@ -130,7 +130,18 @@ export function loadPeaks(url) {
  * Draw the waveform down a canvas: time runs top to bottom, loudness
  * left to right. Sized to the canvas's own box.
  */
-export function drawWaveform(canvas, peaks, duration, perSecond = PEAKS_PER_SECOND, color = 'rgba(74, 124, 89, 0.35)') {
+/*
+ * How loud the waveform is drawn. In the editor it is a tool -- you are
+ * placing a marker on the exact spot a change happens, so the peaks have to
+ * be readable. In the timeline beside the page you are only watching the
+ * song go by, and at the editor's weight the peaks competed with the parts
+ * and the rabbit for the eye (Skyler, #rabbithole, 15 Nov 2026: "I like it -
+ * but if it comes with default i think it should be more subtle").
+ */
+export const WAVE_INK = 'rgba(74, 124, 89, 0.35)';
+export const WAVE_INK_QUIET = 'rgba(74, 124, 89, 0.15)';
+
+export function drawWaveform(canvas, peaks, duration, perSecond = PEAKS_PER_SECOND, color = WAVE_INK) {
     const box = canvas.getBoundingClientRect();
     const ratio = Math.min(window.devicePixelRatio || 1, 2);
     // Canvases stop drawing past about 16k pixels on a side.

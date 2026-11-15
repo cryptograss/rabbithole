@@ -50,17 +50,23 @@ export function markerWho(data, ensemble, by = 'name') {
     return names.map(n => playing[n] || n).join(', ');
 }
 
-import { loadPeaks, loadServerPeaks, drawWaveform } from './waveform.js';
+import { loadPeaks, loadServerPeaks, drawWaveform, WAVE_INK, WAVE_INK_QUIET } from './waveform.js';
 import { partTimes, fitGrid, gridLines, snapTime, planSnap } from './section-grid.js';
 
 // The rabbit that runs down the ruler as the song plays.
 const RABBIT_URL = new URL('../images/rabbit.png', import.meta.url).href;
 
 /*
- * A carrot over the rabbit that plays and pauses, so charting needs no
- * trip across the page to the player (Skyler, #rabbithole, 11 Nov 2026).
- * The same carrot as the player's: greens to the left, the body the ▶,
- * two notches through it while the song plays.
+ * A carrot that plays and pauses, so charting needs no trip across the
+ * page to the player (Skyler, #rabbithole, 11 Nov 2026). The same carrot
+ * as the player's: greens to the left, the body the ▶, two notches
+ * through it while the song plays.
+ *
+ * It sits at the top of the column and stays there. It used to ride the
+ * playhead, which meant the play button moved every time the song did:
+ * drag the rabbit down the ruler, reach back for play, and press on
+ * nothing (Skyler, 15 Nov 2026: "when you drag the rabbit the carrot
+ * follows -- it should just stay in place as a player on that side").
  */
 const RULER_CARROT = `<button type="button" class="ruler-carrot" title="Play / pause" aria-label="Play / pause"><svg viewBox="0 0 48 48" width="26" height="26" aria-hidden="true"><g class="ruler-carrot-greens"><path d="M15 24 C 12 17, 7 12, 2 10 C 4 15, 8 21, 15 24 Z"/><path d="M15 24 C 10 21, 4 21, 0 24 C 4 27, 10 27, 15 24 Z"/><path d="M15 24 C 12 31, 7 36, 2 38 C 4 33, 8 27, 15 24 Z"/></g><path class="ruler-carrot-body" d="M15 13 L 42 24 L 15 35 Z"/><g class="ruler-carrot-notches"><rect x="20" y="16" width="3.5" height="16" rx="1"/><rect x="26.5" y="16" width="3.5" height="16" rx="1"/></g></svg></button>`;
 export class TimelineEditor {
@@ -136,6 +142,7 @@ export class TimelineEditor {
             this.player.onTimeUpdate(this._onTimeUpdate);
         }
         this._startFromOnPlay();
+        this._unlightOnNextAction();
 
         // Initial render
         this.render();
@@ -605,7 +612,8 @@ export class TimelineEditor {
             // whichever canvas is there now.
             const c = this.container.querySelector('.ruler-wave');
             const track = this.container.querySelector('.ruler-track');
-            if (c && track) drawWaveform(c, peaks, parseFloat(track.dataset.duration) || 0, perSecond);
+            if (c && track) drawWaveform(c, peaks, parseFloat(track.dataset.duration) || 0, perSecond,
+                this.viewOnly ? WAVE_INK_QUIET : WAVE_INK);
         };
         const setState = (state) => {
             const r = this.container.querySelector('.timeline-ruler');
@@ -767,7 +775,7 @@ export class TimelineEditor {
             const who = markerWho(data, this.data.ensemble, this.labelBy);
             const part = data.part || '';
             const label = [part, who].filter(Boolean).join(' · ') || 'unnamed';
-            const selected = this.data.selectedMarkerTime === time ? ' selected' : '';
+            const selected = this._marked(time) ? ' selected' : '';
             return `<div class="ruler-marker${selected}" style="top:${pct(time)}%"
                          data-time="${time}" title="${this._escapeHtml(this.formatTime(time) + '  ' + label)}">
                         <span class="ruler-marker-label">${this._escapeHtml(label)}</span>
@@ -776,17 +784,47 @@ export class TimelineEditor {
 
         return `
             <div class="timeline-ruler">
+                ${RULER_CARROT}
                 <div class="ruler-track" data-duration="${duration}" style="height:${trackPx}px">
                     <canvas class="ruler-wave"></canvas>
                     ${bands.join('')}
                     ${lines}
                     ${ticks.join('')}
                     ${markers}
-                    <div class="ruler-playhead" style="top:${pct(this.currentPlayingTime || 0)}%">${RULER_CARROT}<img class="ruler-rabbit" src="${RABBIT_URL}" alt="" draggable="false"><span class="ruler-playhead-tag">now <b>${this.formatTime(this.currentPlayingTime || 0).replace(/\.\d$/, '')}</b></span></div>
+                    <div class="ruler-playhead" style="top:${pct(this.currentPlayingTime || 0)}%"><img class="ruler-rabbit" src="${RABBIT_URL}" alt="" draggable="false"><span class="ruler-playhead-tag">now <b>${this.formatTime(this.currentPlayingTime || 0).replace(/\.\d$/, '')}</b></span></div>
                     <div class="ruler-hover" hidden><span class="ruler-hover-time"></span></div>
                 </div>
             </div>
         `;
+    }
+
+    /** Whether this marker is the lit one: the selection, while it is shown. */
+    _marked(time) {
+        return this.data.selectionShown && this.data.selectedMarkerTime === time;
+    }
+
+    /**
+     * Your next action puts the selected marker's light out.
+     *
+     * Skyler, 15 Nov 2026: the last marker you edited stayed lit while the
+     * song lit the ones it played through, and the two highlights together
+     * said nothing clearly. So the one you picked or saved is lit until you
+     * do the next thing -- press play, scrub, add a marker, type -- and
+     * then the ruler reads as it does the rest of the time. Clicking a
+     * marker, a row or the open form is that marker's own business, and
+     * leaves it lit.
+     *
+     * The classes come off by hand rather than by a re-render: this runs on
+     * pointerdown, before the mousedown that starts a scrub, and a
+     * re-render here would replace the ruler under the hand mid-drag.
+     */
+    _unlightOnNextAction() {
+        this.container.addEventListener('pointerdown', (e) => {
+            if (!this.data.selectionShown) return;
+            if (e.target.closest('.marker-row, .ruler-marker, .marker-form')) return;
+            this.data.selectionShown = false;
+            this.container.querySelectorAll('.selected').forEach(el => el.classList.remove('selected'));
+        }, true);
     }
 
     /** The ruler's carrot says pause while the song plays, play when it doesn't. */
@@ -838,22 +876,8 @@ export class TimelineEditor {
         let startY = 0;
         let moved = false;
 
-        const placePlayhead = (time) => {
-            this.currentPlayingTime = time;
-            const head = this.container.querySelector('.ruler-playhead');
-            const trackEl = this.container.querySelector('.ruler-track');
-            const addLabel = this.container.querySelector('.add-marker-time');
-            const tag = head && head.querySelector('.ruler-playhead-tag b');
-            const duration = trackEl ? parseFloat(trackEl.dataset.duration) || 0 : 0;
-            if (head && duration > 0) {
-                head.style.top = `${Math.max(0, Math.min(100, (time / duration) * 100))}%`;
-            }
-            if (tag) tag.textContent = this.formatTime(time).replace(/\.\d$/, '');
-            if (addLabel) addLabel.textContent = this.formatTime(time);
-        };
-
         track.addEventListener('mousedown', (e) => {
-            if (e.target.closest('.ruler-marker, .ruler-rabbit, .ruler-carrot')) return;
+            if (e.target.closest('.ruler-marker, .ruler-rabbit')) return;
             dragging = true;
             moved = false;
             startY = e.clientY;
@@ -869,7 +893,8 @@ export class TimelineEditor {
          * natural thing to grab. It sets moved from the start -- this is a
          * seek, never a click, so the form does not open at the end.
          */
-        const carrot = track.querySelector('.ruler-carrot');
+        // Above the track, not on it: the carrot holds still while the song moves.
+        const carrot = this.container.querySelector('.ruler-carrot');
         if (carrot) {
             this._showCarrot();
             carrot.addEventListener('click', (e) => {
@@ -890,7 +915,7 @@ export class TimelineEditor {
                 moved = true;
                 startY = e.clientY;
                 showHover(e.clientY);
-                placePlayhead(timeAt(e.clientY));
+                this._placePlayhead(timeAt(e.clientY));
                 this.seekTo(timeAt(e.clientY));
                 e.preventDefault();
             });
@@ -902,7 +927,7 @@ export class TimelineEditor {
             showHover(e.clientY);
             if (moved) {
                 const t = timeAt(e.clientY);
-                if (draggingRabbit) placePlayhead(t);
+                if (draggingRabbit) this._placePlayhead(t);
                 this.seekTo(t);
             }
         });
@@ -914,7 +939,7 @@ export class TimelineEditor {
             draggingRabbit = false;
             const t = timeAt(e.clientY);
             if (moved) {
-                if (wasRabbit) placePlayhead(t);
+                if (wasRabbit) this._placePlayhead(t);
                 this.seekTo(t);
             } else {
                 if (this.viewOnly) this.seekTo(t);
@@ -1699,7 +1724,7 @@ export class TimelineEditor {
 
     renderMarkerRow(entry, index, musicians) {
         const { time, data } = entry;
-        const isSelected = this.data.selectedMarkerTime === time;
+        const isSelected = this._marked(time);
         const isPlaying = this._isMarkerPlaying(time);
         const isExpanded = this.expandedMarkerTime === time;
 
@@ -2229,6 +2254,26 @@ export class TimelineEditor {
     }
 
     /**
+     * Put the rabbit at a time, without touching the audio: moved rather
+     * than re-rendered, so nothing being typed is thrown away. It says
+     * where the song is, or -- before the audio can be seeked -- where it
+     * will start from.
+     */
+    _placePlayhead(time) {
+        this.currentPlayingTime = time;
+        const head = this.container.querySelector('.ruler-playhead');
+        const trackEl = this.container.querySelector('.ruler-track');
+        const addLabel = this.container.querySelector('.add-marker-time');
+        const tag = head && head.querySelector('.ruler-playhead-tag b');
+        const duration = trackEl ? parseFloat(trackEl.dataset.duration) || 0 : 0;
+        if (head && duration > 0) {
+            head.style.top = `${Math.max(0, Math.min(100, (time / duration) * 100))}%`;
+        }
+        if (tag) tag.textContent = this.formatTime(time).replace(/\.\d$/, '');
+        if (addLabel) addLabel.textContent = this.formatTime(time);
+    }
+
+    /**
      * Seek to a specific time
      */
     seekTo(time) {
@@ -2262,6 +2307,23 @@ export class TimelineEditor {
         this._startFrom = stopped ? time : null;
         // A seek of your own outranks one still being retried.
         clearInterval(this._seekWhenReady);
+
+        /*
+         * Audio that does not know its own length cannot be seeked, and
+         * asking anyway is worse than not asking: Webamp takes the seek as
+         * a transport command and reports PLAYING at 0:00 while nothing
+         * sounds, so the carrot turns to pause and the next press stops a
+         * song that never started. On a fresh page that is every drag of
+         * the rabbit before the first play (Skyler, 15 Nov 2026: "it also
+         * doesn't play when you drag and drop it somewhere and press
+         * play"). The time is remembered above; _startFromOnPlay spends it
+         * the moment playing really begins.
+         */
+        if (!this.player.getDuration || !(this.player.getDuration() > 0)) {
+            // The rabbit shows the moment it will start from.
+            this._placePlayhead(time);
+            return;
+        }
 
         if (typeof this.player.webamp.seekToTime === 'function') {
             this.player.webamp.seekToTime(Math.max(0, time + 0.05));

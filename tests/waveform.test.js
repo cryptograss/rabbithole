@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { computePeaks, peakBetween } from '../src/editor/waveform.js';
+import { computePeaks, peakBetween, WAVE_INK, WAVE_INK_QUIET } from '../src/editor/waveform.js';
 
 describe('computePeaks', () => {
     it('keeps the loudest sample per slice, either sign', () => {
@@ -43,5 +43,21 @@ describe('server peaks', () => {
         const { peaks, perSecond } = decodeServerPeaks(body);
         expect(perSecond).toBe(50);
         expect(Array.from(peaks).map(v => +v.toFixed(1))).toEqual([0, 1, 0.2]);
+    });
+});
+
+/*
+ * Two weights: a tool in the editor, a background in the timeline beside
+ * the page (Skyler, #rabbithole, 15 Nov 2026).
+ */
+describe('how loud the waveform is drawn', () => {
+    it('is quieter when you are only watching than when you are placing a marker', () => {
+        const alpha = (ink) => parseFloat(ink.match(/,\s*([\d.]+)\s*\)$/)[1]);
+        expect(alpha(WAVE_INK_QUIET)).toBeLessThan(alpha(WAVE_INK));
+    });
+
+    it('is the same green either way', () => {
+        const rgb = (ink) => ink.slice(0, ink.lastIndexOf(','));
+        expect(rgb(WAVE_INK_QUIET)).toBe(rgb(WAVE_INK));
     });
 });

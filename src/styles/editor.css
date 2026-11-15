@@ -670,12 +670,12 @@
 /* Room above the line for the first label.
    A tick's text sits 6px above its own line, and a marker's 5px, so at
    0:00 both hang above the top of the track -- and with the column
-   clipped they were simply cut off. Clipping happens at the padding
-   edge, so padding is the room. Skyler, 2026-10-25. */
+   clipped they were simply cut off. Skyler, 2026-10-25. The room is the
+   track's own margin-top, below the carrot (further down this file), so
+   that it scrolls with the track and the carrot does not. */
 .timeline-ruler {
-    --ruler-label-room: 30px;
     flex: 0 0 158px;
-    padding: var(--ruler-label-room) 0 10px;
+    padding: 4px 0 10px;
     overflow: hidden;
 }
 
@@ -1217,30 +1217,29 @@
     animation: ruler-rabbit-hop 0.42s ease-in-out infinite;
 }
 
-/* A carrot over the rabbit: play and pause from the ruler (Skyler). It
-   rides the playhead with the rabbit, and holds still while the rabbit hops.
+/* Play and pause from the ruler, so charting needs no trip across the
+   page (Skyler). The carrot is the column's own transport: top left, and
+   sticky, so a zoomed ruler can be scrolled with the button still under
+   the hand.
 
-   Two things hold. The carrot clears the rabbit's head at the top of its
-   hop (7px), so the two never touch -- the lift is measured from the line,
-   where the rabbit's ears reach 24px. And the room above the song's start
-   is exactly how far the carrot reaches above the line, so at 0:00 neither
-   is cut off by the top of the ruler: the ruler's own padding, for the
-   first label, counts toward that room. Skyler, 14 Nov 2026: the carrot sat
-   on the rabbit's ears. */
+   It used to ride the playhead, 44px above the line. That moved the play
+   button every time the song moved: drag the rabbit down to 1:27, reach
+   back for play, and press empty ruler (Skyler, 15 Nov 2026: "it should
+   just stay in place as a player on that side"). The room above the track
+   is now only what the rabbit's ears need at 0:00, 26px of them, plus the
+   button's own height. */
 .timeline-ruler {
     --ruler-carrot-size: 30px;
-    --ruler-carrot-lift: 44px;
 }
 
 .ruler-track {
-    margin-top: calc(var(--ruler-carrot-lift) + var(--ruler-carrot-size)
-                     - var(--ruler-label-room));
+    margin-top: 28px;
 }
 
 .ruler-carrot {
-    position: absolute;
-    left: -8px;
-    bottom: var(--ruler-carrot-lift);
+    position: sticky;
+    top: 0;
+    margin: 0 0 4px 2px;
     width: var(--ruler-carrot-size);
     height: var(--ruler-carrot-size);
     padding: 2px;
@@ -1251,7 +1250,7 @@
     cursor: pointer;
     line-height: 0;
     pointer-events: auto;
-    z-index: 2;
+    z-index: 3;
 }
 
 .ruler-carrot:hover { transform: scale(1.12); }
@@ -1438,10 +1437,9 @@
 }
 
 .timeline-editor.view-only .timeline-ruler {
-    --ruler-label-room: 24px;
     flex: 1 1 auto;
     height: 100%;
     max-height: none;
     overflow-y: auto;
-    padding: var(--ruler-label-room) 0 10px;
+    padding: 4px 0 10px;
 }

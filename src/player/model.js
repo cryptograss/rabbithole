@@ -461,12 +461,19 @@ export class WebampPlayer {
 	 * Hot-swap the timeline without reloading the audio: the editor's
 	 * instant preview. Moments already passed do not fire again; effects
 	 * are not fired for an edit.
+	 *
+	 * The player keeps its own copy of the chart. The editor hands over
+	 * the same object every time -- its working timeline, edited in place
+	 * -- and assigning a property the value it already holds changes
+	 * nothing, so everything drawn from it (the parts strip under the
+	 * player, the cards) stayed on the first edit and ignored the rest.
+	 * Skyler, 15 Nov 2026: new parts were not showing under the player.
 	 */
 	updateTimeline( newTimeline ) {
 		if ( ! this.state.song ) {
 			return;
 		}
-		this.state.song.timeline = newTimeline;
+		this.state.song.timeline = { ...newTimeline };
 		const time = this.state.time;
 		this._upcomingMoments = timeline.momentTimes( newTimeline ).filter( ( t ) => t > time );
 		this._lastArrangement = this.arrangement.value;

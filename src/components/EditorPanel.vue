@@ -68,6 +68,14 @@ function build() {
 		},
 	} );
 	editor = new TimelineEditor( CONTAINER_ID, data, player.model );
+	/*
+	 * What the editor holds is what the player plays, from the moment it
+	 * opens. EditableTrackData may have restored a browser backup of
+	 * unsaved edits, or resolved a sectioned chart into seconds; without
+	 * this the editor showed one chart and the strip under the player
+	 * another, and a reload did not reconcile them (Skyler, 15 Nov 2026).
+	 */
+	editor._notifyTimelineChange();
 	shortcuts = new KeyboardShortcuts( editor, data, { onSave: save } );
 	helpHtml.value = shortcuts.getHelpHTML();
 	hasUnsaved.value = data.hasUnsaved;
