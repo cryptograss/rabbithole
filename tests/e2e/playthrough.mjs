@@ -164,13 +164,13 @@ async function run() {
 	seen = await until( page, ( s ) => s.energy > 0, 5 );
 	check( 'with sound: the analyser hears the song', seen.energy > 0, `energy ${ seen.energy }` );
 
-	// Follow the solo, as the song gets there by itself.
+	// Traverse mode, as the song gets there by itself.
 	const now = seen.clock;
 	const next = entries( processed ).find( ( e ) => e.time > now + 0.5 && soloAt( e.time ) && soloAt( e.time ) !== soloAt( now ) );
 	if ( next && next.time - now < 25 ) {
 		const who = soloAt( next.time );
 		seen = await until( page, ( s ) => s.pane === who, next.time - now + 6 );
-		check( `following the solo: at ${ next.time } s the pane opens ${ who }`, seen.pane === who, `pane: ${ seen.pane }, at ${ seen.clock } s` );
+		check( `traverse mode: at ${ next.time } s the pane opens ${ who }`, seen.pane === who, `pane: ${ seen.pane }, at ${ seen.clock } s` );
 		check( `${ who }'s card leads, starred`, seen.lead.includes( who ), `leading: ${ seen.lead.join( ', ' ) || 'nobody' }` );
 	} else {
 		console.log( '  (no solo changes hands in the next 25 s; the seek below checks following)' );
@@ -263,12 +263,13 @@ async function run() {
 		await pill.first().click();   // stop chasing, so the rest of the run is as it was
 	}
 
-	// Tapping a card is steering the pane yourself, so Follow the solo turns off; a new song
+	// Tapping a card is steering the pane yourself, so traverse mode turns off; a new song
 	// opens its page only while it's on (#32: "a person reading something keeps reading").
-	const followSolo = page.getByRole( 'checkbox', { name: 'Follow the solo' } );
-	check( 'tapping a card turns Follow the solo off', ! ( await followSolo.isChecked() ) );
-	await page.getByText( 'Follow the solo', { exact: true } ).first().click();   // the switch; its checkbox is hidden
-	check( 'and it turns back on', await followSolo.isChecked() );
+	// It was called "Follow the solo" until Justin's item 16, 15 Nov 2026.
+	const traverse = page.getByRole( 'checkbox', { name: 'traverse mode' } );
+	check( 'tapping a card turns traverse mode off', ! ( await traverse.isChecked() ) );
+	await page.getByText( 'traverse mode', { exact: true } ).first().click();   // the switch; its checkbox is hidden
+	check( 'and it turns back on', await traverse.isChecked() );
 
 	// Pick another song from the dropdown: it opens on its own page, and the editor would save to it.
 	const others = ( await select.locator( 'option' ).evaluateAll( ( os ) => os.map( ( o ) => ( { cid: o.value, title: o.textContent.trim() } ) ) ) )

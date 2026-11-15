@@ -30,12 +30,12 @@ const songHref = computed( () => wikiPath( song.value.title ? 'Song:' + song.val
 const recordHref = computed( () => wikiPath( songs.recordPage || '' ) );
 
 function backToSong() {
-	layout.stopFollowing();
+	layout.stopTraversing();
 	pane.openSong( song.value );
 }
 
 function openRecord() {
-	layout.stopFollowing();
+	layout.stopTraversing();
 	pane.open( songs.recordPage );
 }
 

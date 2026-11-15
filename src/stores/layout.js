@@ -120,12 +120,18 @@ export const useLayoutStore = defineStore( 'layout', () => {
 	const editorOpen = ref( cameToEdit( INITIAL_PARAMS ) );
 
 	/*
-	 * Follow the solo into each player's page. Any navigation a person does
-	 * turns it off: with it on, somebody who clicked through to read about
-	 * a musician was carried off at the next solo, mid-sentence (Justin,
-	 * 4 Nov 2026). One tap turns it back on.
+	 * Traverse mode: the information pane loads the pages the track's parts
+	 * are about as it plays. Any navigation a person does turns it off: with
+	 * it on, somebody who clicked through to read about a musician was
+	 * carried off at the next solo, mid-sentence (Justin, 4 Nov 2026). One
+	 * tap turns it back on.
+	 *
+	 * It was "Follow the solo", which named one of the things it does and
+	 * read as a social-media follow besides; and the code's `follow` meant
+	 * this in one store and chasing a picker in another (Justin's item 16,
+	 * 15 Nov 2026).
 	 */
-	const follow = ref( true );
+	const traverse = ref( true );
 
 	/*
 	 * The timeline beside the page, read-only, with the rabbit running down
@@ -174,13 +180,13 @@ export const useLayoutStore = defineStore( 'layout', () => {
 		}
 	}
 
-	function stopFollowing() {
-		follow.value = false;
+	function stopTraversing() {
+		traverse.value = false;
 	}
 
 	return {
 		layout, isBar, narrow, phone, auto, pinned, saved,
-		minimized, collapsed, editorOpen, follow, timelineView, showTimeline, timelineLabels,
-		setLayout, toggleDock, openDock, stopFollowing,
+		minimized, collapsed, editorOpen, traverse, timelineView, showTimeline, timelineLabels,
+		setLayout, toggleDock, openDock, stopTraversing,
 	};
 } );

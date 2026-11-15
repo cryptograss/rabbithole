@@ -73,7 +73,7 @@ async function onClick( e ) {
 	const title = titleFromHref( href );
 	if ( title ) {
 		e.preventDefault();
-		layout.stopFollowing();
+		layout.stopTraversing();
 		pane.open( title );
 		return;
 	}
@@ -89,12 +89,12 @@ async function onClick( e ) {
 }
 
 function onSearch( text ) {
-	layout.stopFollowing();
+	layout.stopTraversing();
 	pane.search( text );
 }
 
 function onChase( name ) {
-	picker.follow( name );
+	picker.chase( name );
 }
 
 onMounted( () => {

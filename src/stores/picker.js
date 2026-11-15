@@ -1,5 +1,5 @@
 /**
- * Following a picker: after this song, play the songs one musician is on,
+ * Chasing a picker: after this song, play the songs one musician is on,
  * one after another.
  *
  * Justin, 7 Nov 2026: "It's not obvious how to follow a picker, nor what
@@ -144,7 +144,7 @@ export const usePickerStore = defineStore( 'picker', () => {
 	 * Barlow's Jig", and then nothing (Justin, 11 Nov 2026). A paused song
 	 * is still the song you're on, so following waits for it.
 	 */
-	async function follow( name ) {
+	async function chase( name ) {
 		following.value = name;
 		await queueNext();
 		if ( next.value && player.status === 'STOPPED' ) {
@@ -172,5 +172,5 @@ export const usePickerStore = defineStore( 'picker', () => {
 		}
 	} );
 
-	return { following, next, offer, look, follow, stop };
+	return { following, next, offer, look, chase, stop };
 } );

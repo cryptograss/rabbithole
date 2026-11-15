@@ -30,7 +30,7 @@ const musicians = computed( () => player.cards.filter( ( c ) => ! c.engineer ).m
 } ) ) );
 
 function go( name ) {
-	layout.stopFollowing();
+	layout.stopTraversing();
 	pane.open( name );
 }
 </script>

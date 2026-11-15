@@ -44,7 +44,7 @@ function effectsFor( name ) {
 
 function select( name ) {
 	// Tapping a card is navigating yourself, so the follow stops.
-	layout.stopFollowing();
+	layout.stopTraversing();
 	pane.open( name );
 }
 </script>
