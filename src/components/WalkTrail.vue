@@ -83,7 +83,7 @@ function onMessage( e ) {
 		} ).catch( ( err ) => console.warn( 'Could not play it again:', err ) );
 	}
 	if ( does.page ) {
-		layout.stopFollowing();
+		layout.stopTraversing();
 		pane.open( does.page );
 	}
 	if ( does.clear ) {
