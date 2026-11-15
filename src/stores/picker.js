@@ -154,6 +154,15 @@ export const usePickerStore = defineStore( 'picker', () => {
 	/** What following them has queued: {song, cid}, or null. */
 	const next = ref( null );
 	/**
+	 * The recording the rabbithole queued on its own account, by CID: a
+	 * chase's next song, a quest's pick, or the charted track the floor
+	 * reached for. One field, because what matters about all three is the
+	 * same thing -- it is ours, so it is ours to withdraw when a person
+	 * asks for a song by hand (re, #rabbithole, 15 Nov 2026: the floor's
+	 * pick was not recorded, and Play next landed behind it).
+	 */
+	const ours = ref( null );
+	/**
 	 * What following the picker on screen would play next:
 	 * {name, next: {song, cid} | null}, or null when the page is not a picker's.
 	 */
@@ -203,6 +212,19 @@ export const usePickerStore = defineStore( 'picker', () => {
 		}
 	}
 
+	/**
+	 * Queue a recording on the rabbithole's own account. Everything the
+	 * app lines up goes through here, so there is one place that knows
+	 * what is ours and one place that records it.
+	 */
+	async function queueOurs( cid ) {
+		if ( await songs.queueCid( cid ) ) {
+			ours.value = cid;
+			return true;
+		}
+		return false;
+	}
+
 	/** Line up the followed picker's next song, and remember it. */
 	async function queueNext() {
 		const name = following.value;
@@ -211,7 +233,7 @@ export const usePickerStore = defineStore( 'picker', () => {
 			// Marked before it is queued, so however soon it starts, the
 			// walk knows it came by following this picker.
 			walk.mark( next.value.cid, viaPicker( await performerGraph(), next.value.song, name ) );
-			await songs.queueCid( next.value.cid );
+			await queueOurs( next.value.cid );
 		}
 		if ( offer.value && offer.value.name === following.value ) {
 			offer.value = { name: following.value, next: next.value };
@@ -248,7 +270,7 @@ export const usePickerStore = defineStore( 'picker', () => {
 		// a trail queued to here, is already the answer to what comes next.
 		if ( theirs && ! songs.queuedCids.length ) {
 			walk.mark( theirs.cid, viaPicker( graph, theirs.song, name ) );
-			if ( await songs.queueCid( theirs.cid ) ) {
+			if ( await queueOurs( theirs.cid ) ) {
 				next.value = theirs;
 			}
 		}
@@ -263,10 +285,13 @@ export const usePickerStore = defineStore( 'picker', () => {
 	 * queue with it).
 	 */
 	function giveWay() {
-		if ( next.value && player.model ) {
-			player.model.dropFromQueue( next.value.cid );
+		if ( ours.value && player.model ) {
+			player.model.dropFromQueue( ours.value );
 		}
-		next.value = null;
+		if ( next.value && next.value.cid === ours.value ) {
+			next.value = null;
+		}
+		ours.value = null;
 	}
 
 	/**
@@ -287,7 +312,7 @@ export const usePickerStore = defineStore( 'picker', () => {
 			currentCid: currentCid(), playedCids: playedCids.value,
 		} );
 		if ( track && ! songs.queuedCids.length ) {
-			await songs.queueCid( track.cid );
+			await queueOurs( track.cid );
 		}
 	}
 
@@ -328,6 +353,9 @@ export const usePickerStore = defineStore( 'picker', () => {
 		if ( ! cid ) {
 			return;
 		}
+		if ( cid === ours.value ) {
+			ours.value = null;
+		}
 		if ( mode.value === 'chase' ) {
 			// One song ahead and no more: the chase lines up another when
 			// the one it queued starts, or when it has none -- which is
@@ -342,5 +370,5 @@ export const usePickerStore = defineStore( 'picker', () => {
 		await lineUpSomething();
 	}, { immediate: true } );
 
-	return { mode, following, next, offer, look, chase, stop, giveWay };
+	return { mode, following, next, ours, offer, look, chase, stop, giveWay };
 } );
