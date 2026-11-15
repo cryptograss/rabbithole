@@ -3,71 +3,100 @@
  *
  * Justin, 11 Nov 2026: "reliably shows the user where they've been and how
  * they got where they are." The walk (stores/walk.js) is every recording
- * that has been on, oldest first, each hop saying who you followed to
- * reach it, kept across a refresh. This draws it as the chain it is: the
- * song you are on at the bottom, a line up to each place you came from,
- * each line the colour of the instrument the hop was made with.
+ * you have listened to, oldest first, each saying who you followed to
+ * reach it, kept across a refresh.
  *
- * In the dock it is one line, how many hops deep you are. The hops live in
- * a drawer that slides out over the page: from the sidebar's edge, or up
- * from the bottom bar on a phone. In the dock the list took the room Webamp
- * and the cards need, and a chevron that opens over the page is what
- * Justin asked for (11 Nov 2026). The drawer closes on its ✕, on Escape,
- * or on a click outside it.
+ * Justin, 15 Nov 2026: drawn with "the same UI we've built for this
+ * explorer", a little collapsed view in the player (the song on now, and
+ * one or two before it), and the whole of it when it opens, "more like a
+ * flow chart than a constellation". So it is the connectome's own graph
+ * (/assets/connectome/?walk), in a frame: the songs are its circles, the
+ * picker you followed is the tag on the line between two of them, gold is
+ * a Permanent Release and nothing else. In the sidebar the frame shows the
+ * last few steps; a click opens it into a drawer over the page, the same
+ * frame grown, never reloaded. In the bottom bar there is no room for the
+ * steps: a tab opens the drawer from below.
  *
- * The colour is read from the performer graph when the walk is drawn, not
- * when it was stored, so a walk kept from before a wiki edit still draws
- * with what the wiki now says.
+ * The frame and the player talk by postMessage, same origin only: the
+ * player says what the walk is, what is on, whether it plays and whether
+ * the drawer is open; the graph asks the player to open, to play a song
+ * again, to open a page in the pane, or to start a new walk.
 -->
 <script setup>
-import { computed, ref, watch, onBeforeUnmount } from 'vue';
+import { computed, ref, watch, onMounted, onBeforeUnmount } from 'vue';
 import { useLayoutStore } from '../stores/layout.js';
-import { useWalkStore } from '../stores/walk.js';
-import { performerGraph } from '../wiki/queue.js';
+import { useWalkStore, drawerDoes } from '../stores/walk.js';
+import { usePlayerStore } from '../stores/player.js';
+import { useSongStore } from '../stores/song.js';
+import { usePaneStore } from '../stores/pane.js';
 
 const walk = useWalkStore();
 const layout = useLayoutStore();
+const player = usePlayerStore();
+const songs = useSongStore();
+const pane = usePaneStore();
 
-const COLORS = {
-	guitar: '#2a78d6',
-	banjo: '#eb6834',
-	mandolin: '#1baf7a',
-	fiddle: '#9a5fd4',
-};
-const NEUTRAL = '#a9a8a3';
+/** The graph's own page, in its "your rabbithole" view, told it is Rabbithole's. */
+const SRC = '/assets/connectome/?walk=mini&host=rabbithole';
 
 const open = ref( false );
-const graph = ref( null );
-performerGraph().then( ( g ) => { graph.value = g; } );
+const frame = ref( null );
 
-/**
- * The instrument the hop's picker played on the song they led to, as the
- * graph spells it: the colour the line gets.
- */
-function instrumentOf( hop ) {
-	if ( ! graph.value || ! hop.via || ! hop.song ) {
-		return null;
+/** What the graph is told: the walk, the song on now, whether it plays, and how much room it has. */
+function say() {
+	const win = frame.value && frame.value.contentWindow;
+	if ( ! win ) {
+		return;
 	}
-	// The walk stores a track's title; the graph names its Song: page.
-	const page = hop.song.startsWith( 'Song:' ) ? hop.song : 'Song:' + hop.song;
-	const instruments = ( ( graph.value.band[ page ] || {} )[ hop.via.name ] ) || [];
-	return instruments[ 0 ] || null;
+	win.postMessage( {
+		rabbithole: 'walk',
+		hops: walk.hops.map( ( h ) => ( { cid: h.cid, song: h.song, via: h.via ? { name: h.via.name, instrument: h.via.instrument } : null, at: h.at } ) ),
+		now: ( player.song && player.song._trackCid ) || null,
+		playing: !! player.playing,
+		mode: open.value ? 'full' : 'mini',
+	}, window.location.origin );
 }
 
-const rows = computed( () => walk.hops.map( ( hop, i ) => ( {
-	cid: hop.cid,
-	song: hop.song ? hop.song.replace( /^Song:/, '' ) : hop.cid.slice( 0, 10 ),
-	via: hop.via ? hop.via.name : null,
-	viaInstrument: hop.via && hop.via.instrument ? hop.via.instrument : instrumentOf( hop ),
-	color: COLORS[ String( ( hop.via && hop.via.instrument ) || instrumentOf( hop ) || '' ).toLowerCase() ] || NEUTRAL,
-	isNow: i === walk.hops.length - 1,
-} ) ) );
+watch( () => [ walk.hops, player.song && player.song._trackCid, player.playing, open.value ], say, { deep: true } );
+
+/** What the graph asks of the player. Only the frame's own words count. */
+function onMessage( e ) {
+	if ( e.origin !== window.location.origin || ! frame.value || e.source !== frame.value.contentWindow ) {
+		return;
+	}
+	const does = drawerDoes( e.data );
+	if ( ! does ) {
+		return;
+	}
+	if ( does.open ) {
+		open.value = true;
+	}
+	if ( does.play ) {
+		// A road not taken, taken from the drawer: the walk says who was followed to it.
+		if ( does.via ) {
+			walk.mark( does.play, does.via );
+		}
+		songs.playCid( does.play ).then( () => {
+			if ( player.model ) {
+				player.model.play();
+			}
+		} ).catch( ( err ) => console.warn( 'Could not play it again:', err ) );
+	}
+	if ( does.page ) {
+		layout.stopFollowing();
+		pane.open( does.page );
+	}
+	if ( does.clear ) {
+		walk.clear();
+	}
+	if ( does.close ) {
+		open.value = false;
+	}
+}
 
 /*
  * Where the drawer comes out from: the sidebar's right edge (56px when the
- * sidebar is folded to its strip), or the top of the bottom bar. The
- * drawer is teleported to <body>, so it reads the layout from the store
- * rather than from the classes on .layout.
+ * sidebar is folded to its strip), or the top of the bottom bar.
  */
 const edge = computed( () => ( layout.isBar
 	? { '--walk-left': '0px', '--walk-bottom': 'var(--rh-dock)' }
@@ -85,84 +114,57 @@ watch( open, ( isOpen ) => {
 		window.removeEventListener( 'keydown', onKey );
 	}
 } );
-onBeforeUnmount( () => window.removeEventListener( 'keydown', onKey ) );
+
+onMounted( () => window.addEventListener( 'message', onMessage ) );
+onBeforeUnmount( () => {
+	window.removeEventListener( 'message', onMessage );
+	window.removeEventListener( 'keydown', onKey );
+} );
 </script>
 
 <template>
-	<div class="walk-trail" v-if="rows.length">
-		<button class="walk-head" :class="{ open }" @click="open = !open" title="Where you have been, and how you got here">
-			<span class="walk-rabbit">🐇</span>
-			<span class="walk-label">Your rabbithole</span>
-			<span class="walk-count">{{ rows.length }} {{ rows.length === 1 ? 'hop' : 'hops' }}</span>
-			<span class="walk-caret">{{ layout.isBar ? '▴' : '▸' }}</span>
-		</button>
-
-		<Teleport to="body">
-			<div class="walk-shade" v-if="open" @click="open = false" />
-			<aside class="walk-drawer" :class="{ open, bar: layout.isBar }" :style="edge" :inert="!open" aria-label="Your rabbithole">
-				<div class="walk-drawer-head">
-					<strong>🐇 Your rabbithole</strong>
-					<span class="walk-count">{{ rows.length }} {{ rows.length === 1 ? 'hop' : 'hops' }}</span>
-					<button class="walk-close" @click="open = false" aria-label="Close">✕</button>
-				</div>
-				<p class="walk-blurb">Every song that has been on, and who you followed to get there.</p>
-				<ol class="walk-hops">
-					<li v-for="(row, i) in rows" :key="row.cid + i" :class="{ now: row.isNow }">
-						<span class="walk-line" :style="{ background: i === 0 ? 'transparent' : rows[i - 1].color }" />
-						<span class="walk-dot" :style="{ background: row.isNow ? '#0b0b0b' : '#6f6e69' }" />
-						<span class="walk-body">
-							<span class="walk-via" v-if="row.via" :style="{ color: row.color }">via {{ row.via }}<template v-if="row.viaInstrument"> ({{ row.viaInstrument }})</template></span>
-							<span class="walk-via" v-else>where you came in</span>
-							<strong class="walk-song">{{ row.song }}</strong>
-							<span class="walk-now" v-if="row.isNow">▶ listening now</span>
-						</span>
-					</li>
-				</ol>
-				<button class="walk-clear" @click="walk.clear(); open = false">start a new rabbithole</button>
-			</aside>
-		</Teleport>
+	<div class="walk-trail" v-if="walk.hops.length">
+		<!-- In the bar: a tab; the steps wait in the drawer. -->
+		<button class="walk-tab" v-if="layout.isBar" @click="open = !open" title="Your rabbithole: where you have been, and how you got here">🐇</button>
+		<div class="walk-label" v-else>
+			<span>🐇 Your rabbithole</span>
+			<button class="walk-more" @click="open = true">the whole of it ▸</button>
+		</div>
+		<div class="walk-shade" v-if="open" @click="open = false" />
+		<!-- One frame, in the dock and in the drawer alike: it grows, it isn't moved, so it never loads twice. -->
+		<div class="walk-frame" :class="{ open, bar: layout.isBar }" :style="edge" role="region" aria-label="Your rabbithole">
+			<iframe ref="frame" :src="SRC" title="Your rabbithole" @load="say" />
+			<button class="walk-cover" v-if="!open && !layout.isBar" @click="open = true" aria-label="Open your rabbithole" />
+			<button class="walk-close" v-if="open" @click="open = false" aria-label="Close">✕</button>
+		</div>
 	</div>
 </template>
 
 <style>
-/* The one line in the dock. */
+/* In the dock: a label, and the last few steps. */
 .walk-trail { border-top: 1px solid #e3e2de; padding-top: .4em; margin-top: .4em; font-size: 12px; }
-.walk-head { display: flex; gap: .4em; align-items: center; width: 100%; background: none; border: none;
-	font: inherit; font-weight: 600; cursor: pointer; padding: 2px 0; color: inherit; text-align: left; }
-.walk-head:hover .walk-label { text-decoration: underline; }
-.walk-count { font-weight: 400; color: #52514e; }
-.walk-caret { color: #52514e; margin-left: auto; }
+.walk-label { display: flex; align-items: baseline; gap: .4em; font-weight: 600; }
+.walk-more { margin-left: auto; background: none; border: none; font: inherit; font-weight: 400; color: #52514e; cursor: pointer; padding: 2px 0; }
+.walk-more:hover { text-decoration: underline; }
+.walk-frame { position: relative; height: 172px; margin-top: 4px; }
+.walk-frame iframe { display: block; width: 100%; height: 100%; border: 0; background: transparent; }
+.walk-cover { position: absolute; inset: 0; width: 100%; height: 100%; background: none; border: 0; padding: 0; cursor: pointer; }
+.walk-cover:focus-visible { outline: 2px solid #4a7c59; outline-offset: -2px; }
 
-/* In the bar it is a small tab at the right end, not a row. */
+/* In the bar: a small tab at the right end; the frame waits, out of sight, for the drawer. */
 body.bottom-bar .walk-trail { order: 80; border: none; margin: 0; padding: 0 6px; align-self: center; flex: none; }
-body.bottom-bar .walk-head { width: auto; padding: 4px 8px; border: 1px solid #c9d6cc; border-radius: 6px; background: #f3f6f3; }
-body.bottom-bar .walk-label { display: none; }
-body.bottom-bar .walk-caret { margin-left: 0; }
+.walk-tab { padding: 4px 8px; border: 1px solid #c9d6cc; border-radius: 6px; background: #f3f6f3; font: inherit; cursor: pointer; }
+body.bottom-bar .walk-frame:not(.open) { position: fixed; left: -10000px; top: 0; width: 320px; height: 190px; }
 
-/* The drawer, over the page. */
+/* The drawer, over the page: the same frame, grown. */
 .walk-shade { position: fixed; inset: 0; background: rgba(20, 30, 22, .28); z-index: 400; }
-.walk-drawer { position: fixed; top: 0; bottom: 0; left: var(--walk-left, 0px);
-	width: min(440px, calc(100vw - var(--walk-left, 0px)));
-	background: #fcfcfb; color: #1a1a1a; border-right: 2px solid #4a7c59; box-shadow: 6px 0 22px rgba(0,0,0,.22);
-	z-index: 401; display: flex; flex-direction: column; padding: 14px 16px 12px; box-sizing: border-box;
-	font-size: 14px; transform: translateX(calc(-100% - 24px)); transition: transform .25s ease; visibility: hidden; }
-.walk-drawer.open { transform: none; visibility: visible; }
-.walk-drawer.bar { top: auto; bottom: var(--walk-bottom, 0px); left: 0; right: 0; width: auto;
-	height: min(70vh, 540px); border-right: none; border-top: 2px solid #4a7c59; border-radius: 14px 14px 0 0;
-	box-shadow: 0 -6px 22px rgba(0,0,0,.22); transform: translateY(calc(100% + 24px)); }
-.walk-drawer.bar.open { transform: none; }
-.walk-drawer-head { display: flex; align-items: baseline; gap: .5em; font-size: 16px; }
-.walk-close { margin-left: auto; background: none; border: none; font: inherit; font-size: 18px; cursor: pointer; color: #52514e; padding: 0 2px; }
-.walk-blurb { margin: .3em 0 .6em; font-size: 12px; color: #52514e; }
-.walk-hops { list-style: none; margin: 0; padding: 0 0 0 10px; position: relative; overflow-y: auto; flex: 1 1 auto; min-height: 0; }
-.walk-hops li { display: flex; gap: 10px; padding: 5px 0; position: relative; }
-.walk-dot { width: 11px; height: 11px; border-radius: 50%; flex: none; margin-top: 4px; box-shadow: 0 0 0 2px #fcfcfb; }
-.walk-line { position: absolute; left: 14px; top: -11px; width: 3px; height: 26px; border-radius: 2px; }
-.walk-hops li:first-child .walk-line { display: none; }
-.walk-body { display: flex; flex-direction: column; line-height: 1.35; min-width: 0; }
-.walk-via { font-size: 12px; color: #52514e; }
-.walk-song { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.walk-now { font-size: 12px; font-weight: 700; color: #1b7a3d; }
-.walk-clear { align-self: flex-start; background: none; border: none; font: inherit; font-size: 12px; color: #52514e;
-	cursor: pointer; padding: .6em 0 0; text-decoration: underline; }
+.walk-frame.open { position: fixed; top: 0; bottom: 0; left: var(--walk-left, 0px); height: auto; margin: 0;
+	width: min(920px, calc(100vw - var(--walk-left, 0px) - 24px)); background: #fcfcfb;
+	border-right: 2px solid #4a7c59; box-shadow: 6px 0 22px rgba(0,0,0,.22); z-index: 401; }
+.walk-frame.open.bar { top: auto; bottom: var(--walk-bottom, 0px); left: 0; right: 0; width: auto;
+	height: min(640px, calc(100vh - var(--walk-bottom, 0px) - 16px)); border-right: none; border-top: 2px solid #4a7c59; border-radius: 14px 14px 0 0;
+	box-shadow: 0 -6px 22px rgba(0,0,0,.22); overflow: hidden; }
+.walk-close { position: absolute; top: 8px; right: 10px; width: 32px; height: 32px; border-radius: 16px;
+	border: 1px solid #c3c2b7; background: #fcfcfb; font: 16px system-ui, sans-serif; color: #52514e; cursor: pointer; z-index: 2; }
+.walk-close:hover { background: #f0efec; color: #0b0b0b; }
 </style>
