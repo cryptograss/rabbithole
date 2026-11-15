@@ -70,7 +70,7 @@ const rows = computed( () => walk.hops.map( ( hop, i ) => ( {
  * rather than from the classes on .layout.
  */
 const edge = computed( () => ( layout.isBar
-	? { '--walk-left': '0px', '--walk-bottom': 'calc(var(--rh-dock-height) + var(--rh-strip-extra, 0px))' }
+	? { '--walk-left': '0px', '--walk-bottom': 'var(--rh-dock)' }
 	: { '--walk-left': layout.minimized ? '56px' : 'var(--rh-side-width)', '--walk-bottom': '0px' } ) );
 
 function onKey( e ) {

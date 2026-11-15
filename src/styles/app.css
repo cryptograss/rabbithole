@@ -891,10 +891,18 @@ body.bottom-bar .editor-pencil {
    slide is what says the song is moving forward (Justin, 13 Nov 2026,
    3b). Rows and the slide are set by SongParts.vue, which measures them
    rather than counting: auto-fill decides how many blocks go in a row. */
-.parts-chart {
+/* A block's size lives on the body, not on the chart: the dock's
+   height is a sum of these, so a layout that wants bigger blocks has
+   to be able to say so somewhere the dock can read it. Declared on
+   the chart itself they would beat what it inherits, and the bar's
+   own sizes never reached it. */
+body {
     --parts-row: 20px;
     --parts-gap: 4px;
     --parts-block: 26px;
+}
+
+.parts-chart {
     --parts-rows: 1;
     --parts-columns: 1;
     --parts-offset: 0px;
@@ -1086,7 +1094,25 @@ body.bottom-bar .layout.minimized.with-editor {
    the small-screen layout made the dock taller, and the article
    would either be cut off or leave a gap under the bar. */
 body.bottom-bar {
-    --rh-dock-height: 152px;
+    --parts-row: 24px;
+    --parts-gap: 3px;
+    --parts-block: 30px;
+    /* The strip is as tall as the rows it is showing: one, or two when
+       the chart needs two. This sum is the only place that height is
+       written. A number spelled out somewhere else is how the second
+       row came to be clipped on a phone (Skyler, 14 Nov 2026): the
+       narrow-screen rules pinned the chart at one row's 28px while the
+       component had already laid out two. */
+    --rh-strip-rows: 1;
+    --rh-strip-air: 10px;
+    --rh-strip: calc(
+        var(--rh-strip-rows) * var(--parts-row)
+        + (var(--rh-strip-rows) - 1) * var(--parts-gap)
+        + var(--rh-strip-air)
+    );
+    /* What stands above the strip: a 2px top border and the 116px skin. */
+    --rh-dock-body: 118px;
+    --rh-dock: calc(var(--rh-dock-body) + var(--rh-strip));
 }
 
 body.bottom-bar #rabbithole-sidebar {
@@ -1095,17 +1121,17 @@ body.bottom-bar #rabbithole-sidebar {
     left: 0;
     right: 0;
     max-width: 100vw;
-    /* 152, not 140. The webamp skin is a fixed 116px and the bar has
-       a 2px top border, so with a 34px strip the player's bottom edge
-       lands exactly on the strip's top edge: 2 + 116 + 34 = 152. At
-       140 it overlapped the strip by twelve pixels and the strip's
-       background painted over the bottom of the player. */
-    height: calc(var(--rh-dock-height) + var(--rh-strip-extra, 0px));
+    /* 118 above the strip, not 106. The webamp skin is a fixed 116px
+       and the bar has a 2px top border, so the player's bottom edge
+       lands exactly on the strip's top edge. Twelve pixels short of
+       that and the strip's background painted over the bottom of the
+       player. */
+    height: var(--rh-dock);
     /* Room for the song-parts strip, which is absolutely positioned
        against this box. box-sizing is border-box globally, so the bar
-       stays 152px tall and the main row gets 116px of it — exactly
-       the height of the webamp skin. */
-    padding-bottom: 34px;
+       main row gets --rh-dock-body of the bar — exactly the height of
+       the webamp skin — whether the strip is one row or two. */
+    padding-bottom: var(--rh-strip);
     border-right: none;
     border-top: 2px solid #4a7c59;
     box-shadow: 0 -2px 10px rgba(0,0,0,0.15);
@@ -1124,11 +1150,11 @@ body.bottom-bar .layout.with-editor #rabbithole-sidebar {
 }
 
 body.bottom-bar .pickipedia-frame {
-    height: calc(100vh - calc(var(--rh-dock-height) + var(--rh-strip-extra, 0px)));
+    height: calc(100vh - var(--rh-dock));
 }
 
 body.bottom-bar .editor-panel {
-    height: calc(100vh - calc(var(--rh-dock-height) + var(--rh-strip-extra, 0px)));
+    height: calc(100vh - var(--rh-dock));
 }
 
 /* Pull .player-container's children up to be direct flex items of
@@ -1432,7 +1458,7 @@ body.bottom-bar .data-section {
     right: 0;
     bottom: 0;
     width: auto;
-    height: 34px;
+    height: var(--rh-strip);
     display: flex;
     align-items: center;
     gap: 8px;
@@ -1454,9 +1480,6 @@ body.bottom-bar .section-label {
    no durations attached — that is a change in the player module, not
    in this stylesheet. */
 body.bottom-bar .parts-chart {
-    --parts-row: 24px;
-    --parts-gap: 3px;
-    --parts-block: 30px;
     flex: 1 1 auto;
     padding: 0;
     min-width: 0;
@@ -1494,18 +1517,11 @@ body.bottom-bar .parts-chart .part-box.active {
     color: #fff;
 }
 
-/* The bar grows by a row to hold it: 24 more pixels on the dock,
-   the strip, and the padding that keeps the player clear of it. */
+/* Two rows when the chart lays out two: the one number the bar, the
+   padding that keeps the player clear of the strip, and the article
+   beside it all grow by. */
 body.bottom-bar:has(.parts-chart.two-rows) {
-    --rh-strip-extra: 24px;
-}
-
-body.bottom-bar:has(.parts-chart.two-rows) #rabbithole-sidebar {
-    padding-bottom: 58px;
-}
-
-body.bottom-bar .data-section:has(.parts-chart.two-rows) {
-    height: 58px;
+    --rh-strip-rows: 2;
 }
 /* === The bar on a narrow screen ===
 
@@ -1559,7 +1575,7 @@ body.bottom-bar .data-section:has(.parts-chart.two-rows) {
    row cannot fit, not only on a phone held upright. */
 @media ( max-width: 1100px ) {
     body.bottom-bar {
-        --rh-dock-height: 226px;
+        --rh-dock-body: 194px;
     }
 
     body.bottom-bar #rabbithole-sidebar {
@@ -1608,7 +1624,7 @@ body.bottom-bar .data-section:has(.parts-chart.two-rows) {
         text-size-adjust: 100%;
         align-items: start;
         overflow-x: hidden;
-        padding-bottom: 32px;
+        padding-bottom: var(--rh-strip);
         gap: 0;
     }
 
@@ -1868,20 +1884,20 @@ body.bottom-bar .data-section:has(.parts-chart.two-rows) {
         display: none;
     }
 
+    /* Blockier rows and tighter air than the wide bar. The strip's
+       height follows from these two numbers, at one row or at two. */
+    body.bottom-bar {
+        --parts-row: 28px;
+        --parts-gap: 2px;
+        --rh-strip-air: 4px;
+    }
+
     body.bottom-bar .data-section {
-        height: 32px;
         padding: 0 4px;
         gap: 0;
     }
 
-    body.bottom-bar .parts-chart {
-        height: 28px;
-        gap: 2px;
-    }
-
     body.bottom-bar .parts-chart .part-box {
-        height: 28px;
-        line-height: 27px;
         font-size: 9px;
         letter-spacing: 0;
     }
@@ -1903,7 +1919,7 @@ body.bottom-bar .data-section:has(.parts-chart.two-rows) {
    apply. */
 @media ( max-height: 520px ) and ( max-width: 1100px ) {
     body.bottom-bar {
-        --rh-dock-height: 182px;
+        --rh-dock-body: 150px;
     }
 
     body.bottom-bar #rabbithole-sidebar {
