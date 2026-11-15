@@ -92,6 +92,12 @@ is what the Listen and Play buttons on the wiki send, and it starts playing;
 an address that names a page opens quiet. `?layout=bar|sidebar|auto` picks a layout for one visit;
 `?enc=flac|ogg` forces an encoding; `?webaudio=off|on` forces the iOS bypass.
 
+`?soundcheck`, on a development address only, lays a fifty-second chart over
+whatever song is loaded, with one of every light the ensemble has: the band
+coming in, a break and the break handed on, a pickup, a flourish, a verse, a
+band flash, the spotlight, two dropping out and one coming back
+(`src/soundcheck.js`). The song plays as it always does; press play and watch.
+
 ## Testing
 
 `npm test` runs vitest: the chart's functions, the stores and the components,

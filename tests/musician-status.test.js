@@ -105,6 +105,23 @@ describe('unmatchedNames', () => {
         const found = unmatchedNames({ 0: { solo: 'Luna' } }, ['Kyle']);
         expect(found[0].suggestion).toBeNull();
     });
+
+    it('flags who an effect is for, since the player draws nothing for a name with no card', () => {
+        const tl = {
+            20: { flourish: ['Kyle', 'harry clark'] },
+            71: { spotlight: 'Kaitlyn' },
+            90: { feature: { 'kyle': 'rhythm' } },
+        };
+        const found = unmatchedNames(tl, ['Harry Clark', 'Kyle', 'Kaitlyn Raitz']);
+        expect(found.map(f => f.name).sort()).toEqual(['Kaitlyn', 'harry clark', 'kyle']);
+        expect(found.find(f => f.name === 'harry clark').where).toEqual(['20 flourish']);
+        expect(found.find(f => f.name === 'Kaitlyn').where).toEqual(['71 spotlight']);
+        expect(found.find(f => f.name === 'kyle')).toMatchObject({ suggestion: 'Kyle', where: ['90 feature'] });
+    });
+
+    it('does not take a band flash for a name', () => {
+        expect(unmatchedNames({ 47: { bandFlash: true, flourish: false } }, ['Kyle'])).toEqual([]);
+    });
 });
 
 describe('renameMusician', () => {
@@ -121,6 +138,19 @@ describe('renameMusician', () => {
         expect(r.timeline[167].pickup).toBe('Harry Clark');
         expect(r.ensemble).toEqual({ 'Harry Clark': ['mandolin'] });
         expect(JSON.stringify(r.timeline)).not.toContain('harry clark');
+    });
+
+    it('fixes the effects that are for them too', () => {
+        const tl = {
+            20: { flourish: 'harry clark' },
+            30: { flourish: ['Kyle', 'harry clark'] },
+            71: { spotlight: 'harry clark', feature: { 'harry clark': 'rhythm' } },
+        };
+        const r = renameMusician(tl, { 'harry clark': ['mandolin'] }, 'harry clark', 'Harry Clark');
+        expect(r.timeline[20].flourish).toBe('Harry Clark');
+        expect(r.timeline[30].flourish).toEqual(['Kyle', 'Harry Clark']);
+        expect(r.timeline[71]).toEqual({ spotlight: 'Harry Clark', feature: { 'Harry Clark': 'rhythm' } });
+        expect(unmatchedNames(r.timeline, Object.keys(r.ensemble).concat('Kyle'))).toEqual([]);
     });
 
     it('merges into somebody who already exists rather than doubling them', () => {

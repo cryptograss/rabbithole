@@ -31,7 +31,7 @@ export const usePlayerStore = defineStore( 'player', () => {
 	const duration = computed( () => ( state.value ? state.value.duration : 0 ) );
 	const upNext = computed( () => ( state.value ? state.value.upNext : [] ) );
 	const currentSolo = computed( () => ( state.value ? state.value.currentSolo : null ) );
-	const effects = computed( () => ( state.value ? state.value.effects : [] ) );
+	const effects = computed( () => ( model.value ? model.value.effects.value : [] ) );
 	const ready = computed( () => !! ( state.value && state.value.ready ) );
 	const error = computed( () => ( state.value ? state.value.error : null ) );
 

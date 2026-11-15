@@ -15,6 +15,7 @@ import { INITIAL_PARAMS } from '../initial-params.js';
 import { runningOrderFrom } from '../record-order.js';
 import * as wiki from '../wiki/api.js';
 import { DEFAULT_TRACK, defaultColorScheme } from '../wiki/demo-songs.js';
+import { soundcheck } from '../soundcheck.js';
 import { usePlayerStore } from './player.js';
 import { useWalkStore } from './walk.js';
 
@@ -120,6 +121,11 @@ export const useSongStore = defineStore( 'song', () => {
 				console.error( 'Could not resolve the default track either:', inner );
 			}
 		} finally {
+			// ?soundcheck, where the app is being developed: every effect
+			// in fifty seconds, laid over this song (soundcheck.js).
+			if ( import.meta.env.DEV && INITIAL_PARAMS.has( 'soundcheck' ) && initial.value ) {
+				soundcheck( initial.value );
+			}
 			loading.value = false;
 		}
 	}

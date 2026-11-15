@@ -12,8 +12,14 @@
  * Webamp's current track because the store says which track that is; a
  * song loaded without a play request is paused the first time Webamp
  * reports it playing; pausing freezes the cards because nothing renders
- * from "status changed". Effects (a flourish, a spotlight) are the one
- * place a duration is still a duration.
+ * from "status changed". Effects (a flourish, a spotlight) were the last
+ * place a duration was a timer; they are spans of the song now, in force
+ * while the playhead is inside them (timeline.js effectsAt), so they
+ * follow a seek and hold through a pause like everything else here.
+ *
+ * One timer is left, and it is an alarm clock rather than a stopwatch:
+ * while the song plays, the model wakes at the chart's next marker to
+ * read the time there (_wakeAtNextMarker).
  *
  * The editor (src/editor/TimelineEditor.js) reads this through the names
  * it always has: trackData, webamp, getDuration, isPlaying,
@@ -39,28 +45,6 @@ export function sameRecording( a, b ) {
 	return a.audioFile === b.audioFile;
 }
 
-// How long any one highlight may hold, in seconds. The timelines ask for
-// more in places (Paint Exchange: 8.5s of spotlight, 7s of flourish) and at
-// that length an effect stops reading as emphasis and starts reading as a
-// bug.
-export const SPOTLIGHT_MAX_SECONDS = 4;
-
-/**
- * A glow lasts whole pulses, so it always ends dark. Asked for 2s at a 1.5s
- * pulse, it used to glow once and then get cut off a third of the way into
- * the next: lit, then half-lit, then gone (Skyler, Paint Exchange, 13 Nov
- * 2026). The nearest whole number of pulses to what was asked, no more than
- * the cap allows, and never fewer than one.
- *
- * @returns {{cycles: number, seconds: number}}
- */
-export function wholePulses( asked, pulse, max = SPOTLIGHT_MAX_SECONDS ) {
-	const cycles = Math.max( 1, Math.min( Math.round( asked / pulse ), Math.floor( max / pulse ) ) );
-	return { cycles, seconds: cycles * pulse };
-}
-
-let effectIds = 0;
-
 export class WebampPlayer {
 	/**
 	 * @param {Object} song The track to show first.
@@ -78,8 +62,6 @@ export class WebampPlayer {
 			song: null,
 			upNext: [],
 			currentSolo: null,
-			recentSoloists: [],
-			effects: [],
 			ready: false,
 			error: null,
 		} );
@@ -90,16 +72,14 @@ export class WebampPlayer {
 		this.partTimes = computed( () => timeline.songPartTimes( this.processed.value ) );
 		this.partIndex = computed( () => timeline.currentPartIndex( this.processed.value, s.time ) );
 		this.arrangement = computed( () => timeline.currentArrangement( this.processed.value, s.time ) );
-		this.cards = computed( () => timeline.cards( s.song, this.processed.value, s.time, {
-			currentSolo: s.currentSolo, recentSoloists: s.recentSoloists,
-		} ) );
+		this.cards = computed( () => timeline.cards( s.song, this.processed.value, s.time ) );
+		this.effects = computed( () => timeline.effectsAt( s.song, this.processed.value, s.time ) );
 
 		this._timeUpdateCallback = null;
 		this._lastArrangement = undefined;
-		this._upcomingMoments = [];
 		this._pauseOnNextPlay = false;
-		this._effectTimers = new Set();
 		this._unsubscribe = null;
+		this._wake = null;
 
 		this.showSong( song );
 	}
@@ -202,10 +182,11 @@ export class WebampPlayer {
 
 		this._followTrack( wa );
 
-		const t = wa.media.timeElapsed || 0;
+		const t = this._now( wa );
 		if ( t !== this.state.time || this._lastArrangement === undefined ) {
 			this._tick( t );
 		}
+		this._wakeAtNextMarker();
 
 		this.state.duration = this._durationFrom( wa );
 
@@ -215,38 +196,63 @@ export class WebampPlayer {
 		}
 	}
 
-	/** The playhead moved: the chart's one input, and what the effects key off. */
+	/**
+	 * Where the playhead is, in seconds.
+	 *
+	 * The audio's own clock, which is right whenever it is asked. Webamp's
+	 * store only hears the time when the browser reports it, about four
+	 * times a second, so a time read from the store is up to a quarter of
+	 * a second old. Without a media object to ask (a stand-in for Webamp,
+	 * in the tests), the store's is what there is.
+	 */
+	_now( wa ) {
+		const media = this.webamp && this.webamp.media;
+		const asked = media && typeof media.timeElapsed === 'function' ? media.timeElapsed() : NaN;
+		return isFinite( asked ) ? asked : ( wa.media.timeElapsed || 0 );
+	}
+
+	/**
+	 * While the song plays, wake when the playhead reaches the chart's
+	 * next marker, and read the time there.
+	 *
+	 * The cards and the effects are right about any time they are given;
+	 * what they were given was the time as of the browser's last report,
+	 * which comes about four times a second whatever the music is doing.
+	 * So a break lit its card, and a band flash landed, anywhere up to a
+	 * quarter of a second after the note -- a different amount each time,
+	 * which is what "wonky" is (Justin, #visual-effects, 15 Nov 2026). The
+	 * chart says when its next marker is, so the model is awake for it.
+	 *
+	 * Waking early is harmless (the time read is before the marker,
+	 * nothing changes, and this is set again for what is left), and so is
+	 * a song that has stalled: the clock is asked, never assumed.
+	 */
+	_wakeAtNextMarker() {
+		clearTimeout( this._wake );
+		this._wake = null;
+		if ( this.state.status !== 'PLAYING' ) {
+			return;
+		}
+		const next = timeline.nextMarker( this.processed.value, this.state.time );
+		if ( next === null ) {
+			return;
+		}
+		this._wake = setTimeout( () => {
+			this._wake = null;
+			this._onStoreChange();
+		}, Math.max( 0, next - this.state.time ) * 1000 + 4 );
+	}
+
+	/** The playhead moved: the chart's one input. */
 	_tick( time ) {
 		this.state.time = time;
 		const arrangement = this.arrangement.value;
-		const solos = timeline.soloistsOf( arrangement );
-		const solo = solos[ 0 ] || null;
-
-		if ( solo !== this.state.currentSolo ) {
-			// Everyone who was taking it and is not now is recent, the
-			// first of them most recent.
-			( this._lastSolos || [] ).filter( ( n ) => ! solos.includes( n ) ).reverse()
-				.forEach( ( n ) => this._addRecentSoloist( n ) );
-			this.state.currentSolo = solo;
-		}
-		this._lastSolos = solos;
-
-		if ( arrangement !== this._lastArrangement ) {
-			this._lastArrangement = arrangement;
-			this._effectsFor( arrangement );
-		}
-
-		this._checkMoments( time );
+		this.state.currentSolo = timeline.soloistOf( arrangement );
+		this._lastArrangement = arrangement;
 
 		if ( this._timeUpdateCallback ) {
 			this._timeUpdateCallback( time, arrangement );
 		}
-	}
-
-	_addRecentSoloist( name ) {
-		const list = this.state.recentSoloists.filter( ( n ) => n !== name );
-		list.unshift( name );
-		this.state.recentSoloists = list.slice( 0, 3 );
 	}
 
 	/** The track Webamp wants, as Webamp's own playlist wants it. */
@@ -307,10 +313,7 @@ export class WebampPlayer {
 		this.songsByUrl.set( raw.audioFile, raw );
 		this.state.song = raw;
 		this.state.currentSolo = null;
-		this.state.recentSoloists = [];
-		this.state.effects = [];
 		this._lastArrangement = undefined;
-		this._upcomingMoments = timeline.momentTimes( raw.timeline );
 		if ( this.webamp ) {
 			this._onStoreChange();
 		}
@@ -497,8 +500,7 @@ export class WebampPlayer {
 
 	/**
 	 * Hot-swap the timeline without reloading the audio: the editor's
-	 * instant preview. Moments already passed do not fire again; effects
-	 * are not fired for an edit.
+	 * instant preview.
 	 *
 	 * The player keeps its own copy of the chart. The editor hands over
 	 * the same object every time -- its working timeline, edited in place
@@ -513,7 +515,6 @@ export class WebampPlayer {
 		}
 		this.state.song.timeline = { ...newTimeline };
 		const time = this.state.time;
-		this._upcomingMoments = timeline.momentTimes( newTimeline ).filter( ( t ) => t > time );
 		this._lastArrangement = this.arrangement.value;
 		this.state.currentSolo = timeline.soloistOf( this._lastArrangement );
 		if ( this._timeUpdateCallback ) {
@@ -524,121 +525,13 @@ export class WebampPlayer {
 	/** Kept for the editor; the cards already follow the data. */
 	updateEnsembleDisplay() {}
 
-	/* ------------------------------------------------------------------ */
-	/* Effects: the one place a duration is a duration                      */
-	/* ------------------------------------------------------------------ */
-
-	_addEffect( effect, seconds ) {
-		const same = this.state.effects.find( ( e ) => e.kind === effect.kind && e.target === effect.target );
-		if ( same ) {
-			return;
-		}
-		const record = { id: ++effectIds, ...effect, seconds };
-		this.state.effects = [ ...this.state.effects, record ];
-		const timer = setTimeout( () => {
-			this._effectTimers.delete( timer );
-			this.state.effects = this.state.effects.filter( ( e ) => e.id !== record.id );
-		}, seconds * 1000 );
-		this._effectTimers.add( timer );
-	}
-
-	/** What a new arrangement asks for: a flourish, a spotlight, a band flash. */
-	_effectsFor( arrangement ) {
-		if ( ! arrangement ) {
-			return;
-		}
-		if ( arrangement.flourish ) {
-			const pulse = arrangement.flourishPulseSpeed || 1.2;
-			const { cycles, seconds } = wholePulses( arrangement.flourishDuration || 1.5, pulse );
-			this._addEffect( {
-				kind: 'flourish',
-				target: arrangement.flourish,
-				color: arrangement.flourishColor || 'coral',
-				intensity: ( arrangement.flourishIntensity || 0.7 ) * 0.6,
-				pulse,
-				cycles,
-			}, seconds );
-		}
-		if ( arrangement.spotlight ) {
-			// The player pane goes black for the length of it and the one
-			// card stays lit (Justin, item 22, 15 Nov 2026: "black out
-			// everything in the player pane except that person and their
-			// glow"). The page beside it and the timeline column are
-			// untouched, and the cap keeps it to 3s: judicious, which is
-			// the condition he put on it. Skyler's subtler version --
-			// others at 0.55, nothing blacked out -- is what the fx-dim
-			// class still does on its own, outside a spotlit pane.
-			const asked = ( arrangement.spotlightBlackout || 3 ) + ( arrangement.spotlightGlow || 2 );
-			const pulse = 1.5;
-			const { cycles, seconds } = wholePulses( asked, pulse );
-			this._addEffect( {
-				kind: 'spotlight',
-				target: arrangement.spotlight,
-				color: arrangement.spotlightColor || 'coral',
-				intensity: 0.9,
-				pulse,
-				cycles,
-			}, seconds );
-		}
-		if ( arrangement.bandFlash ) {
-			// Never capped (it never was), but whole pulses like the rest.
-			const pulse = arrangement.bandFlashPulseSpeed || 0.6;
-			const { cycles, seconds } = wholePulses( arrangement.bandFlashDuration || 0.8, pulse, Infinity );
-			this._addEffect( {
-				kind: 'bandFlash',
-				target: null,
-				color: arrangement.bandFlashColor || 'coral',
-				intensity: arrangement.bandFlashIntensity || 0.5,
-				pulse,
-				cycles,
-			}, seconds );
-		}
-	}
-
-	/** Moments: somebody comes in or drops out, and their card flashes once. */
-	_checkMoments( time ) {
-		const keep = [];
-		for ( const momentTime of this._upcomingMoments ) {
-			const since = time - momentTime;
-			if ( since < 0 ) {
-				keep.push( momentTime );
-			} else if ( since <= 1 ) {
-				this._triggerMoment( momentTime );
-			}
-			// Older than a second: missed, and not worth flashing late.
-		}
-		this._upcomingMoments = keep;
-	}
-
-	_triggerMoment( momentTime ) {
-		const arrangement = this.state.song && this.state.song.timeline[ momentTime ];
-		if ( ! arrangement ) {
-			return;
-		}
-		const musicians = arrangement.musicians;
-		if ( musicians ) {
-			if ( musicians.band === 'in' || musicians.band === 'out' ) {
-				this._addEffect( { kind: 'flash', target: null }, 0.3 );
-			} else {
-				Object.entries( musicians ).forEach( ( [ name, status ] ) => {
-					if ( status === 'in' || status === 'out' ) {
-						this._addEffect( { kind: 'flash', target: name }, 0.3 );
-					}
-				} );
-			}
-		}
-		if ( arrangement.detail === 'band-in' ) {
-			this._addEffect( { kind: 'flash', target: null }, 0.3 );
-		}
-	}
-
 	destroy() {
 		if ( this._unsubscribe ) {
 			this._unsubscribe();
 			this._unsubscribe = null;
 		}
-		this._effectTimers.forEach( ( t ) => clearTimeout( t ) );
-		this._effectTimers.clear();
+		clearTimeout( this._wake );
+		this._wake = null;
 		this._timeUpdateCallback = null;
 	}
 }

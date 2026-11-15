@@ -1,0 +1,900 @@
+/*
+ * The ensemble: what a card looks like, and how its light moves.
+ *
+ * Started over on 15 November 2026 (Justin, #visual-effects: "wonky and
+ * rigid - like they're from another era... nuke them and start from
+ * square one"). What it replaced was a stack of five box-shadows per card,
+ * pulsed by keyframes on a timer: drawn outside the card, so the cards
+ * either side covered it and the pane's edge cut it off; the same shape
+ * going up as coming down; and gone at the end with nothing to carry it
+ * out.
+ *
+ * What is here instead, in the order it matters:
+ *
+ *  1. The card is the screen. A card's light is drawn on the card -- the
+ *     colour that fills it, the light that washes across it -- where no
+ *     neighbour can cover it and no edge can cut it. What spills outside
+ *     (a glow, a ring) is extra, and a lit card stands above the others
+ *     so that spills over them, not under.
+ *
+ *  2. The light moves; the pickers do not. A break fills the card where
+ *     it stands. Only a singer changes places (player/timeline.js).
+ *
+ *  3. Everything is a state with a way in and a way out, and the two are
+ *     not alike: light arrives quickly and leaves slowly, the way a note
+ *     does. Because they are states and not films, anything can be
+ *     interrupted -- a seek, a pause, the next solo -- and carries on from
+ *     where it is.
+ *
+ *  4. What travels, grows or keeps time is transform and opacity, which
+ *     the compositor moves by itself: no keyframe here touches a shadow
+ *     or the size of a box, so a glow that breathes for seven seconds
+ *     asks nothing of the page beside it. The few things that repaint do
+ *     it once and briefly: a ring's outline leaving a card, one colour
+ *     turning into another, the star making room for itself, the glow
+ *     coming up on the card under the spotlight.
+ *
+ *  5. Things that move, move like things: the easings are springs
+ *     (CSS linear(), sampled from a damped spring), not a curve.
+ *
+ * The player says which states a card is in (components/MusicianCard.vue
+ * puts a class on it for each); this file is all that they look like.
+ */
+
+/* The colour of a card's fill, as something that can change smoothly:
+   a pickup's blue turns into a break's green when the break arrives. */
+@property --mc-fill {
+	syntax: '<color>';
+	inherits: true;
+	initial-value: transparent;
+}
+
+:root {
+	/* Paper and ink. */
+	--mc-paper: #fff;
+	--mc-line: #d4d8d2;
+	--mc-ink: var(--rh-green-deep);
+	--mc-soft: #888;
+
+	/* A break: the card filled with the green the current part wears in
+	   the strip below, with the name in white on it. One colour for
+	   "this is what is happening now", wherever it is said. */
+	--mc-lead: var(--rh-green);
+	--mc-lead-ink: #fff;
+	--mc-lead-soft: rgb(255 255 255 / 0.82);
+
+	/* A pickup is blue (Justin's item 21, 15 Nov 2026). */
+	--mc-pickup: #4169e1;
+	/* Somebody coming in. */
+	--mc-enter: #e3b341;
+
+	/*
+	 * Springs, as easings. A damped spring's path from rest to rest,
+	 * sampled (damping 0.78: it passes its mark by a fiftieth and
+	 * settles; damping 0.52: by a seventh, for small things that should
+	 * land with a bounce).
+	 */
+	--spring: linear(0, 0.041 4.2%, 0.139 8.3%, 0.264 12.5%, 0.397 16.7%, 0.525 20.8%, 0.64 25%, 0.738 29.2%, 0.818 33.3%, 0.881 37.5%, 0.929 41.7%, 0.964 45.8%, 0.988 50%, 1.004 54.2%, 1.014 58.3%, 1.018 62.5%, 1.02 66.7%, 1.019 70.8%, 1.018 75%, 1.015 79.2%, 1.012 83.3%, 1.01 87.5%, 1.008 91.7%, 1.006 95.8%, 1);
+	--spring-pop: linear(0, 0.055 3.3%, 0.191 6.7%, 0.369 10%, 0.558 13.3%, 0.734 16.7%, 0.884 20%, 1 23.3%, 1.08 26.7%, 1.127 30%, 1.146 33.3%, 1.145 36.7%, 1.128 40%, 1.104 43.3%, 1.076 46.7%, 1.049 50%, 1.025 53.3%, 1.006 56.7%, 0.992 60%, 0.983 63.3%, 0.979 66.7%, 0.978 70%, 0.98 73.3%, 0.983 76.7%, 0.987 80%, 0.991 83.3%, 0.995 86.7%, 0.998 90%, 1 93.3%, 1.002 96.7%, 1);
+	/* Quick to arrive, slow to settle: how light comes on. */
+	--ease-arrive: cubic-bezier(0.16, 0.84, 0.3, 1);
+	/* A stroke: off at a pace you can follow, and easing to a stop. */
+	--ease-stroke: cubic-bezier(0.3, 0.55, 0.25, 1);
+	/* The same on both sides: how a dimmer moves. */
+	--ease-dimmer: cubic-bezier(0.45, 0, 0.25, 1);
+
+	/* How much a card grows for a moment when it is lit. Nothing in the
+	   sidebar, where a card is as wide as the pane and has nowhere to
+	   grow into; the bar says more, below. */
+	--mc-pop: 1;
+}
+
+body.bottom-bar {
+	--mc-pop: 1.045;
+}
+
+/* === The card === */
+
+.musician-card {
+	position: relative;
+	/* Its own layer, so its light sits under its words and over nothing
+	   else's. */
+	isolation: isolate;
+	padding: 2px 10px;
+	/* The face draws the line; this keeps the box the size it has always
+	   been, so no layout that measured a card has to measure again. */
+	border: 1px solid transparent;
+	border-radius: 5px;
+	cursor: pointer;
+	/* What its light is made of, until an effect says otherwise. */
+	--fx-color: var(--mc-lead);
+	--fx-level: 0.7;
+	--fx-pulse: 1.2s;
+	transition: opacity 600ms var(--ease-arrive);
+}
+
+/* A lit card stands in front of the ones beside it, so its glow falls
+   on them and not behind them. */
+.musician-card.is-lit {
+	z-index: 2;
+}
+
+.musician-name {
+	font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+	font-weight: 600;
+	color: var(--mc-ink);
+	font-size: 14px;
+	line-height: 1.2;
+	letter-spacing: -0.01em;
+	transition: color 240ms ease, opacity 200ms ease;
+}
+
+/* An instrument stays whole on its card (Justin, 7 Nov 2026). */
+.musician-instrument {
+	font-size: 11px;
+	color: var(--mc-soft);
+	white-space: nowrap;
+	transition: color 240ms ease;
+}
+
+/* Mock provenance line: hidden until real ownership data lives there. */
+.chartifact-line {
+	display: none;
+}
+
+/* --- The face: the card's own surface, and the line round it --- */
+.mc-plate {
+	position: absolute;
+	inset: -1px;
+	z-index: -2;
+	border: 1px solid var(--mc-line);
+	border-radius: inherit;
+	background: var(--mc-paper);
+	overflow: clip;
+	transition: border-color 240ms ease, background-color 240ms ease;
+}
+
+.musician-card:hover .mc-plate {
+	border-color: var(--rh-green);
+	background: color-mix(in srgb, var(--rh-green) 5%, var(--mc-paper));
+}
+
+/* --- The fill: the solid colour of a break ---
+
+   A band of colour wider than the card, with a soft front edge, waiting
+   off the card's left side. It slides across to fill; the soft edge
+   arrives first, so the colour comes in the way a brush stroke does and
+   not the way a progress bar does. Going, it does not slide back: the
+   colour fades where it is. */
+.mc-fill {
+	position: absolute;
+	top: 0;
+	bottom: 0;
+	left: -30%;
+	width: 160%;
+	--mc-fill: var(--mc-lead);
+	/* Solid as far as the card's right edge, then gone over the 30% of
+	   a card that hangs off it. */
+	background: linear-gradient(90deg, var(--mc-fill) 0 81.25%, transparent);
+	transform: translateX(-100%);
+	opacity: 0;
+	transition: opacity 650ms var(--ease-arrive), transform 0s linear 650ms, --mc-fill 220ms ease;
+}
+
+.musician-card.lead .mc-fill {
+	transform: none;
+	opacity: 1;
+	transition: transform 520ms var(--ease-stroke), opacity 90ms linear, --mc-fill 220ms ease;
+}
+
+.musician-card.lead .musician-name {
+	color: var(--mc-lead-ink);
+}
+
+.musician-card.lead .musician-instrument {
+	color: var(--mc-lead-soft);
+}
+
+.musician-card.lead .mc-plate {
+	border-color: var(--mc-lead);
+}
+
+/* --- The glow: what spills outside the card --- */
+.mc-halo {
+	position: absolute;
+	inset: -1px;
+	z-index: -3;
+	border-radius: inherit;
+	opacity: 0;
+	pointer-events: none;
+	transition: opacity 1300ms var(--ease-arrive);
+}
+
+.mc-halo::before {
+	content: '';
+	position: absolute;
+	inset: -3px -4px;
+	border-radius: 8px;
+	background: var(--fx-color);
+	filter: blur(5px);
+}
+
+/* --- The wash: an effect's colour over the card's face --- */
+.mc-wash {
+	position: absolute;
+	inset: 0;
+	opacity: 0;
+	transition: opacity 900ms var(--ease-arrive);
+}
+
+.mc-wash::before {
+	content: '';
+	position: absolute;
+	inset: 0;
+	background: var(--fx-color);
+}
+
+/* --- The sheen: one stroke of light across the face, when something
+       starts --- */
+.mc-sheen {
+	position: absolute;
+	inset: 0;
+	background: linear-gradient(105deg, transparent 30%, rgb(255 255 255 / 0.6) 50%, transparent 70%);
+	transform: translateX(-105%);
+	opacity: 0;
+}
+
+@keyframes mc-sheen {
+	from { transform: translateX(-105%); opacity: 1; }
+	to { transform: translateX(105%); opacity: 1; }
+}
+
+/* --- The ring: a line that leaves the card and fades --- */
+.mc-ring {
+	position: absolute;
+	inset: -1px;
+	z-index: -1;
+	border-radius: inherit;
+	outline: 2px solid transparent;
+	outline-offset: -2px;
+	pointer-events: none;
+}
+
+@keyframes mc-ping {
+	from { outline-color: var(--ping); outline-offset: -2px; }
+	to { outline-color: transparent; outline-offset: 9px; }
+}
+
+@keyframes mc-pop {
+	0% { scale: 1; }
+	32% { scale: var(--mc-pop); }
+	100% { scale: 1; }
+}
+
+/* A light that breathes while it holds. */
+@keyframes mc-breathe {
+	50% { opacity: 0.55; }
+}
+
+@keyframes mc-swell {
+	50% { scale: 1.04 1.14; opacity: 0.74; }
+}
+
+/* === A break ===
+
+   The colour fills the card where it stands, the star lands on it, one
+   stroke of light crosses it and a ring leaves it. The same names twice
+   over (mc-sheen-lead is mc-sheen, and so on) are so that each cause
+   starts its own: an animation only starts when its name is new to the
+   element, and a card that is already glowing for one thing would not
+   start again for the next. */
+@keyframes mc-sheen-lead { from { transform: translateX(-105%); opacity: 1; } to { transform: translateX(105%); opacity: 1; } }
+@keyframes mc-ping-lead { from { outline-color: var(--ping); outline-offset: -2px; } to { outline-color: transparent; outline-offset: 9px; } }
+@keyframes mc-pop-lead { 0% { scale: 1; } 32% { scale: var(--mc-pop); } 100% { scale: 1; } }
+
+.musician-card.lead {
+	animation: mc-pop-lead 520ms var(--ease-arrive) 1;
+}
+
+.musician-card.lead .mc-sheen {
+	animation: mc-sheen-lead 760ms var(--ease-dimmer) 220ms 1;
+}
+
+.musician-card.lead .mc-ring {
+	--ping: var(--mc-lead);
+	animation: mc-ping-lead 700ms var(--ease-arrive) 60ms 1;
+}
+
+/* --- The star, and the microphone --- */
+.mc-mark {
+	display: inline-block;
+	inline-size: 1.25em;
+	margin-inline-end: 0.25em;
+	text-align: center;
+	white-space: nowrap;
+}
+
+.mark-enter-active {
+	transition: inline-size 260ms var(--ease-arrive), margin 260ms var(--ease-arrive),
+		scale 560ms var(--spring-pop) 90ms, rotate 560ms var(--spring-pop) 90ms, opacity 120ms linear 90ms;
+}
+
+.mark-leave-active {
+	transition: inline-size 180ms ease-in, margin 180ms ease-in, scale 160ms ease-in, opacity 160ms linear;
+}
+
+.mark-enter-from,
+.mark-leave-to {
+	inline-size: 0;
+	margin-inline-end: 0;
+	scale: 0;
+	opacity: 0;
+}
+
+.mark-enter-from {
+	rotate: -140deg;
+}
+
+/* A singer at the microphone sways a little, for as long as they sing. */
+@keyframes mc-sing {
+	0%, 100% { rotate: -9deg; }
+	50% { rotate: 9deg; }
+}
+
+.musician-card.singing .mc-mark {
+	transform-origin: 50% 85%;
+	animation: mc-sing 1.9s var(--ease-dimmer) 700ms infinite;
+}
+
+/* === A pickup: somebody leading the band into the next pass ===
+
+   Blue, and it does not move (Justin's item 21). The chart knows how long
+   a pickup is -- from its marker to the next -- so the card fills across
+   in exactly that time, soft edge first, and the colour is whole when the
+   downbeat lands. If they then take the break, the blue turns green where
+   it is. */
+@keyframes mc-lead-in {
+	from { transform: translateX(-100%); }
+	to { transform: none; }
+}
+
+.musician-card.pickup .mc-fill {
+	--mc-fill: color-mix(in srgb, var(--mc-pickup) 34%, var(--mc-paper));
+	opacity: 1;
+	animation: mc-lead-in var(--lead-in, 1.5s) linear var(--lead-in-from, 0s) 1 both;
+	transition: opacity 120ms linear, --mc-fill 220ms ease;
+}
+
+.musician-card.pickup .mc-plate {
+	border-color: var(--mc-pickup);
+}
+
+.musician-card.pickup .mc-halo {
+	opacity: 0.8;
+	transition: opacity 200ms ease-out;
+}
+
+.musician-card.pickup .mc-halo::before {
+	background: var(--mc-pickup);
+	animation: mc-swell 1.1s var(--ease-dimmer) infinite;
+}
+
+@keyframes mc-ping-pickup { from { outline-color: var(--ping); outline-offset: -2px; } to { outline-color: transparent; outline-offset: 9px; } }
+
+.musician-card.pickup .mc-ring {
+	--ping: var(--mc-pickup);
+	animation: mc-ping-pickup 700ms var(--ease-arrive) 1;
+}
+
+/* === Out: not playing just now === */
+.musician-card.out {
+	opacity: 0.45;
+	transition: opacity 800ms var(--ease-dimmer);
+}
+
+/* === Somebody comes in ===
+
+   The card comes up to full, and says so once: a gold ring leaves it and
+   a stroke of light crosses it. When the whole band comes in, each card
+   says so a moment after the one before, down the list. Dropping out says
+   nothing; the card dims, and that is all leaving is. */
+@keyframes mc-sheen-enter { from { transform: translateX(-105%); opacity: 1; } to { transform: translateX(105%); opacity: 1; } }
+@keyframes mc-ping-enter { from { outline-color: var(--ping); outline-offset: -2px; } to { outline-color: transparent; outline-offset: 9px; } }
+@keyframes mc-pop-enter { 0% { scale: 1; } 32% { scale: var(--mc-pop); } 100% { scale: 1; } }
+
+.musician-card.fx-enter {
+	animation: mc-pop-enter 520ms var(--ease-arrive) calc(var(--i, 0) * 45ms) 1;
+}
+
+.musician-card.fx-enter .mc-ring {
+	--ping: var(--mc-enter);
+	animation: mc-ping-enter 800ms var(--ease-arrive) calc(var(--i, 0) * 45ms) 1;
+}
+
+.musician-card.fx-enter .mc-sheen {
+	background: linear-gradient(105deg, transparent 30%, color-mix(in srgb, var(--mc-enter) 55%, transparent) 50%, transparent 70%);
+	animation: mc-sheen-enter 700ms var(--ease-dimmer) calc(var(--i, 0) * 45ms) 1;
+}
+
+/* === A flourish, a band flash, and the glow a spotlight leaves ===
+
+   One light in three sizes. It comes on in a seventh of a second and goes
+   off in most of one; while it holds it breathes at the speed the chart
+   asks for. The card's face takes the colour, a glow of it spills
+   outside, and at the start a ring of it leaves the card. */
+@keyframes mc-sheen-fx { from { transform: translateX(-105%); opacity: 1; } to { transform: translateX(105%); opacity: 1; } }
+@keyframes mc-ping-fx { from { outline-color: var(--ping); outline-offset: -2px; } to { outline-color: transparent; outline-offset: 9px; } }
+@keyframes mc-pop-fx { 0% { scale: 1; } 32% { scale: var(--mc-pop); } 100% { scale: 1; } }
+
+.musician-card:is(.fx-flourish, .fx-band, .fx-glow) .mc-wash {
+	opacity: calc(0.34 * var(--fx-level));
+	transition: opacity 140ms ease-out;
+}
+
+.musician-card:is(.fx-flourish, .fx-band, .fx-glow) .mc-wash::before {
+	animation: mc-breathe var(--fx-pulse) var(--ease-dimmer) infinite;
+}
+
+.musician-card:is(.fx-flourish, .fx-band, .fx-glow) .mc-halo {
+	opacity: min(1, calc(0.35 + 0.65 * var(--fx-level)));
+	transition: opacity 140ms ease-out;
+}
+
+.musician-card:is(.fx-flourish, .fx-band, .fx-glow) .mc-halo::before {
+	animation: mc-swell var(--fx-pulse) var(--ease-dimmer) infinite;
+}
+
+.musician-card:is(.fx-flourish, .fx-band, .fx-glow) .mc-plate {
+	border-color: var(--fx-color);
+}
+
+.musician-card:is(.fx-flourish, .fx-band) {
+	animation: mc-pop-fx 520ms var(--ease-arrive) 1;
+}
+
+.musician-card:is(.fx-flourish, .fx-band) .mc-ring {
+	--ping: var(--fx-color);
+	animation: mc-ping-fx 760ms var(--ease-arrive) 1;
+}
+
+.musician-card:is(.fx-flourish, .fx-band) .mc-sheen {
+	animation: mc-sheen-fx 700ms var(--ease-dimmer) 1;
+}
+
+/* Over a break's own green a wash of another colour is mud, so there the
+   light is the glow outside the card and barely on its face. */
+.musician-card.lead:is(.fx-flourish, .fx-band) .mc-wash {
+	opacity: calc(0.14 * var(--fx-level));
+}
+
+.musician-card.lead.fx-glow .mc-wash {
+	opacity: 0;
+}
+
+/* What a spotlight leaves on the card when the lights come back: the same
+   light, held wide open, and slow to go. */
+.musician-card.fx-glow .mc-halo {
+	opacity: 1;
+	transition: opacity 300ms ease-out;
+}
+
+.musician-card.fx-glow .mc-halo::before {
+	inset: -6px -7px;
+	filter: blur(8px);
+}
+
+/* === Named scenes ===
+
+   A chart can name a picker's part in a moment (`feature`): cooldown,
+   harmony, rhythm. Each is a tint on the face and nothing more; none of
+   the charts on the wiki uses them yet. */
+.musician-card.cooldown .mc-plate {
+	border-color: #4caf50;
+	background: #f1f8f1;
+}
+
+.musician-card.cooldown .musician-name {
+	color: #2e7d32;
+}
+
+.musician-card.harmony .mc-plate {
+	border-color: #9c27b0;
+	background: #f8f0fb;
+}
+
+.musician-card.harmony .musician-name {
+	color: #6a1b7a;
+}
+
+/* Rhythm is the quietest scene: it says somebody is holding the groove,
+   which is worth seeing and not worth shouting. */
+.musician-card.rhythm .mc-plate {
+	border-color: #90a4ae;
+	background: #f5f7f8;
+}
+
+.musician-card.rhythm .musician-name {
+	color: #455a64;
+}
+
+/* === The picker being chased ===
+
+   The rabbit on their card, so the chase is visible wherever the pane has
+   wandered to (Justin, 13 Nov 2026). The card keeps whatever else it is
+   wearing; this is one mark, not a second scene. At the right end of the
+   card, not the left: there it pushed the name across and sat next to the
+   star, and a star and a rabbit side by side say two different things in
+   one place (Justin's item 24, 15 Nov 2026). */
+.chasing-rabbit {
+	position: absolute;
+	top: 50%;
+	right: 4px;
+	transform: translateY(-50%);
+	line-height: 1;
+}
+
+.musician-card.chased {
+	padding-right: 22px;
+}
+
+.musician-card.chased:not(.is-lit) .mc-plate {
+	border-color: #87a96b;
+}
+
+/* === The engineer ===
+
+   On the list, but was not playing: a footnote, not a member of the
+   ensemble. */
+.musician-card.engineer-card .mc-plate {
+	background: #eef1f4;
+	border-color: #8b97a3;
+	border-style: dashed;
+}
+
+.musician-card.engineer-card .musician-name {
+	font-weight: normal;
+	color: #4a5560;
+}
+
+/* === Changing places ===
+
+   A singer steps to the front and the rest make room: each card slides
+   to where it now belongs on a spring, the ones further down a moment
+   after the ones above, so it goes as a wave. The singer passes over the
+   others, not through them. */
+.cards-move {
+	transition: transform 640ms var(--spring) calc(var(--i, 0) * 26ms);
+}
+
+.musician-card.singing.cards-move {
+	z-index: 3;
+}
+
+/* A new song: its cards arrive down the list, and the last song's go
+   quietly. */
+.cards-enter-active {
+	transition: opacity 320ms ease calc(var(--i, 0) * 30ms), translate 460ms var(--spring) calc(var(--i, 0) * 30ms);
+}
+
+.cards-enter-from {
+	opacity: 0;
+	translate: 0 6px;
+}
+
+.cards-leave-active {
+	position: absolute;
+	transition: opacity 160ms ease;
+}
+
+.cards-leave-to {
+	opacity: 0;
+}
+
+/* === While the song is paused ===
+
+   Light that keeps time with the song stops with it: a pickup's fill
+   waits where it is, and a glow holds its breath. */
+.ensemble.paused .mc-fill,
+.ensemble.paused .mc-wash::before,
+.ensemble.paused .mc-halo::before,
+.ensemble.paused .mc-mark {
+	animation-play-state: paused;
+}
+
+/* === The spotlight ===
+
+   The pane goes dark and one name steps out into the light
+   (components/SpotlightStage.vue says why and when; this is what it looks
+   like). The stage is laid over the pane by the pane's own anchor, so it
+   is the pane's size and place in either layout with nothing measured.
+   A browser that cannot do that shows no stage: the card keeps its glow
+   where it stands, which is the same thing said quietly.
+
+   Above the player, which Webamp puts at 9999. Clicks go through it: the
+   play button is still where it was, and pausing brings the lights up. */
+.rh-spotlight {
+	display: none;
+}
+
+@supports (anchor-name: --rh-player-pane) {
+	.rh-spotlight {
+		position: fixed;
+		position-anchor: --rh-player-pane;
+		top: anchor(top);
+		right: anchor(right);
+		bottom: anchor(bottom);
+		left: anchor(left);
+		z-index: 10000;
+		display: block;
+		overflow: clip;
+		pointer-events: none;
+		--spot: rgb(255 127 80);
+		/* Where on the stage the name stands: a little above the
+		   middle, where the eye puts the middle. */
+		--stage-y: 44%;
+		--hero-scale: 1.5;
+	}
+}
+
+/* The dark: not flat black, but a room with the light gone -- a little
+   less dark toward where the light will be. */
+.spot-dark {
+	position: absolute;
+	inset: 0;
+	background:
+		radial-gradient(ellipse 90% 60% at 50% var(--stage-y), rgb(26 30 27 / 0.9), transparent 70%),
+		#060807;
+	transition: opacity 1500ms var(--ease-dimmer);
+}
+
+/* The beam: a cone of light through the dark, from above the stage down
+   to the name. */
+.spot-beam {
+	position: absolute;
+	top: -4%;
+	left: 50%;
+	height: calc(var(--stage-y) + 4%);
+	aspect-ratio: 0.62;
+	translate: -50% 0;
+	transform-origin: 50% 0;
+	/* Blurred here and cut to shape inside, in that order: a filter is
+	   applied before a clip, so on one element the cone would be soft
+	   and then cut hard. */
+	filter: blur(6px);
+	transition: opacity 900ms var(--ease-dimmer), scale 900ms var(--ease-dimmer);
+	animation: spot-sway 5.2s var(--ease-dimmer) infinite;
+}
+
+.spot-beam::before {
+	content: '';
+	position: absolute;
+	inset: 0;
+	background: linear-gradient(to bottom,
+		color-mix(in srgb, var(--spot) 8%, transparent),
+		color-mix(in srgb, var(--spot) 30%, transparent));
+	clip-path: polygon(43% 0, 57% 0, 100% 100%, 0 100%);
+}
+
+/* A follow spot is held by a hand. */
+@keyframes spot-sway {
+	0%, 100% { rotate: -1.4deg; }
+	50% { rotate: 1.4deg; }
+}
+
+/* The pool: where the beam lands. */
+.spot-pool {
+	position: absolute;
+	top: var(--stage-y);
+	left: 50%;
+	width: min(96%, 420px);
+	aspect-ratio: 2.1;
+	translate: -50% -50%;
+	transition: opacity 1100ms var(--ease-dimmer), scale 1100ms var(--ease-arrive);
+}
+
+/* Its breathing is inside it, so that it multiplies what the pool itself
+   is doing: breathing on the pool would set its opacity outright, and
+   bring a pool that had faded out back up for another breath. */
+.spot-pool::before {
+	content: '';
+	position: absolute;
+	inset: 0;
+	background: radial-gradient(closest-side,
+		color-mix(in srgb, var(--spot) 62%, transparent),
+		color-mix(in srgb, var(--spot) 22%, transparent) 55%,
+		transparent);
+	animation: spot-breathe 2.8s var(--ease-dimmer) infinite;
+}
+
+@keyframes spot-breathe {
+	50% { opacity: 0.78; scale: 1.05; }
+}
+
+/* The name, stepped out: at the middle of the stage, grown. */
+.spot-hero {
+	position: absolute;
+	top: var(--stage-y);
+	left: 50%;
+	width: max-content;
+	max-width: 96%;
+	/* Its middle on that point, and grown about its own middle. */
+	translate: -50% -50%;
+	scale: var(--hero-scale);
+	transition: translate 1000ms var(--spring), scale 1000ms var(--spring), opacity 180ms linear;
+}
+
+.spot-hero .musician-card {
+	width: max-content;
+	padding: 5px 14px;
+	border-radius: 7px;
+	text-align: center;
+	cursor: default;
+	animation: hero-float 3.6s var(--ease-dimmer) 1200ms infinite;
+}
+
+/* Held, it is not quite still. */
+@keyframes hero-float {
+	0%, 100% { translate: 0 0; }
+	50% { translate: 0 -2px; }
+}
+
+.spot-hero .musician-card .musician-name {
+	display: block;
+	white-space: nowrap;
+	opacity: 1;
+	color: #1c2a12;
+	transition: color 320ms ease;
+}
+
+.spot-hero .musician-card .musician-instrument {
+	display: block;
+	margin-top: 1px;
+	color: #6a6a5c;
+	transition: color 320ms ease;
+}
+
+/* Under the light the card is white-hot, whatever it was wearing. */
+.spot-hero .musician-card .mc-plate {
+	background: #fffdf8;
+	border-color: color-mix(in srgb, var(--spot) 70%, #fff);
+	box-shadow:
+		0 0 0 1px color-mix(in srgb, var(--spot) 55%, transparent),
+		0 0 14px 2px color-mix(in srgb, var(--spot) 75%, transparent),
+		0 0 44px 10px color-mix(in srgb, var(--spot) 42%, transparent);
+	transition: background-color 320ms ease, border-color 320ms ease, box-shadow 520ms ease;
+}
+
+.spot-hero .mc-fill,
+.spot-hero .mc-wash,
+.spot-hero .mc-halo,
+.spot-hero .mc-ring,
+.spot-hero .mc-sheen {
+	display: none;
+}
+
+/* --- Its two ends: where it comes from, and where it goes back to ---
+
+   Lights up, beam shut, and the name exactly over itself on its card,
+   wearing what the card wears, with no face of its own: that is the
+   first frame coming in and the last one going out. */
+.spot-enter-from .spot-dark,
+.spot-leave-to .spot-dark {
+	opacity: 0;
+}
+
+.spot-enter-from .spot-beam,
+.spot-leave-to .spot-beam {
+	opacity: 0;
+	scale: 0.2 1;
+}
+
+.spot-enter-from .spot-pool,
+.spot-leave-to .spot-pool {
+	opacity: 0;
+	scale: 0.25;
+}
+
+.spot-enter-from .spot-hero,
+.spot-leave-to .spot-hero {
+	translate: calc(-50% + var(--from-x, 0px)) calc(-50% + var(--from-y, 0px));
+	scale: var(--from-scale, 1);
+}
+
+.spot-enter-from .spot-hero .musician-card .mc-plate,
+.spot-leave-to .spot-hero .musician-card .mc-plate {
+	background-color: transparent;
+	border-color: transparent;
+	box-shadow: 0 0 0 0 transparent, 0 0 0 0 transparent, 0 0 0 0 transparent;
+}
+
+.spot-enter-from .spot-hero .musician-card.lead .musician-name,
+.spot-leave-to .spot-hero .musician-card.lead .musician-name {
+	color: var(--mc-lead-ink);
+}
+
+.spot-enter-from .spot-hero .musician-card.lead .musician-instrument,
+.spot-leave-to .spot-hero .musician-card.lead .musician-instrument {
+	color: var(--mc-lead-soft);
+}
+
+/* Going down: the dark is quicker to fall than to lift. */
+.spot-enter-active .spot-dark {
+	transition-duration: 950ms;
+}
+
+.spot-enter-active .spot-beam {
+	transition-delay: 260ms;
+}
+
+.spot-enter-active .spot-pool {
+	transition-delay: 320ms;
+}
+
+/* Coming up: the name goes home first, and fades into its own card over
+   the last of the way; the card's name comes back to meet it. */
+.spot-leave-active .spot-hero {
+	transition: translate 950ms var(--ease-dimmer), scale 950ms var(--ease-dimmer), opacity 260ms linear 700ms;
+}
+
+.spot-leave-to .spot-hero {
+	opacity: 0;
+}
+
+.spot-leave-active .spot-hero .musician-card :is(.mc-plate, .musician-name, .musician-instrument) {
+	transition-delay: 340ms;
+	transition-duration: 360ms;
+}
+
+.spot-leave-active .spot-beam,
+.spot-leave-active .spot-pool {
+	transition-duration: 700ms;
+}
+
+/* Nothing moves while it is being measured. */
+.rh-spotlight.measuring,
+.rh-spotlight.measuring * {
+	transition: none !important;
+}
+
+/* The card whose name is out keeps the place, without the name. It goes
+   at once, and comes back as the name lands. */
+.musician-card.is-away .musician-name,
+.musician-card.is-away .chasing-rabbit {
+	opacity: 0;
+	transition: opacity 120ms linear;
+}
+
+.musician-card:not(.is-away, .is-hero) .musician-name {
+	transition: color 240ms ease, opacity 260ms linear 700ms;
+}
+
+/* === For anyone who has asked for less motion ===
+
+   The states are all still said, in colour: a break is still a filled
+   card and a pickup still a blue one. What goes is everything that
+   travels, grows, sweeps or pulses, and the dark. */
+@media (prefers-reduced-motion: reduce) {
+	.musician-card,
+	.musician-card *,
+	.musician-card *::before {
+		animation: none !important;
+	}
+
+	.mc-fill,
+	.musician-card.lead .mc-fill,
+	.musician-card.pickup .mc-fill {
+		transform: none;
+		transition: opacity 200ms linear, --mc-fill 200ms linear;
+	}
+
+	.cards-move,
+	.cards-enter-active,
+	.mark-enter-active,
+	.mark-leave-active {
+		transition: none;
+	}
+
+	.rh-spotlight {
+		display: none;
+	}
+}

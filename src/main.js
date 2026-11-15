@@ -3,7 +3,7 @@ import { createPinia } from 'pinia';
 
 import App from './App.vue';
 import './styles/app.css';
-import './styles/scenes.css';
+import './styles/ensemble.css';
 import './styles/editor.css';
 
 /*

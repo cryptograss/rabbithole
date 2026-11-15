@@ -201,6 +201,12 @@ body {
     overflow: hidden;
 }
 
+/* The player pane, by name: a spotlight's dark is laid over exactly this
+   (styles/ensemble.css), in either layout, by anchoring to it. */
+#rabbithole-sidebar {
+    anchor-name: --rh-player-pane;
+}
+
 /* Three zones: the brand, the middle (traverse mode and the carrot), and
    what is playing with the account chip and the fold arrow at the far end.
    The middle column is `auto` between two equal `1fr`s, so the switch sits
@@ -935,83 +941,14 @@ body.bottom-bar .editor-pencil {
     margin-bottom: 3px;
 }
 
-/* Compact ensemble layout — fit all 6 cards without scrolling.
-   Cursive musician names (Caveat) match the arthel rabbithole-
-   player look. */
+/* The cards, in a column. What a card looks like, and every way its light
+   moves, is styles/ensemble.css; this file only says where the cards go
+   in each layout. */
 .musician-list {
     display: flex;
     flex-direction: column;
     gap: 4px;
     margin-bottom: 6px;
-}
-
-.musician-card {
-    padding: 2px 10px;
-    border: 1px solid #d4d8d2;
-    border-radius: 5px;
-    background: white;
-    cursor: pointer;
-    transition: all 0.2s;
-}
-
-.musician-card:hover {
-    border-color: #4a7c59;
-    background: rgba(74, 124, 89, 0.05);
-}
-
-.musician-card.lead {
-    border: 2px solid #4a7c59;
-    background: rgba(74, 124, 89, 0.1);
-    box-shadow: 0 0 12px rgba(74, 124, 89, 0.25);
-}
-
-.musician-card.out {
-    opacity: 0.4;
-}
-
-/* The picker being chased: the rabbit on their card, so the chase is
-   visible wherever the pane has wandered to (Justin, 13 Nov 2026). The
-   card keeps whatever else it is wearing; this is one mark, not a
-   second scene.
-
-   At the right end of the card, not the left: there it pushed the name
-   across and sat next to the star, and a star and a rabbit side by side
-   say two different things in one place (Justin's item 24, 15 Nov 2026). */
-.musician-card {
-    position: relative;
-}
-
-.chasing-rabbit {
-    position: absolute;
-    top: 50%;
-    right: 4px;
-    transform: translateY(-50%);
-    line-height: 1;
-}
-
-.musician-card.chased {
-    border-color: #87a96b;
-}
-
-.musician-name {
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    font-weight: 600;
-    color: #2d5016;
-    font-size: 14px;
-    line-height: 1.2;
-    letter-spacing: -0.01em;
-}
-
-/* Mock provenance line — hide in the narrow sidebar to keep all 6
-   cards in the viewport. Bring back when real NFT ownership data
-   lives there. */
-.chartifact-line {
-    display: none;
-}
-
-.musician-instrument {
-    font-size: 11px;
-    color: #888;
 }
 
 /* The chart is a window, never more than two rows tall, onto a strip of
@@ -1379,7 +1316,8 @@ body.bottom-bar.bar-collapsed .editor-panel {
    that brings it back is up in the bar. */
 body.bottom-bar.bar-collapsed #ensemble-display,
 body.bottom-bar.bar-collapsed .data-section,
-body.bottom-bar.bar-collapsed .walk-trail {
+body.bottom-bar.bar-collapsed .walk-trail,
+body.bottom-bar.bar-collapsed .rh-spotlight {
     display: none;
 }
 
@@ -1750,157 +1688,8 @@ body:not(.bottom-bar) #webamp div:has(> #main-window) {
     width: 100%;
 }
 
-/* === The cards move when their order changes: what Packery was for === */
-.cards-move {
-    transition: transform 0.4s ease;
-}
-
-.cards-enter-active,
-.cards-leave-active {
-    transition: opacity 0.2s ease;
-}
-
-.cards-enter-from,
-.cards-leave-to {
-    opacity: 0;
-}
-
-.cards-leave-active {
-    position: absolute;
-}
-
-/* === The colour scheme the cards wear for a solo and a pickup === */
-.musician-card.lead {
-    border: 2px solid #4a7c59;
-    background: rgba(74, 124, 89, 0.1);
-    color: #2d5016;
-}
-
-.musician-card.lead .musician-name {
-    color: #2d5016;
-}
-
-.musician-card.pickup {
-    border: 2px solid #87a96b;
-    background: rgba(135, 169, 107, 0.1);
-    color: #5a7a4a;
-}
-
-.musician-card.engineer-card {
-    border-style: dashed;
-    color: #777;
-}
-
-/* An instrument stays whole on its card (Justin, 7 Nov 2026). */
-.musician-instrument {
-    white-space: nowrap;
-}
-
-/* === Effects: a flourish or spotlight on a card, a flash on the band ===
-
-   The player model says which effect a card wears, how fast it pulses and
-   for how many pulses; the card sets --glow-max, --pulse and --cycles from
-   it, and these keyframes read them. A glow plays a whole number of
-   pulses, and each pulse starts and ends at the card's own look (no 0% or
-   100% frame: the browser fills those from the card, a lead's green glow
-   included), so when the effect lets go there is nothing half-lit to snap
-   off (Skyler, 13 Nov 2026: "they highlight and look like it's half
-   lighting right after"). */
-@keyframes rh-pulse {
-    50% { box-shadow: var(--glow-max); }
-}
-
-/* A spotlight holds at its peak a moment longer than a flourish does. */
-@keyframes rh-spot {
-    35%, 65% { box-shadow: var(--glow-max); }
-}
-
-.musician-card.flourish-active {
-    animation: rh-pulse var(--pulse, 1.2s) ease-in-out var(--cycles, 1);
-}
-
-.musician-card.spotlight-active {
-    animation: rh-spot var(--pulse, 1.5s) ease-in-out var(--cycles, 1);
-}
-
-/* Everyone else steps back half a pace while somebody is in the spotlight. */
-.musician-card.fx-dim {
-    opacity: 0.55;
-    transition: opacity 0.4s ease;
-}
-
-/* === The spotlight: the player pane goes dark ===
-
-   Justin, #rabbithole 15 Nov 2026, item 22: "I still think the spotlight
-   thing was badass when used judiciously... Just black out the entire
-   player pane; the info pane and timeline pane can stay as they are, but
-   black out everything in the player pane except that person and their
-   glow for the duration of the spotlight."
-
-   So the dock turns black and everything in it goes but the one card,
-   which is white with its glow on black -- the player included, for the
-   few seconds a spotlight lasts (four at the most: SPOTLIGHT_MAX_SECONDS
-   in player/model.js). The page beside it and the timeline column are
-   untouched, as he asked. */
-#rabbithole-sidebar.spotlit {
-    background: #0b0d0b;
-    transition: background 0.35s ease;
-}
-
-#rabbithole-sidebar.spotlit .webamp-wrapper,
-#rabbithole-sidebar.spotlit .mini-player,
-#rabbithole-sidebar.spotlit .walk-trail,
-#rabbithole-sidebar.spotlit .data-section,
-#rabbithole-sidebar.spotlit .musician-card:not(.spotlight-active) {
-    opacity: 0;
-    transition: opacity 0.35s ease;
-    pointer-events: none;
-}
-
-/* The one lit thing in the room. */
-#rabbithole-sidebar.spotlit .musician-card.spotlight-active {
-    opacity: 1;
-    z-index: 2;
-}
-
-@media (prefers-reduced-motion: reduce) {
-    #rabbithole-sidebar.spotlit,
-    #rabbithole-sidebar.spotlit .webamp-wrapper,
-    #rabbithole-sidebar.spotlit .mini-player,
-    #rabbithole-sidebar.spotlit .walk-trail,
-    #rabbithole-sidebar.spotlit .data-section,
-    #rabbithole-sidebar.spotlit .musician-card:not(.spotlight-active) {
-        transition: none;
-    }
-}
-
-/* A moment: somebody comes in or drops out, and the card says so once. */
-.musician-card.flash {
-    background: #fff3cd;
-    border-color: #e3b341;
-    transition: background 0.15s, border-color 0.15s;
-}
-
-#ensemble-display.band-flash-active {
-    overflow: visible;
-    animation: rh-pulse var(--pulse, 0.6s) ease-in-out var(--cycles, 1);
-}
-
-#ensemble-display.flash .musician-card {
-    background: #fff3cd;
-    border-color: #e3b341;
-}
-
 @media (prefers-reduced-motion: reduce) {
     .parts-strip {
-        transition: none;
-    }
-
-    .cards-move,
-    .musician-card.flourish-active,
-    .musician-card.spotlight-active,
-    #ensemble-display.band-flash-active {
-        animation: none;
         transition: none;
     }
 }
