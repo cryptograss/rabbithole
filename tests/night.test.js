@@ -171,16 +171,19 @@ function lightness( value ) {
 }
 
 const DAY = {
-	'src/styles/night.css': [ 'src/styles/app.css', 'src/styles/scenes.css', 'src/styles/editor.css' ],
+	'src/styles/night.css': [ 'src/styles/app.css', 'src/styles/ensemble.css', 'src/styles/editor.css' ],
 	'src/styles/pane-night.css': [ 'src/styles/pane.css', 'src/styles/pane-chase.css', 'src/styles/pane-trail.css' ],
 };
 const WRAPPER = { 'src/styles/night.css': ':root.rh-night', 'src/styles/pane-night.css': '.pane-root.pp-night' };
 /* The pane's paper is on :host by day, and :host(.pp-night) answers it. */
-const ANSWERS_AS = { ':host': ':host(.pp-night)' };
+const ANSWERS_AS = { ':host': ':host(.pp-night)', ':host( .pane-holds-graph )': ':host( .pane-holds-graph.pp-night )' };
 /* Day's pale grounds and dark inks that stand by night, each for a reason. A new one goes here on purpose
    or gets its answer in the night sheet; it does not get forgotten. */
 const STANDS = {
 	'.rh-account-dot': 'a pale dot on the green header, which is green by night too',
+	'.spot-hero .musician-card .mc-plate': 'the card under the spotlight is lit, and the room around it is blacked out by day too',
+	'.spot-hero .musician-card .musician-name': 'on the lit card',
+	'.spot-hero .musician-card .musician-instrument': 'on the lit card',
 };
 
 describe.each( Object.keys( DAY ) )( '%s', ( sheet ) => {

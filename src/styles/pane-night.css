@@ -16,6 +16,10 @@
 	background: var(--night-paper) none;
 }
 
+:host( .pane-holds-graph.pp-night ) {
+	background: var(--night-paper);
+}
+
 .pane-root.pp-night {
 	/* ---- src/styles/pane.css ---- */
 
@@ -29,14 +33,12 @@
 	.pane-chrome a { color: var(--night-green-pale); }
 	.pane-results li { border-bottom-color: var(--night-line); }
 	.pane-results .snippet { color: var(--night-soft); }
+	/* The connectome's frame: the graph inside is the wiki's page and keeps
+	   its own night; this is the ground it loads over. */
+	.pane-graph { background: var(--night-paper); }
 
 	/* ---- src/styles/pane-chase.css ---- */
 
-	.pp-chase {
-		border-color: var(--night-line);
-		border-left-color: #4a7c59;
-		background-color: var(--night-paper);
-	}
 	.pp-chasing {
 		border-color: var(--night-line);
 		background-color: var(--night-wash);
@@ -45,6 +47,16 @@
 	.pp-chasing:hover {
 		background-color: var(--night-wash);
 		border-color: #4a7c59;
+	}
+
+	.pp-players-who.pp-players-chased,
+	.pp-players-what.pp-players-chased {
+		background: var(--night-leaf-ground);
+	}
+	.pp-players-chasing {
+		border-color: var(--night-line-strong);
+		background: var(--night-paper);
+		color: var(--night-green-pale);
 	}
 
 	/* ---- src/styles/pane-trail.css ---- */

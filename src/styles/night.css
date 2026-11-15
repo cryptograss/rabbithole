@@ -1,7 +1,7 @@
 /*
  * Night: Rabbithole by dark.
  *
- * By day nothing here applies: app.css, scenes.css and editor.css are as
+ * By day nothing here applies: app.css, ensemble.css and editor.css are as
  * they were. By night <html> carries rh-night (src/night.js puts it there:
  * the reader's choice on the wiki, the cookie "pickipedia-mode", or with no
  * choice their system), and every rule below answers one of day's by the
@@ -119,15 +119,9 @@
 	.recording-metadata span + span::before { color: var(--night-faint); }
 	.up-next { color: var(--night-green); }
 	.song-select { border-color: var(--night-line); }
-	.pane-column .song-info-header {
-		background-color: var(--night-paper);
-		border-bottom-color: var(--night-line);
-	}
-	.toggle-row { color: var(--night-soft); }
 	.toggle-slider { background-color: var(--night-knob); }
 	/* The knob is the pale thing on the switch, by night as by day. */
 	.toggle-slider:before { background-color: var(--night-ink); }
-	.toggle-switch input:checked + .toggle-slider { background-color: #4a7c59; }
 	.player-loading,
 	.player-error {
 		color: var(--night-muted);
@@ -135,21 +129,6 @@
 	.player-error { color: var(--night-red); }
 	.data-section { border-top-color: #4a7c59; }
 	.section-label { color: var(--night-green); }
-	.musician-card {
-		border-color: var(--night-line);
-		background-color: var(--night-panel);
-	}
-	.musician-card:hover {
-		border-color: #4a7c59;
-		background-color: rgba(74, 124, 89, 0.05);
-	}
-	.musician-card.lead {
-		border-color: #4a7c59;
-		background-color: rgba(74, 124, 89, 0.1);
-	}
-	.musician-card.chased { border-color: #87a96b; }
-	.musician-name { color: var(--night-green-pale); }
-	.musician-instrument { color: var(--night-muted); }
 	.part-box {
 		border-color: var(--night-line);
 		color: var(--night-soft);
@@ -183,50 +162,46 @@
 		border-color: #3c6749;
 		color: #fff;
 	}
-	.musician-card.lead {
-		border-color: #4a7c59;
-		background-color: rgba(74, 124, 89, 0.1);
+	.inline-flash-note { color: var(--night-red); }
+	.listen-choice { background: var(--night-panel); }
+	.listen-choice-says { color: var(--night-soft); }
+	.listen-choice-asks { color: var(--night-ink); }
+	.listen-choice-buttons button:nth-child(n+2) {
+		background: var(--night-paper);
 		color: var(--night-green-pale);
 	}
-	.musician-card.lead .musician-name { color: var(--night-green-pale); }
-	.musician-card.pickup {
-		border-color: #87a96b;
-		background-color: rgba(135, 169, 107, 0.1);
-		color: var(--night-green);
+	.listen-choice-buttons button:hover:not(:disabled) {
+		background: #3c6749;
+		color: #fff;
 	}
-	.musician-card.engineer-card { color: var(--night-muted); }
-	.musician-card.flash {
-		background-color: var(--night-warn);
-		border-color: #e3b341;
-	}
-	#ensemble-display.flash .musician-card {
-		background-color: var(--night-warn);
-		border-color: #e3b341;
-	}
-	.inline-flash-note { color: var(--night-red); }
+	.listen-choice-said { color: var(--night-soft); }
+	.listen-choice-close { color: var(--night-muted); }
 
-	/* ---- src/styles/scenes.css ---- */
+	/* ---- src/styles/ensemble.css ---- */
 
-	.musician-card.cooldown {
-		border-color: #4caf50;
-		background-color: var(--night-plum-ground);
-		color: var(--night-green);
-	}
-	.musician-card.harmony {
-		border-color: #9c27b0;
-		background-color: var(--night-paper);
-		color: var(--night-plum);
-	}
-	.musician-card.rhythm {
+	/* A card is drawn from these (the plate under it, the names on it), so
+	   night changes them and every state of a card follows: the lead's
+	   green fill and white words, a pickup's blue, a flourish's light. */
+	--mc-paper: var(--night-panel);
+	--mc-line: var(--night-line);
+	--mc-ink: var(--night-green-pale);
+	--mc-soft: var(--night-muted);
+
+	/* The named scenes paint their own plates. */
+	.musician-card.cooldown .mc-plate { background: var(--night-leaf-ground); }
+	.musician-card.cooldown .musician-name { color: var(--night-green); }
+	.musician-card.harmony .mc-plate { background: var(--night-plum-ground); }
+	.musician-card.harmony .musician-name { color: var(--night-plum); }
+	.musician-card.rhythm .mc-plate {
 		border-color: var(--night-line-strong);
-		background-color: var(--night-paper);
-		color: var(--night-soft);
+		background: var(--night-paper);
 	}
-	.musician-card.engineer-card {
-		background-color: var(--night-paper);
+	.musician-card.rhythm .musician-name { color: var(--night-soft); }
+	.musician-card.engineer-card .mc-plate {
 		border-color: var(--night-line-strong);
-		color: var(--night-soft);
+		background: var(--night-paper);
 	}
+	.musician-card.engineer-card .musician-name { color: var(--night-soft); }
 
 	/* ---- src/styles/editor.css ---- */
 
@@ -458,33 +433,26 @@
 
 	/* ---- src/components/WalkTrail.vue ---- */
 
+	/* The graph in the frame is the wiki's page and keeps its own night;
+	   this is what stands around it. */
 	.walk-trail { border-top-color: var(--night-line); }
-	.walk-head { background-color: transparent; }
-	.walk-count { color: var(--night-soft); }
-	.walk-caret { color: var(--night-soft); }
-	body.bottom-bar .walk-head {
+	.walk-more { color: var(--night-soft); }
+	.walk-tab {
 		border-color: var(--night-line);
-		background-color: var(--night-paper);
+		background: var(--night-paper);
 	}
-	.walk-drawer {
-		background-color: var(--night-panel);
+	.walk-frame.open { background: var(--night-panel); }
+	.walk-close {
+		border-color: var(--night-line);
+		background: var(--night-panel);
+		color: var(--night-soft);
+	}
+	.walk-close:hover {
+		background: var(--night-press);
 		color: var(--night-ink);
 	}
-	.walk-close { color: var(--night-soft); }
-	.walk-blurb { color: var(--night-soft); }
-	.walk-via { color: var(--night-soft); }
-	.walk-now { color: var(--night-green); }
-	.walk-clear { color: var(--night-soft); }
 
 	/* ---- What script colours, and a stylesheet can only answer by what it finds ---- */
-
-	/* The trail's dots are coloured in the template (WalkTrail.vue): near-black
-	   for now, grey for before, each ringed in the drawer's own ground. */
-	.walk-hops li .walk-dot {
-		background: var(--night-muted) !important;
-		box-shadow: 0 0 0 2px var(--night-panel);
-	}
-	.walk-hops li.now .walk-dot { background: var(--night-ink) !important; }
 
 	/* The editor's notes take their colour from TimelineEditor.js (style.color):
 	   green for done, red for an error, rust for a warning. Day's values, as the
