@@ -48,7 +48,20 @@ function world( { band = {}, plays = {}, charted = [] } = {} ) {
 		get song() { return song.value; },
 		get cards() { return cards.value; },
 		status: 'PLAYING',
-		model: { dropFromQueue: vi.fn( () => [ 1 ] ), playNext: vi.fn() },
+		model: {
+			// Webamp's playlist, as far as this test is concerned: a
+			// withdrawn song is really gone from the queue.
+			dropFromQueue: vi.fn( ( cid ) => {
+				const queue = globalThis.__songs.queuedCids;
+				const at = queue.indexOf( cid );
+				if ( at === -1 ) {
+					return [];
+				}
+				queue.splice( at, 1 );
+				return [ at ];
+			} ),
+			playNext: vi.fn(),
+		},
 	};
 	globalThis.__songs = {
 		get current() { return song.value; },
@@ -85,11 +98,9 @@ describe( 'what the rabbithole queued itself', () => {
 
 		expect( picker.following ).toBe( 'Kyle Tuttle' );
 		expect( globalThis.__songs.queuedCids ).toEqual( [ CICADA ] );
-		expect( picker.ours ).toBe( CICADA );
 
 		picker.giveWay();
-		expect( globalThis.__player.model.dropFromQueue ).toHaveBeenCalledWith( CICADA );
-		expect( picker.ours ).toBe( null );
+		expect( globalThis.__songs.queuedCids ).toEqual( [] );
 		expect( picker.next ).toBe( null );
 	} );
 
@@ -102,22 +113,30 @@ describe( 'what the rabbithole queued itself', () => {
 
 		expect( picker.following ).toBe( null );
 		expect( globalThis.__songs.queuedCids ).toEqual( [ SILVER ] );
-		expect( picker.ours ).toBe( SILVER );
 
 		picker.giveWay();
-		expect( globalThis.__player.model.dropFromQueue ).toHaveBeenCalledWith( SILVER );
-		expect( picker.ours ).toBe( null );
+		expect( globalThis.__songs.queuedCids ).toEqual( [] );
 	} );
 
 	it( 'is nobody\'s to withdraw once it is the song playing', async () => {
-		const w = world( { charted: [ { cid: AUGUST }, { cid: SILVER } ] } );
+		// Withdrawing the song that is playing would be a way to stop the
+		// music, which is not what standing aside means.
+		const w = world( { charted: [ { cid: AUGUST }, { cid: SILVER }, { cid: CICADA } ] } );
 		const picker = usePickerStore();
 		await w.plays( AUGUST, [] );
-		expect( picker.ours ).toBe( SILVER );
+		// Which charted track the floor reaches for is its own business.
+		const lined = globalThis.__songs.queuedCids[ 0 ];
+		expect( globalThis.__songs.queuedCids ).toHaveLength( 1 );
+		expect( lined ).not.toBe( AUGUST );
 
+		// It comes on, and something else is lined up behind it.
 		globalThis.__songs.queuedCids.length = 0;
-		await w.plays( SILVER, [] );
-		expect( picker.ours ).not.toBe( SILVER );
+		await w.plays( lined, [] );
+		expect( globalThis.__songs.queuedCids ).toHaveLength( 1 );
+
+		picker.giveWay();
+		expect( globalThis.__player.model.dropFromQueue ).not.toHaveBeenCalledWith( lined );
+		expect( globalThis.__songs.queuedCids ).toEqual( [] );
 	} );
 
 	it( 'leaves the queue alone when a person has already filled it', async () => {
@@ -131,7 +150,9 @@ describe( 'what the rabbithole queued itself', () => {
 		await w.plays( AUGUST, [ 'Kyle Tuttle' ] );
 
 		expect( globalThis.__songs.queueCid ).not.toHaveBeenCalled();
-		expect( picker.ours ).toBe( null );
+		// And standing aside takes nothing of theirs with it.
+		picker.giveWay();
+		expect( globalThis.__songs.queuedCids ).toEqual( [ SILVER ] );
 		// The quest still says who this song handed you.
 		expect( picker.following ).toBe( 'Kyle Tuttle' );
 	} );
