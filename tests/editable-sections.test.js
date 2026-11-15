@@ -38,6 +38,27 @@ describe( 'flattenSections', () => {
 		expect( Object.values( flat ).some( ( a ) => '_isSectionStart' in a || '_isSubMoment' in a ) ).toBe( false );
 	} );
 
+	it( 'does not make a new pass out of a moment inside one', () => {
+		/*
+		 * August: section2 is one B pass, with Maddie's pickup at 0:40 and
+		 * her entry at 0:42.5 inside it. Flattened, those two used to say
+		 * part: B as well, so ten passes came back as eighteen and the
+		 * chartifacts' "second B part" stopped meaning the same pass the
+		 * song does (Justin, 15 Nov 2026).
+		 */
+		const august = {
+			title: 'August',
+			standardSectionLength: 13.65,
+			timeline: {
+				'8.3': { part: 'A', solo: 'Maddie Denton' },
+				section2: { part: 'B', solo: 'Justin Holmes', '40': { pickup: 'Maddie Denton' } },
+			},
+		};
+		const flat = flattenSections( august ).timeline;
+		expect( flat[ 40 ] ).toEqual( { solo: 'Justin Holmes', pickup: 'Maddie Denton' } );
+		expect( Object.values( flat ).filter( ( a ) => a.part === 'B' ).length ).toBe( 1 );
+	} );
+
 	it( 'leaves a chart in seconds alone', () => {
 		const swords = { title: 'Swords', timeline: { '0': { part: 'intro' }, '46.7': { part: 'A' } } };
 		expect( flattenSections( swords ) ).toBe( swords );

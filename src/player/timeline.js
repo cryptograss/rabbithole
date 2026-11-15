@@ -62,8 +62,21 @@ export function processTimeline( trackData ) {
 				baseSectionData[ key ] = value;
 			}
 		}
+		/*
+		 * A sub-moment is inside a pass, not the start of one: Maddie's
+		 * pickup at 0:40 of August, Gaven's flourishes at 2:03 and 2:06.
+		 * It inherits who is playing and who is featured, but never the
+		 * section's part, unless it names one itself. Nothing reads a
+		 * part off a sub-moment -- the parts strip skips them -- and
+		 * copying it in meant that writing the chart back out in seconds
+		 * (flattenSections) turned each of those moments into another B
+		 * part. August's ten passes came back as eighteen, and the
+		 * chartifact that says "second B part" no longer points at the
+		 * same pass the song does (Justin and re, 15 Nov 2026).
+		 */
+		const { part, ...insideThePass } = baseSectionData;
 		for ( const [ timeStr, momentData ] of Object.entries( subMoments ) ) {
-			processed[ parseFloat( timeStr ) ] = { ...baseSectionData, ...momentData, _isSubMoment: true };
+			processed[ parseFloat( timeStr ) ] = { ...insideThePass, ...momentData, _isSubMoment: true };
 		}
 		processed[ sectionStartTime ] = { ...baseSectionData, _isSectionStart: true };
 	}

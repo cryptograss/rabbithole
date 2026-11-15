@@ -246,6 +246,8 @@ export class TimelineEditor {
         const yamlStr = jsYaml.dump(fullData, {
             indent: 2,
             lineWidth: -1,
+            // The raw view is the chart itself, never an anchor to it.
+            noRefs: true,
             sortKeys: (a, b) => {
                 // Sort timeline keys numerically
                 const numA = parseFloat(a);
