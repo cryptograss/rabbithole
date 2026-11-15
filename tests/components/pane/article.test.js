@@ -94,6 +94,10 @@ describe( 'the pane\'s styles', () => {
 		expect( WIKI_STYLESHEETS.join( ' ' ) ).toContain( 'ext.pickipediaContent.connectome.styles' );
 	} );
 
+	it( 'load the wiki\'s night sheet, which darkens the article under pp-night', () => {
+		expect( WIKI_STYLESHEETS.join( ' ' ) ).toContain( 'ext.pickipediaContent.night.styles' );
+	} );
+
 	it( 'show the trail button the template renders hidden', () => {
 		expect( css( 'pane.css' ) ).toMatch( /\.pp-trail-rh\s*{[^}]*display:\s*inline-flex\s*!important/ );
 	} );
@@ -110,10 +114,10 @@ describe( 'the pane\'s styles', () => {
 	 * vitest does not process CSS imports -- so the rules themselves are
 	 * read from the files above.)
 	 */
-	it( 'are the three sheets the shadow root adopts', () => {
-		expect( PANE_CSS ).toHaveLength( 3 );
+	it( 'are the sheets the shadow root adopts: the three of day, and night', () => {
+		expect( PANE_CSS ).toHaveLength( 4 );
 		const adopts = readFileSync( resolve( __dirname, '../../../src/wiki/pane-styles.js' ), 'utf8' );
-		for ( const sheet of [ 'pane.css', 'pane-chase.css', 'pane-trail.css' ] ) {
+		for ( const sheet of [ 'pane.css', 'pane-chase.css', 'pane-trail.css', 'pane-night.css' ] ) {
 			expect( adopts ).toContain( `../styles/${ sheet }?inline` );
 		}
 		expect( css( 'pane-chase.css' ) ).toContain( '.pp-chasing' );

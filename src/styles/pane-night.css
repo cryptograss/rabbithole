@@ -1,0 +1,57 @@
+/*
+ * Night in the wiki pane, inside its shadow root (see pane.css, and
+ * night.css for what night is and where its colours are set).
+ *
+ * The pane is night when its host and its root carry pp-night
+ * (WikiPane.vue). The same class is what the wiki's own night sheet looks
+ * for on something that is not <html>, so the article inside goes dark by
+ * the wiki's rules, not by a second set of them here: this sheet answers
+ * only the pane's own (pane.css, pane-chase.css, pane-trail.css).
+ */
+
+:host(.pp-night) {
+	color-scheme: dark;
+	color: var(--night-ink);
+	/* The wave along the top of MonoBook's paper is drawn for day. */
+	background: var(--night-paper) none;
+}
+
+.pane-root.pp-night {
+	/* ---- src/styles/pane.css ---- */
+
+	.pane-escape-mark { color: var(--night-green-pale); }
+	.pane-loading { color: var(--night-muted); }
+	.pane-chrome {
+		background-color: var(--night-paper);
+		border-bottom-color: var(--night-line);
+	}
+	.pane-chrome .pane-search { border-color: var(--night-line); }
+	.pane-chrome a { color: var(--night-green-pale); }
+	.pane-results li { border-bottom-color: var(--night-line); }
+	.pane-results .snippet { color: var(--night-soft); }
+
+	/* ---- src/styles/pane-chase.css ---- */
+
+	.pp-chase {
+		border-color: var(--night-line);
+		border-left-color: #4a7c59;
+		background-color: var(--night-paper);
+	}
+	.pp-chasing {
+		border-color: var(--night-line);
+		background-color: var(--night-wash);
+		color: var(--night-green-pale);
+	}
+	.pp-chasing:hover {
+		background-color: var(--night-wash);
+		border-color: #4a7c59;
+	}
+
+	/* ---- src/styles/pane-trail.css ---- */
+
+	.pp-trail {
+		border-color: var(--night-line);
+		border-left-color: #4a7c59;
+		background-color: var(--night-paper);
+	}
+}

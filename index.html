@@ -6,6 +6,19 @@
     <title>Rabbithole</title>
     <meta name="description" content="Discover music by connections, not algorithms.">
     <meta name="theme-color" content="#4a7c59">
+    <!-- Night, before anything paints: the reader's choice on the wiki (the
+         cookie "pickipedia-mode"), or with none their system. src/night.js
+         keeps it true afterwards; this is the same test, early. -->
+    <script>
+    ( function () {
+        var chose = /(?:^|;\s*)pickipedia-mode=(dark|light)(?:;|$)/.exec( document.cookie );
+        var dark = chose ? chose[ 1 ] === 'dark'
+            : !! ( window.matchMedia && window.matchMedia( '(prefers-color-scheme: dark)' ).matches );
+        if ( dark ) {
+            document.documentElement.classList.add( 'rh-night' );
+        }
+    }() );
+    </script>
     <link rel="icon" href="/icons/icon-192.png">
     <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
     <link rel="preconnect" href="https://fonts.googleapis.com">
