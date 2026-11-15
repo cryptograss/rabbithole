@@ -1,0 +1,69 @@
+/*
+ * Night in the wiki pane, inside its shadow root (see pane.css, and
+ * night.css for what night is and where its colours are set).
+ *
+ * The pane is night when its host and its root carry pp-night
+ * (WikiPane.vue). The same class is what the wiki's own night sheet looks
+ * for on something that is not <html>, so the article inside goes dark by
+ * the wiki's rules, not by a second set of them here: this sheet answers
+ * only the pane's own (pane.css, pane-chase.css, pane-trail.css).
+ */
+
+:host(.pp-night) {
+	color-scheme: dark;
+	color: var(--night-ink);
+	/* The wave along the top of MonoBook's paper is drawn for day. */
+	background: var(--night-paper) none;
+}
+
+:host( .pane-holds-graph.pp-night ) {
+	background: var(--night-paper);
+}
+
+.pane-root.pp-night {
+	/* ---- src/styles/pane.css ---- */
+
+	.pane-escape-mark { color: var(--night-green-pale); }
+	.pane-loading { color: var(--night-muted); }
+	.pane-chrome {
+		background-color: var(--night-paper);
+		border-bottom-color: var(--night-line);
+	}
+	.pane-chrome .pane-search { border-color: var(--night-line); }
+	.pane-chrome a { color: var(--night-green-pale); }
+	.pane-results li { border-bottom-color: var(--night-line); }
+	.pane-results .snippet { color: var(--night-soft); }
+	/* The connectome's frame: the graph inside is the wiki's page and keeps
+	   its own night; this is the ground it loads over. */
+	.pane-graph { background: var(--night-paper); }
+
+	/* ---- src/styles/pane-chase.css ---- */
+
+	.pp-chasing {
+		border-color: var(--night-line);
+		background-color: var(--night-wash);
+		color: var(--night-green-pale);
+	}
+	.pp-chasing:hover {
+		background-color: var(--night-wash);
+		border-color: #4a7c59;
+	}
+
+	.pp-players-who.pp-players-chased,
+	.pp-players-what.pp-players-chased {
+		background: var(--night-leaf-ground);
+	}
+	.pp-players-chasing {
+		border-color: var(--night-line-strong);
+		background: var(--night-paper);
+		color: var(--night-green-pale);
+	}
+
+	/* ---- src/styles/pane-trail.css ---- */
+
+	.pp-trail {
+		border-color: var(--night-line);
+		border-left-color: #4a7c59;
+		background-color: var(--night-paper);
+	}
+}

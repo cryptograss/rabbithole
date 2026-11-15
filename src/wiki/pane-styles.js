@@ -15,9 +15,10 @@
 import paneCss from '../styles/pane.css?inline';
 import chaseCss from '../styles/pane-chase.css?inline';
 import trailCss from '../styles/pane-trail.css?inline';
+import nightCss from '../styles/pane-night.css?inline';
 
 /** Our own sheets, in the order they cascade. */
-export const PANE_CSS = [ paneCss, chaseCss, trailCss ];
+export const PANE_CSS = [ paneCss, chaseCss, trailCss, nightCss ];
 
 /*
  * MonoBook's stylesheets, and the extensions whose markup the articles
@@ -28,9 +29,13 @@ export const PANE_CSS = [ paneCss, chaseCss, trailCss ];
  * tip until it is pointed at; without it all fifteen tips stood open at
  * once, stacked over the card in big type (Skyler, #connectome, 13 Nov
  * 2026).
+ *
+ * The wiki's night sheet comes with them: it does nothing until something
+ * above the article carries pp-night, which the pane's root does by night
+ * (WikiPane.vue), so the article goes dark by the wiki's own rules.
  */
 export const WIKI_STYLESHEETS = [
-	'/load.php?lang=en&modules=ext.pickipediaContent.styles%7Cext.pickipediaContent.connectome.styles%7Cext.pickipediaVerification.styles%7Cskins.monobook.styles&only=styles&skin=monobook',
+	'/load.php?lang=en&modules=ext.pickipediaContent.night.styles%7Cext.pickipediaContent.styles%7Cext.pickipediaContent.connectome.styles%7Cext.pickipediaVerification.styles%7Cskins.monobook.styles&only=styles&skin=monobook',
 	'/load.php?lang=en&modules=site.styles&only=styles&skin=monobook',
 ];
 

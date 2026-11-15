@@ -1,0 +1,463 @@
+/*
+ * Night: Rabbithole by dark.
+ *
+ * By day nothing here applies: app.css, ensemble.css and editor.css are as
+ * they were. By night <html> carries rh-night (src/night.js puts it there:
+ * the reader's choice on the wiki, the cookie "pickipedia-mode", or with no
+ * choice their system), and every rule below answers one of day's by the
+ * same selector, with only the colours that change. A rule of day's that
+ * names a colour and has no answer here keeps day's colour by night: the
+ * greens of the header and the borders, white words on them, the carrot,
+ * the shadows.
+ *
+ * The colours are the wiki's own night (pickipedia: extensions/
+ * PickiPediaContent/resources/night/night.less), so the dock and the page
+ * in the pane are one room. They are set on <html> and inherited by the
+ * pane's shadow root, where pane-night.css uses them.
+ *
+ * Justin, 15 Nov 2026 (#pickipedia-style-and-main-page): "The Rabbithole
+ * player doesn't respect the dark mode."
+ */
+
+:root.rh-night {
+	color-scheme: dark;
+
+	/* Grounds, darkest first: the paper behind everything, a card on it, a
+	   row under the pointer, a button held down, a knob. */
+	--night-paper: #18151a;
+	--night-panel: #211c22;
+	--night-wash: #272129;
+	--night-press: #322b34;
+	--night-knob: #5a505c;
+
+	/* Words, brightest first. */
+	--night-ink: #ece3d8;
+	--night-soft: #cfc4b8;
+	--night-muted: #a2978c;
+	--night-faint: #8f857b;
+
+	--night-line: #3a323b;
+	--night-line-strong: #5a505c;
+
+	/* Day's dark colours, as words on the dark. */
+	--night-link: #8fb1f2;
+	--night-green: #8cc09a;
+	--night-green-pale: #a9d3a0;
+	--night-red: #ff8a75;
+	--night-rust: #e08a5b;
+	--night-amber: #e0a25b;
+	--night-gold: #e3c26a;
+	--night-plum: #d7a3e6;
+
+	/* Day's pale tints, as grounds. */
+	--night-warn: #3d3215;
+	--night-warn-faint: #2a2418;
+	--night-plum-ground: #2e1f33;
+	--night-ember-ground: #3a2318;
+	--night-ember-faint: #2b1e18;
+	--night-leaf-ground: #1d3324;
+	--night-ember-line: #6b3a30;
+
+	body { color: var(--night-ink); }
+
+	/* ---- src/styles/app.css ---- */
+
+	body { background-color: var(--night-paper); }
+	.timeline-view { background-color: var(--night-panel); }
+	.timeline-view-labels { border-bottom-color: var(--night-line); }
+	.timeline-view-labels button {
+		background-color: var(--night-panel);
+		color: var(--night-green-pale);
+	}
+	.timeline-view-labels button.on { color: #fff; }
+	.timeline-view-tab {
+		background-color: var(--night-paper);
+		color: var(--night-green);
+	}
+	.timeline-view-tab:hover { background-color: var(--night-press); }
+	#rabbithole-sidebar { background-color: var(--night-panel); }
+	.rh-account { color: white; }
+	.rh-account.signed-out {
+		background-color: var(--night-warn);
+		color: var(--night-gold);
+	}
+	.mini-time { color: var(--night-soft); }
+	.mini-musician { color: var(--night-soft); }
+	.mini-musician.lead { color: var(--night-green); }
+	body:not(.bottom-bar) .data-section { background-color: var(--night-panel); }
+	.layout-ab {
+		border-color: var(--night-line);
+		background-color: var(--night-paper);
+		color: var(--night-green);
+	}
+	.layout-ab:hover {
+		background-color: #4a7c59;
+		color: #fff;
+		border-color: #3c6749;
+	}
+	.yaml-export-box {
+		border-color: var(--night-line);
+		background-color: var(--night-paper);
+	}
+	.song-info-header { border-bottom-color: var(--night-line); }
+	.song-title-back { color: #87a96b; }
+	.song-title-link:hover .song-title-back { color: var(--night-green-pale); }
+	.song-title-display { color: var(--night-green-pale); }
+	.record-link { color: var(--night-link); }
+	.record-link-out { color: #7fa0d4; }
+	.record-link:hover .record-link-out { color: var(--night-link); }
+	.album-art { border-color: var(--night-line); }
+	.album-art.album-art-missing {
+		border-color: #b05a3c;
+		background-image: repeating-linear-gradient( 45deg, var(--night-ember-ground), var(--night-ember-ground) 5px, var(--night-ember-faint) 5px, var(--night-ember-faint) 10px );
+	}
+	.album-track-select {
+		border-color: var(--night-line);
+		background-color: var(--night-panel);
+	}
+	.recording-metadata { color: var(--night-soft); }
+	.recording-metadata span + span::before { color: var(--night-faint); }
+	.up-next { color: var(--night-green); }
+	.song-select { border-color: var(--night-line); }
+	.toggle-slider { background-color: var(--night-knob); }
+	/* The knob is the pale thing on the switch, by night as by day. */
+	.toggle-slider:before { background-color: var(--night-ink); }
+	.player-loading,
+	.player-error {
+		color: var(--night-muted);
+	}
+	.player-error { color: var(--night-red); }
+	.data-section { border-top-color: #4a7c59; }
+	.section-label { color: var(--night-green); }
+	.part-box {
+		border-color: var(--night-line);
+		color: var(--night-soft);
+	}
+	.part-box.active {
+		background-color: #4a7c59;
+		color: white;
+		border-color: #4a7c59;
+	}
+	.pickipedia-frame { background-color: var(--night-panel); }
+	.pickipedia-frame .pane-loading { color: var(--night-muted); }
+	.connection-hint { background-color: var(--night-warn); }
+	.connection-hint strong { color: var(--night-gold); }
+	.editor-panel { background-color: var(--night-panel); }
+	.editor-save-section { border-top-color: var(--night-line); }
+	#save-status { color: var(--night-soft); }
+	#save-status.success { color: var(--night-green); }
+	#save-status.error { color: var(--night-red); }
+	body.bottom-bar #rabbithole-sidebar { background-color: var(--night-panel); }
+	body.bottom-bar .data-section {
+		border-top-color: var(--night-line);
+		background-color: var(--night-wash);
+	}
+	body.bottom-bar .parts-chart .part-box {
+		color: var(--night-soft);
+		background-color: var(--night-panel);
+		border-color: var(--night-line);
+	}
+	body.bottom-bar .parts-chart .part-box.active {
+		background-color: #4a7c59;
+		border-color: #3c6749;
+		color: #fff;
+	}
+	.inline-flash-note { color: var(--night-red); }
+	.listen-choice { background: var(--night-panel); }
+	.listen-choice-says { color: var(--night-soft); }
+	.listen-choice-asks { color: var(--night-ink); }
+	.listen-choice-buttons button:nth-child(n+2) {
+		background: var(--night-paper);
+		color: var(--night-green-pale);
+	}
+	.listen-choice-buttons button:hover:not(:disabled) {
+		background: #3c6749;
+		color: #fff;
+	}
+	.listen-choice-said { color: var(--night-soft); }
+	.listen-choice-close { color: var(--night-muted); }
+
+	/* ---- src/styles/ensemble.css ---- */
+
+	/* A card is drawn from these (the plate under it, the names on it), so
+	   night changes them and every state of a card follows: the lead's
+	   green fill and white words, a pickup's blue, a flourish's light. */
+	--mc-paper: var(--night-panel);
+	--mc-line: var(--night-line);
+	--mc-ink: var(--night-green-pale);
+	--mc-soft: var(--night-muted);
+
+	/* The named scenes paint their own plates. */
+	.musician-card.cooldown .mc-plate { background: var(--night-leaf-ground); }
+	.musician-card.cooldown .musician-name { color: var(--night-green); }
+	.musician-card.harmony .mc-plate { background: var(--night-plum-ground); }
+	.musician-card.harmony .musician-name { color: var(--night-plum); }
+	.musician-card.rhythm .mc-plate {
+		border-color: var(--night-line-strong);
+		background: var(--night-paper);
+	}
+	.musician-card.rhythm .musician-name { color: var(--night-soft); }
+	.musician-card.engineer-card .mc-plate {
+		border-color: var(--night-line-strong);
+		background: var(--night-paper);
+	}
+	.musician-card.engineer-card .musician-name { color: var(--night-soft); }
+
+	/* ---- src/styles/editor.css ---- */
+
+	.timeline-editor {
+		background-color: var(--night-panel);
+		border-color: var(--night-line);
+	}
+	.editor-header { border-bottom-color: var(--night-line); }
+	.editor-header h3 { color: var(--night-green); }
+	.marker-row:hover { background-color: var(--night-paper); }
+	.marker-row.selected { background-color: rgba(74, 124, 89, 0.1); }
+	.marker-row.playing { background-color: rgba(74, 124, 89, 0.15); }
+	.marker-row.selected.playing { background-color: rgba(74, 124, 89, 0.2); }
+	.marker-time-input {
+		border-color: var(--night-line);
+		background-color: var(--night-paper);
+	}
+	.marker-time-input:focus {
+		border-color: #4a7c59;
+		background-color: var(--night-panel);
+	}
+	.marker-time-input:not([readonly]) {
+		background-color: var(--night-panel);
+		border-color: #4a7c59;
+	}
+	.marker-info { color: var(--night-soft); }
+	.marker-row:hover { background-color: var(--night-paper); }
+	.marker-row.expanded { background-color: var(--night-paper); }
+	.btn-toggle-yaml,
+	.btn-delete-marker {
+		border-color: var(--night-line);
+		background-color: var(--night-panel);
+	}
+	.btn-toggle-yaml:hover {
+		background-color: #4a7c59;
+		border-color: #4a7c59;
+	}
+	.btn-delete-marker {
+		color: var(--night-red);
+		border-color: var(--night-ember-line);
+	}
+	.btn-delete-marker:hover {
+		background-color: #c00;
+		color: white;
+		border-color: #c00;
+	}
+	.marker-yaml-editor {
+		border-top-color: var(--night-line);
+		background-color: var(--night-paper);
+	}
+	.yaml-input {
+		border-color: var(--night-line);
+		background-color: var(--night-panel);
+	}
+	.yaml-input:focus { border-color: #4a7c59; }
+	.yaml-input::placeholder { color: var(--night-faint); }
+	.yaml-hint { color: var(--night-muted); }
+	.editor-footer { border-top-color: var(--night-line); }
+	.dirty-indicator { color: var(--night-green); }
+	.dirty-indicator.dirty { color: var(--night-gold); }
+	.btn-undo,
+	.btn-redo,
+	.btn-revert {
+		border-color: var(--night-line);
+		background-color: var(--night-panel);
+	}
+	.btn-undo:hover:not(:disabled),
+	.btn-redo:hover:not(:disabled) {
+		background-color: var(--night-paper);
+	}
+	.btn-revert:hover:not(:disabled) {
+		background-color: var(--night-ember-ground);
+		border-color: #c60;
+		color: var(--night-gold);
+	}
+	.marker-editor-dialog { background-color: var(--night-panel); }
+	.marker-editor-dialog h4 { color: var(--night-green); }
+	.editor-field label { color: var(--night-ink); }
+	.editor-field select { border-color: var(--night-line); }
+	.musician-toggles { background-color: var(--night-paper); }
+	.dialog-buttons { border-top-color: var(--night-line); }
+	.btn-cancel {
+		background-color: var(--night-paper);
+		color: var(--night-ink);
+	}
+	.btn-cancel:hover { background-color: var(--night-press); }
+	.btn-save-wiki { background-image: linear-gradient(135deg, #4a7c59 0%, #3a6347 100%); }
+	.btn-save-wiki.saving { background-color: var(--night-knob); }
+	.editor-panel { background-color: var(--night-panel); }
+	.keyboard-help {
+		background-color: var(--night-paper);
+		color: var(--night-soft);
+	}
+	.keyboard-help h5 { color: var(--night-faint); }
+	.keyboard-help kbd {
+		background-color: var(--night-panel);
+		border-color: var(--night-line);
+	}
+	.raw-yaml-input {
+		border-color: var(--night-line);
+		background-color: var(--night-panel);
+	}
+	.raw-yaml-input:focus { border-color: #4a7c59; }
+	.current-time-display {
+		color: var(--night-soft);
+		background-color: var(--night-paper);
+	}
+	.btn-toggle-mode {
+		background-color: var(--night-paper);
+		color: var(--night-ink);
+		border-color: var(--night-line);
+	}
+	.btn-toggle-mode:hover {
+		background-color: var(--night-press);
+		border-color: var(--night-line-strong);
+	}
+	.ruler-band { border-top-color: var(--night-line); }
+	.ruler-band-label { color: var(--night-muted); }
+	.ruler-tick { border-top-color: var(--night-line); }
+	.ruler-tick-label { color: var(--night-muted); }
+	.ruler-marker-label {
+		color: var(--night-green-pale);
+		background-color: rgba(33, 28, 34, 0.85);
+	}
+	.ruler-marker.selected .ruler-marker-label { color: var(--night-rust); }
+	.marker-form { background-color: var(--night-paper); }
+	.marker-form-head strong { color: var(--night-green-pale); }
+	.mf-menu { background-color: var(--night-panel); }
+	.mf-menu-item:hover { background-color: var(--night-wash); }
+	.mf-menu-item.on { color: var(--night-green-pale); }
+	.mf-time { border-color: var(--night-line); }
+	.mf-close { color: var(--night-muted); }
+	.mf-row > span:first-child { color: var(--night-soft); }
+	.mf-row select { border-color: var(--night-line); }
+	.mf-part {
+		border-color: var(--night-line);
+		background-color: var(--night-panel);
+	}
+	.mf-part.on {
+		background-color: #4a7c59;
+		border-color: #3c6749;
+		color: #fff;
+	}
+	.mf-who {
+		border-color: var(--night-line);
+		background-color: var(--night-panel);
+	}
+	.mf-who-head { color: var(--night-soft); }
+	.mf-band {
+		border-color: var(--night-line);
+		background-color: var(--night-panel);
+	}
+	.mf-band.on {
+		background-color: #4a7c59;
+		border-color: #3c6749;
+		color: #fff;
+	}
+	.mf-inout {
+		border-color: var(--night-line);
+		background-color: var(--night-panel);
+	}
+	.mf-who-row .mf-inout.on {
+		background-color: #4a7c59;
+		border-color: #3c6749;
+		color: #fff;
+	}
+	.mf-note { color: var(--night-muted); }
+	.mf-more-label { color: var(--night-soft); }
+	.mf-actions button {
+		border-color: var(--night-line);
+		background-color: var(--night-panel);
+	}
+	.mf-actions .mf-delete { color: var(--night-rust); }
+	.mf-error { color: var(--night-red); }
+	.mf-add-name { border-color: var(--night-line); }
+	.mf-who .mf-add {
+		border-color: var(--night-line);
+		background-color: var(--night-panel);
+	}
+	.mf-who-row.is-in .mf-who-name { color: var(--night-green-pale); }
+	.mf-who-row.is-out .mf-who-name { color: var(--night-faint); }
+	.btn-tidy {
+		border-color: var(--night-line);
+		background-color: var(--night-panel);
+	}
+	.tidy-note { color: var(--night-green); }
+	.ruler-marker:hover .ruler-marker-label { background-color: var(--night-ember-ground); }
+	.editor-flash { color: var(--night-soft); }
+	.editor-flash button {
+		border-color: var(--night-line);
+		background-color: var(--night-panel);
+	}
+	.ruler-carrot { background-color: rgba(33, 28, 34, 0.85); }
+	.ruler-carrot-greens path {
+		fill: var(--night-green);
+		stroke: var(--night-green);
+	}
+	.timeline-ruler.wave-loading .ruler-track::after { color: var(--night-faint); }
+	.ruler-zoom-level { color: var(--night-soft); }
+	.ruler-wave-offer {
+		border-color: var(--night-line-strong);
+		background-color: var(--night-panel);
+		color: var(--night-green);
+	}
+	.ensemble-panel {
+		border-color: var(--night-line);
+		background-color: var(--night-paper);
+	}
+	.ens-head h4 { color: var(--night-ink); }
+	.ens-missing { color: var(--night-rust); }
+	.ens-name { color: var(--night-ink); }
+	.ens-instruments {
+		border-color: var(--night-line);
+		background-color: var(--night-panel);
+	}
+	.ens-row.empty .ens-instruments {
+		border-color: var(--night-ember-line);
+		background-color: var(--night-paper);
+	}
+	.grid-fit-note { color: var(--night-soft); }
+
+	/* ---- src/components/CarrotButton.vue ---- */
+
+	.carrot-ring-progress { stroke: var(--night-green); }
+	.carrot-greens path {
+		fill: var(--night-green);
+		stroke: var(--night-green);
+	}
+
+	/* ---- src/components/WalkTrail.vue ---- */
+
+	/* The graph in the frame is the wiki's page and keeps its own night;
+	   this is what stands around it. */
+	.walk-trail { border-top-color: var(--night-line); }
+	.walk-more { color: var(--night-soft); }
+	.walk-tab {
+		border-color: var(--night-line);
+		background: var(--night-paper);
+	}
+	.walk-frame.open { background: var(--night-panel); }
+	.walk-close {
+		border-color: var(--night-line);
+		background: var(--night-panel);
+		color: var(--night-soft);
+	}
+	.walk-close:hover {
+		background: var(--night-press);
+		color: var(--night-ink);
+	}
+
+	/* ---- What script colours, and a stylesheet can only answer by what it finds ---- */
+
+	/* The editor's notes take their colour from TimelineEditor.js (style.color):
+	   green for done, red for an error, rust for a warning. Day's values, as the
+	   browser writes them back, each to its night ink. */
+	[style*="color: rgb(74, 124, 89)"] { color: var(--night-green) !important; }
+	[style*="color: rgb(204, 0, 0)"] { color: var(--night-red) !important; }
+	[style*="color: rgb(176, 90, 60)"] { color: var(--night-rust) !important; }
+}

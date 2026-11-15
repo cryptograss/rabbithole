@@ -16,7 +16,7 @@
  * stays in the pane and stops the chase; a Listen button hands its track
  * to the player.
  */
-import { ref, watch, onMounted, onBeforeUnmount, computed, nextTick } from 'vue';
+import { ref, watch, watchEffect, onMounted, onBeforeUnmount, computed, nextTick } from 'vue';
 import { usePaneStore } from '../stores/pane.js';
 import { useLayoutStore } from '../stores/layout.js';
 import { usePickerStore } from '../stores/picker.js';
@@ -25,6 +25,7 @@ import { usePlayerStore } from '../stores/player.js';
 import { useWalkStore, drawerDoes } from '../stores/walk.js';
 import { useSongStore } from '../stores/song.js';
 import { adoptPaneStyles } from '../wiki/pane-styles.js';
+import { night } from '../night.js';
 import { listenRequest, openTrack, playTrackInDock, queueTrack, trailToHere } from '../wiki/queue.js';
 import { linkIn, titleFromHref, leavesTheApp } from '../wiki/pane-links.js';
 import { markChased } from '../wiki/pane-ensemble.js';
@@ -227,6 +228,18 @@ watch(
 	() => nextTick( tellGraphs ),
 	{ deep: true, immediate: true }
 );
+
+// Night reaches the pane by a class of its own: the one on <html> stops at
+// the shadow root. On the host it darkens the paper (pane-night.css); on the
+// root it is what the wiki's night sheet looks for above an article.
+watchEffect( () => {
+	if ( host.value ) {
+		host.value.classList.toggle( 'pp-night', night.value );
+	}
+	if ( inside.value ) {
+		inside.value.classList.toggle( 'pp-night', night.value );
+	}
+} );
 
 // A new page starts at the top of it, as turning a page does.
 watch( () => view.value, () => {
