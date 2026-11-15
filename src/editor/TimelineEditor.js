@@ -406,7 +406,7 @@ export class TimelineEditor {
             this.data._saveUndoState();
 
             // Replace timeline
-            this.data.workingData.timeline = parsed.timeline;
+            this.data.replaceTimeline(parsed.timeline);
 
             // Update ensemble too, since arthel-paste typically brings it
             if (parsed.ensemble && typeof parsed.ensemble === 'object') {

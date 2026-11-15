@@ -9,6 +9,8 @@
 
 import jsYaml from 'js-yaml';
 
+import { normalizeTimeline } from '../player/timeline.js';
+
 export const IPFS_GATEWAY = 'https://ipfs.delivery-kid.cryptograss.live';
 
 const api = ( params, init ) => fetch( '/api.php?' + new URLSearchParams( { format: 'json', origin: '*', ...params } ), init )
@@ -83,7 +85,7 @@ export function extractMetadata( data ) {
 	if ( data.timeline || data.ensemble ) {
 		return {
 			ensemble: data.ensemble || {},
-			timeline: data.timeline || {},
+			timeline: normalizeTimeline( data.timeline ),
 			standardSectionLength: data.standardSectionLength,
 			title: data.title,
 			album: data.album,
@@ -103,7 +105,7 @@ export function extractMetadata( data ) {
 				const rh = release.rabbithole || {};
 				return {
 					ensemble: release.ensemble || {},
-					timeline: rh.timeline || {},
+					timeline: normalizeTimeline( rh.timeline ),
 					standardSectionLength: rh.standardSectionLength,
 					title: releaseKey,
 					album: releaseKey,
