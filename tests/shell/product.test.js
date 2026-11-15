@@ -79,6 +79,16 @@ describe( 'stylesheets', () => {
 		expect( css ).toContain( '.cards-move' );
 	} );
 
+	it( 'black out the player pane for a spotlight, from both ends', () => {
+		// Justin's item 22 (15 Nov 2026): the player pane goes dark for the
+		// length of a spotlight. Two halves, and either one alone does
+		// nothing: App.vue wears the class off the live effect, app.css
+		// says what wearing it looks like.
+		expect( read( 'src/App.vue' ) ).toMatch( /kind === 'spotlight'/ );
+		expect( read( 'src/App.vue' ) ).toMatch( /id="rabbithole-sidebar"[^>]*:class="\{ spotlit \}"/ );
+		expect( read( 'src/styles/app.css' ) ).toContain( '#rabbithole-sidebar.spotlit' );
+	} );
+
 	it( 'give Webamp\'s window one home per layout', () => {
 		const css = read( 'src/styles/app.css' );
 		expect( css ).toMatch( /body\.bottom-bar #webamp div:has\(> #main-window\)/ );
