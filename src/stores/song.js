@@ -238,7 +238,7 @@ export const useSongStore = defineStore( 'song', () => {
 
 	return {
 		initial, loading, loadError, charted, lockedToTrack, current,
-		album, recordPage, artUrl, artFailed, notice, metadataParts, queuedCids,
+		album, recordPage, artUrl, artFailed, notice, metadataParts, queuedCids, recordRest,
 		boot, pickTrack, fetchTrack, playCid, queueCid, queueRecordRest, goToTrack,
 	};
 } );

@@ -48,7 +48,16 @@ function fakeWebamp() {
 		store: {
 			getState: () => state,
 			subscribe( fn ) { listeners.add( fn ); return () => listeners.delete( fn ); },
-			dispatch() {},
+			// The one action the model dispatches at the playlist, applied
+			// as Webamp's own reducer applies it.
+			dispatch( action ) {
+				if ( action && action.type === 'REMOVE_TRACKS' ) {
+					const gone = new Set( action.ids );
+					state.playlist.trackOrder = state.playlist.trackOrder.filter( ( id ) => ! gone.has( id ) );
+					gone.forEach( ( id ) => delete state.tracks[ id ] );
+					notify();
+				}
+			},
 		},
 		getMediaStatus: () => state.media.status,
 		onWillClose() {},
@@ -97,6 +106,26 @@ describe( 'the queue is the playlist', () => {
 		model.enqueue( VICTORY );
 		webamp.advance();
 		expect( model.state.song.title ).toBe( 'Victory' );
+	} );
+
+	it( 'clears the queue behind the song playing, and leaves it playing', () => {
+		// A chase is "their songs next", so whatever a quest lined up gets
+		// out of the way (Justin's items 27 and 28, 15 Nov 2026).
+		const { model, webamp } = wired();
+		model.enqueue( VICTORY );
+		model.enqueue( CICADA );
+		expect( model.clearQueue() ).toEqual( [ 2, 3 ] );
+		expect( model.state.upNext ).toEqual( [] );
+		expect( model.state.song.title ).toBe( 'Swords to Ploughshares' );
+		expect( webamp.state.playlist.currentTrack ).toBe( 1 );
+	} );
+
+	it( 'clearing an empty queue dispatches nothing', () => {
+		const { model, webamp } = wired();
+		const seen = [];
+		webamp.store.dispatch = ( action ) => seen.push( action );
+		expect( model.clearQueue() ).toEqual( [] );
+		expect( seen ).toEqual( [] );
 	} );
 
 	it( 'leaves the chart alone for a track it never handed Webamp', () => {

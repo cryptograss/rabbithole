@@ -358,6 +358,28 @@ export class WebampPlayer {
 	}
 
 	/**
+	 * Take everything after the current track out of the playlist.
+	 *
+	 * Starting a chase means "their songs next", so whatever a quest had
+	 * lined up gets out of the way rather than playing first (Justin's
+	 * items 27 and 28, 15 Nov 2026). Webamp's own playlist is the queue,
+	 * so this is its own REMOVE_TRACKS, the way the shade toggle is.
+	 */
+	clearQueue() {
+		if ( ! this.webamp ) {
+			return [];
+		}
+		const wa = this.webamp.store.getState();
+		const order = ( wa.playlist && wa.playlist.trackOrder ) || [];
+		const at = order.indexOf( wa.playlist && wa.playlist.currentTrack );
+		const ids = at < 0 ? [] : order.slice( at + 1 );
+		if ( ids.length ) {
+			this.webamp.store.dispatch( { type: 'REMOVE_TRACKS', ids } );
+		}
+		return ids;
+	}
+
+	/**
 	 * Skip to the next song in the queue and play it. False when nothing
 	 * is queued.
 	 */
