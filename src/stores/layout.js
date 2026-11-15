@@ -22,7 +22,7 @@
 import { defineStore } from 'pinia';
 import { ref, computed, watch } from 'vue';
 
-import { INITIAL_PARAMS } from '../initial-params.js';
+import { INITIAL_PARAMS, cameToEdit } from '../initial-params.js';
 import { useMediaQuery } from '../composables/media-query.js';
 
 export const AUTO_AT = 700;
@@ -110,7 +110,14 @@ export const useLayoutStore = defineStore( 'layout', () => {
 	// The sidebar folds to a strip; the bar collapses to a shaded player.
 	const minimized = ref( false );
 	const collapsed = ref( false );
-	const editorOpen = ref( false );
+	/*
+	 * The timeline editor, open from the start when the address asks for it:
+	 * ?track=<cid>&action=edit. That is the link a song page offers beside
+	 * the chart it is about ({{Studio cut}}, 14 Nov 2026) — somebody who
+	 * clicked "chart it in Rabbithole" came to edit, so the editor is what
+	 * they get, rather than the ✎ to find.
+	 */
+	const editorOpen = ref( cameToEdit( INITIAL_PARAMS ) );
 
 	/*
 	 * Follow the solo into each player's page. Any navigation a person does
