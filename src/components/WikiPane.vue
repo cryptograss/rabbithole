@@ -16,19 +16,23 @@
  * stays in the pane and stops the chase; a Listen button hands its track
  * to the player.
  */
-import { ref, watch, onMounted, computed } from 'vue';
+import { ref, watch, onMounted, onBeforeUnmount, computed, nextTick } from 'vue';
 import { usePaneStore } from '../stores/pane.js';
 import { useLayoutStore } from '../stores/layout.js';
 import { usePickerStore } from '../stores/picker.js';
 import { useListenStore } from '../stores/listen.js';
 import { usePlayerStore } from '../stores/player.js';
+import { useWalkStore, drawerDoes } from '../stores/walk.js';
+import { useSongStore } from '../stores/song.js';
 import { adoptPaneStyles } from '../wiki/pane-styles.js';
 import { listenRequest, openTrack, playTrackInDock, queueTrack, trailToHere } from '../wiki/queue.js';
 import { linkIn, titleFromHref, leavesTheApp } from '../wiki/pane-links.js';
 import { markChased } from '../wiki/pane-ensemble.js';
+import { graphSrcFor, isGraphFrame, walkMessage } from '../wiki/graph-frame.js';
 import PaneArticle from './pane/PaneArticle.vue';
 import PaneChaseOffer from './pane/PaneChaseOffer.vue';
 import PaneChasePill from './pane/PaneChasePill.vue';
+import PaneGraph from './pane/PaneGraph.vue';
 import PaneNotice from './pane/PaneNotice.vue';
 import PaneSearch from './pane/PaneSearch.vue';
 import PaneTrail from './pane/PaneTrail.vue';
@@ -38,6 +42,8 @@ const layout = useLayoutStore();
 const picker = usePickerStore();
 const listen = useListenStore();
 const player = usePlayerStore();
+const walk = useWalkStore();
+const songs = useSongStore();
 const host = ref( null );
 /* Where Vue renders: a div of our own inside the shadow root, made once. */
 const inside = ref( null );
@@ -86,6 +92,68 @@ async function asked( request, el ) {
 	}
 }
 
+/*
+ * The connectome, in the pane rather than in a new tab (Justin's ask, 15
+ * Nov 2026). Every graph in the pane is told what the player is doing --
+ * the one the pane is showing, and any the wiki's own HTML carries -- so
+ * the song playing and the picker being chased are marked wherever they
+ * appear. One place says it; one place hears the graphs back.
+ */
+function graphFrames() {
+	const shadow = host.value && host.value.shadowRoot;
+	return shadow ? [ ...shadow.querySelectorAll( 'iframe' ) ].filter( isGraphFrame ) : [];
+}
+
+function tellGraphs() {
+	// A frame that has not finished loading has no listener yet: it is
+	// told again when it has.
+	for ( const frame of graphFrames() ) {
+		if ( frame.dataset.rhListening !== 'yes' ) {
+			frame.dataset.rhListening = 'yes';
+			frame.addEventListener( 'load', () => tellGraphs() );
+		}
+	}
+	const message = walkMessage( {
+		hops: walk.hops,
+		chasing: picker.following || null,
+		chaseMode: picker.mode || null,
+		now: ( player.song && player.song._trackCid ) || null,
+		playing: player.playing,
+		mode: 'full',
+	} );
+	for ( const frame of graphFrames() ) {
+		if ( frame.contentWindow ) {
+			frame.contentWindow.postMessage( message, window.location.origin );
+		}
+	}
+}
+
+/** What a graph in the pane asks of the player: the drawer's own words. */
+function onGraphMessage( e ) {
+	if ( e.origin !== window.location.origin ) {
+		return;
+	}
+	if ( ! graphFrames().some( ( frame ) => frame.contentWindow === e.source ) ) {
+		return;
+	}
+	const does = drawerDoes( e.data );
+	if ( ! does ) {
+		return;
+	}
+	if ( does.play ) {
+		if ( does.via ) {
+			walk.mark( does.play, does.via );
+		}
+		layout.openDock();
+		songs.playCid( does.play, { play: true } )
+			.catch( ( err ) => console.warn( 'Could not play that from the graph:', err ) );
+	}
+	if ( does.page ) {
+		layout.stopTraversing();
+		pane.open( does.page );
+	}
+}
+
 async function onClick( e ) {
 	const link = linkIn( e.composedPath() );
 	if ( ! link ) {
@@ -108,6 +176,15 @@ async function onClick( e ) {
 		e.preventDefault();
 		layout.stopTraversing();
 		pane.open( title );
+		return;
+	}
+	const graph = graphSrcFor( href );
+	if ( graph ) {
+		// The connectome opens here, to be explored for the next thing to
+		// chase to, rather than in a tab away from the music.
+		e.preventDefault();
+		layout.stopTraversing();
+		pane.openGraph( graph );
 		return;
 	}
 	if ( leavesTheApp( href ) ) {
@@ -137,8 +214,19 @@ onMounted( () => {
 	root.className = 'pane-root';
 	shadow.append( root );
 	shadow.addEventListener( 'click', onClick );
+	window.addEventListener( 'message', onGraphMessage );
 	inside.value = root;
 } );
+
+onBeforeUnmount( () => window.removeEventListener( 'message', onGraphMessage ) );
+
+// A graph hears the player when it arrives, and whenever any of it changes.
+watch(
+	() => [ view.value, walk.hops, picker.following, picker.mode,
+		player.song && player.song._trackCid, player.playing ],
+	() => nextTick( tellGraphs ),
+	{ deep: true, immediate: true }
+);
 
 // A new page starts at the top of it, as turning a page does.
 watch( () => view.value, () => {
@@ -151,7 +239,12 @@ watch( () => pane.shown, ( title ) => picker.look( title ), { immediate: true } 
 </script>
 
 <template>
-	<div id="pickipedia-frame" ref="host" class="pickipedia-frame"></div>
+	<div
+		id="pickipedia-frame"
+		ref="host"
+		class="pickipedia-frame"
+		:class="{ 'pane-holds-graph': view.kind === 'graph' }"
+	></div>
 	<Teleport v-if="inside" :to="inside">
 		<PaneSearch
 			v-if="view.kind === 'search'"
@@ -164,6 +257,7 @@ watch( () => pane.shown, ( title ) => picker.look( title ), { immediate: true } 
 			:kind="view.kind"
 			:title="view.title"
 		/>
+		<PaneGraph v-else-if="view.kind === 'graph'" :src="view.src" />
 		<PaneArticle
 			v-else-if="view.kind === 'article'"
 			:title="view.title"

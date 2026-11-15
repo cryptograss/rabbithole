@@ -43,13 +43,23 @@ export function personName( title ) {
 }
 
 /**
- * How the walk says a hop was made by following someone: who, and what
- * they played on the song they led to, as the performer graph has it.
- * Pure.
+ * How the walk says a hop was made by following someone: who, what they
+ * played on the song they led to, as the performer graph has it, and the
+ * word for why the two songs connect.
+ *
+ * The word is the difference between a picker you chose and one a song
+ * chose for you, which is what the walk's every line has to say (Justin,
+ * 15 Nov 2026: "show _why_ it connected from one song to the next, every
+ * single line"). Pure.
+ *
+ * @param {Object} graph The performer graph.
+ * @param {string} song The song page led to.
+ * @param {string} name Who was followed.
+ * @param {string} why 'chase' or 'quest'.
  */
-export function viaPicker( graph, song, name ) {
+export function viaPicker( graph, song, name, why ) {
 	const instruments = ( ( graph && graph.band && graph.band[ song ] ) || {} )[ name ] || [];
-	return { name, instrument: instruments[ 0 ] || null };
+	return { name, instrument: instruments[ 0 ] || null, why };
 }
 
 /**
@@ -232,7 +242,7 @@ export const usePickerStore = defineStore( 'picker', () => {
 		if ( next.value ) {
 			// Marked before it is queued, so however soon it starts, the
 			// walk knows it came by following this picker.
-			walk.mark( next.value.cid, viaPicker( await performerGraph(), next.value.song, name ) );
+			walk.mark( next.value.cid, viaPicker( await performerGraph(), next.value.song, name, mode.value ) );
 			await queueOurs( next.value.cid );
 		}
 		if ( offer.value && offer.value.name === following.value ) {
@@ -269,7 +279,7 @@ export const usePickerStore = defineStore( 'picker', () => {
 		// One song behind this one, never more: a record playing through, or
 		// a trail queued to here, is already the answer to what comes next.
 		if ( theirs && ! songs.queuedCids.length ) {
-			walk.mark( theirs.cid, viaPicker( graph, theirs.song, name ) );
+			walk.mark( theirs.cid, viaPicker( graph, theirs.song, name, 'quest' ) );
 			if ( await queueOurs( theirs.cid ) ) {
 				next.value = theirs;
 			}

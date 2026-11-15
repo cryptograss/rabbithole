@@ -195,7 +195,7 @@ export async function queueTrail( target, say = () => {} ) {
 			continue;
 		}
 		// Each song on the trail is reached through the person its hop names.
-		walk.mark( cid, { name: hops[ i ].via, instrument: hops[ i ].instrument || null } );
+		walk.mark( cid, { name: hops[ i ].via, instrument: hops[ i ].instrument || null, why: 'trail' } );
 		try {
 			if ( await songs.queueCid( cid ) ) {
 				queued.push( song );

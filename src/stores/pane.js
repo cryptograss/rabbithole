@@ -93,6 +93,33 @@ export const usePaneStore = defineStore( 'pane', () => {
 		}
 	}
 
+	/**
+	 * The connectome, in the pane, in a frame of its own.
+	 *
+	 * A graph is a page with scripts, so it is framed rather than injected
+	 * (wiki/graph-frame.js). Exploring it is reading, not navigating the
+	 * wiki, so the address is left alone: what is in the pane when you
+	 * came is still what a reload opens (Justin, #rabbithole, 15 Nov 2026).
+	 *
+	 * @param {string} src The frame's src, from graphSrcFor().
+	 */
+	function openGraph( src ) {
+		if ( ! src ) {
+			return;
+		}
+		if ( request ) {
+			request.abort();
+		}
+		loading.value = false;
+		trail.value = null;
+		// No article is on screen while the graph is: the page you came
+		// from is not being read, and asking for it again has to open it
+		// rather than be taken for the page already shown.
+		wanted.value = null;
+		shown.value = null;
+		view.value = { kind: 'graph', src };
+	}
+
 	async function search( text ) {
 		const q = text.trim();
 		if ( ! q ) {
@@ -124,5 +151,5 @@ export const usePaneStore = defineStore( 'pane', () => {
 	/** The title of the song page on screen, or null if the pane shows something else. */
 	const shownSongTitle = computed( () => ( shown.value && shown.value.startsWith( 'Song:' ) ? shown.value : null ) );
 
-	return { wanted, shown, view, loading, trail, shownSongTitle, open, openSong, search };
+	return { wanted, shown, view, loading, trail, shownSongTitle, open, openSong, openGraph, search };
 } );

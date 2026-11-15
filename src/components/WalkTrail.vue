@@ -30,6 +30,7 @@ import { usePlayerStore } from '../stores/player.js';
 import { usePickerStore } from '../stores/picker.js';
 import { useSongStore } from '../stores/song.js';
 import { usePaneStore } from '../stores/pane.js';
+import { walkMessage } from '../wiki/graph-frame.js';
 
 const walk = useWalkStore();
 const layout = useLayoutStore();
@@ -50,15 +51,8 @@ function say() {
 	if ( ! win ) {
 		return;
 	}
-	win.postMessage( {
-		rabbithole: 'walk',
-		hops: walk.hops.map( ( h ) => ( {
-			cid: h.cid,
-			song: h.song,
-			via: h.via ? { name: h.via.name, instrument: h.via.instrument } : null,
-			why: h.why || null,
-			at: h.at,
-		} ) ),
+	win.postMessage( walkMessage( {
+		hops: walk.hops,
 		// Every line says why it connects (Justin, 15 Nov 2026); the word is
 		// on the hop, and who is chased goes with it, so the view can show
 		// the one being followed (Justin: the chased picker, "very super
@@ -66,9 +60,9 @@ function say() {
 		chasing: picker.following || null,
 		chaseMode: picker.mode || null,
 		now: ( player.song && player.song._trackCid ) || null,
-		playing: !! player.playing,
+		playing: player.playing,
 		mode: open.value ? 'full' : 'mini',
-	}, window.location.origin );
+	} ), window.location.origin );
 }
 
 watch( () => [ walk.hops, player.song && player.song._trackCid, player.playing, open.value, picker.following, picker.mode ], say, { deep: true } );
