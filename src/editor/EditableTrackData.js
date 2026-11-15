@@ -59,7 +59,17 @@ export class EditableTrackData {
         this.onDirtyChange = options.onDirtyChange || null;
 
         // Selection state for the editor
-        this.selectedMarkerTime = null;
+        this._selectedMarkerTime = null;
+        /*
+         * Whether the selected marker is lit.
+         *
+         * Picking one lights it; the editor puts the light out at the next
+         * action. The marker you just saved used to stay lit for the rest
+         * of the session, while the song lit others as it played past
+         * them, and two kinds of highlight at once read as one confusing
+         * one (Skyler, 15 Nov 2026).
+         */
+        this.selectionShown = false;
 
         /*
          * What the last save to PickiPedia came back with: null before any
@@ -91,6 +101,19 @@ export class EditableTrackData {
         if (options.restoreBackup !== false) {
             this._restoreFromBackup();
         }
+    }
+
+    /**
+     * The marker the editor is working on. Setting it lights it, wherever
+     * the selection is set from -- a click, a save, the keyboard.
+     */
+    get selectedMarkerTime() {
+        return this._selectedMarkerTime;
+    }
+
+    set selectedMarkerTime(time) {
+        this._selectedMarkerTime = time;
+        this.selectionShown = time !== null && time !== undefined;
     }
 
     /**

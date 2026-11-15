@@ -135,6 +135,17 @@ describe( 'the player model', () => {
 		expect( model.state.currentSolo ).toBe( 'Harry Clark' );
 	} );
 
+	it( 'takes the editor\'s timeline again when it is the same object, edited', () => {
+		// The editor hands over its own working timeline, mutated in place.
+		const { model } = wired();
+		const working = { 0: { part: 'A' } };
+		model.updateTimeline( working );
+		expect( model.parts.value ).toEqual( [ 'A' ] );
+		working[ 30 ] = { part: 'B' };
+		model.updateTimeline( working );
+		expect( model.parts.value ).toEqual( [ 'A', 'B' ] );
+	} );
+
 	it( 'keeps the editor\'s view of it: trackData, updateTimeline, onTimeUpdate', () => {
 		const { model } = wired();
 		const seen = [];
