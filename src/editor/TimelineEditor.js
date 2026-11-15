@@ -45,9 +45,57 @@ import { currentInstruments } from '../player/timeline.js';
  */
 export function markerWho(data, ensemble, by = 'name') {
     const names = data.solo ? soloNames(data.solo) : soloNames(data.pickup);
+    return namesAs(names, data, ensemble, by);
+}
+
+/** A list of pickers, as the ruler says them: their names, or what they play. */
+function namesAs(names, data, ensemble, by) {
     if (by !== 'instrument') return names.join(', ');
     const playing = currentInstruments({ ensemble }, data);
     return names.map(n => playing[n] || n).join(', ');
+}
+
+/*
+ * What a marker that features nobody says.
+ *
+ * A flourish, a change of instrument, somebody stepping in or out: real
+ * moments in the chart, and the ruler called every one of them "unnamed"
+ * (Justin, #rabbithole, 15 Nov 2026). Nothing here invents a soloist --
+ * the label says what the marker actually does.
+ */
+export function markerNote(data, ensemble, by = 'name') {
+    if (!data || typeof data !== 'object') return '';
+    const flourish = data.flourish || data.spotlight;
+    if (flourish) {
+        return '✦ ' + namesAs(soloNames(flourish), data, ensemble, by);
+    }
+    const changes = Object.entries(data.instrumentChanges || {});
+    if (changes.length) {
+        const picked = [...new Set(changes.map(([ , to ]) => to))].join(', ');
+        return by === 'instrument' ? '→ ' + picked
+            : changes.map(([ who, to ]) => `${who} → ${to}`).join(', ');
+    }
+    const moves = Object.entries(data.musicians || {});
+    if (moves.length) {
+        const say = (who, state) => (who === 'band' ? 'band' : namesAs([ who ], data, ensemble, by)) + ' ' + state;
+        // "band in" says it all; who is out with the band is in the form.
+        const band = moves.find(([ who ]) => who === 'band');
+        return band ? say('band', band[1]) : moves.map(([ who, state ]) => say(who, state)).join(', ');
+    }
+    // solo: false is the end of one, which is a thing worth seeing.
+    if (data.solo === false) return 'solo ends';
+    return '';
+}
+
+/**
+ * What the ruler writes beside a marker: who it features, or what it does
+ * when it features nobody. A flourish behind somebody's solo keeps its ✦.
+ */
+export function markerLabel(data, ensemble, by = 'name') {
+    const who = markerWho(data, ensemble, by);
+    const note = markerNote(data, ensemble, by);
+    if (who && note.startsWith('✦')) return who + ' ✦';
+    return who || note;
 }
 
 import { loadPeaks, loadServerPeaks, drawWaveform, WAVE_INK, WAVE_INK_QUIET } from './waveform.js';
@@ -772,7 +820,7 @@ export class TimelineEditor {
 
         const markers = entries.map(entry => {
             const { time, data } = entry;
-            const who = markerWho(data, this.data.ensemble, this.labelBy);
+            const who = markerLabel(data, this.data.ensemble, this.labelBy);
             const part = data.part || '';
             const label = [part, who].filter(Boolean).join(' · ') || 'unnamed';
             const selected = this._marked(time) ? ' selected' : '';
