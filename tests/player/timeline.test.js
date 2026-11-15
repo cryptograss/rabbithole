@@ -8,6 +8,7 @@ import {
 	currentInstruments, musicianStatus, baseWeights, cards, soloistOf, soloistsOf,
 	singersOf, micOrder, effectsAt, nextMarker,
 } from '../../src/player/timeline.js';
+import { isVoice } from '../../src/instruments.js';
 import { soundcheckTimeline } from '../../src/soundcheck.js';
 
 describe( 'processTimeline', () => {
@@ -156,6 +157,17 @@ describe( 'the order of the cards', () => {
 		expect( order( 15 ) ).toEqual( order( 5 ) );
 		expect( cards( track, processed, 15 ).find( ( c ) => c.name === 'Kyle Tuttle' ) )
 			.toMatchObject( { scene: 'lead', star: true, singing: false } );
+	} );
+
+	it( 'knows a voice by its name, and an instrument that only sounds like one', () => {
+		for ( const voice of [ 'vocals', 'Vocals', 'harmony vocals', 'lead vocal', 'voice', 'throatsinging',
+			'throat singing', 'guitar/ throatsinging', 'vocals and guitar', 'guitar, vocals', 'singing' ] ) {
+			expect( isVoice( voice ), voice ).toBe( true );
+		}
+		for ( const instrument of [ 'guitar', 'tin whistle', 'six-whistle', 'single-row melodeon', 'singing saw',
+			'singing bowl', 'voice flute', 'no one cares', '', undefined, null ] ) {
+			expect( isVoice( instrument ), String( instrument ) ).toBe( false );
+		}
 	} );
 
 	it( 'knows a singer by what they have in hand when they take it', () => {
