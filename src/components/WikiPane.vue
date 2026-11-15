@@ -20,8 +20,10 @@ import { ref, watch, onMounted, computed } from 'vue';
 import { usePaneStore } from '../stores/pane.js';
 import { useLayoutStore } from '../stores/layout.js';
 import { usePickerStore } from '../stores/picker.js';
+import { useListenStore } from '../stores/listen.js';
+import { usePlayerStore } from '../stores/player.js';
 import { adoptPaneStyles } from '../wiki/pane-styles.js';
-import { listenRequest, playTrackInDock, queueTrack, trailToHere } from '../wiki/queue.js';
+import { listenRequest, openTrack, playTrackInDock, queueTrack, trailToHere } from '../wiki/queue.js';
 import { linkIn, titleFromHref, leavesTheApp } from '../wiki/pane-links.js';
 import PaneArticle from './pane/PaneArticle.vue';
 import PaneChaseOffer from './pane/PaneChaseOffer.vue';
@@ -33,6 +35,8 @@ import PaneTrail from './pane/PaneTrail.vue';
 const pane = usePaneStore();
 const layout = useLayoutStore();
 const picker = usePickerStore();
+const listen = useListenStore();
+const player = usePlayerStore();
 const host = ref( null );
 /* Where Vue renders: a div of our own inside the shadow root, made once. */
 const inside = ref( null );
@@ -47,6 +51,29 @@ const view = computed( () => pane.view );
 const offer = computed( () => ( view.value.kind === 'article' && picker.offer ? picker.offer : null ) );
 const chasing = computed( () => !! offer.value && picker.following === offer.value.name );
 
+/**
+ * What a Listen button in the pane asks for.
+ *
+ * A track that is already playing is nothing to ask about; nor is one
+ * clicked while the dock is quiet, which simply plays. Asked for while
+ * another song is on, it is a question with three answers, and the
+ * dialogue asks it (Justin's item 15, 15 Nov 2026).
+ */
+async function asked( request, el ) {
+	const { cid, action } = request;
+	if ( action === 'trail' ) {
+		await trailToHere( el );
+	} else if ( action === 'queue' ) {
+		await queueTrack( cid, el );
+	} else if ( action === 'open' ) {
+		await openTrack( cid );
+	} else if ( player.playing && cid !== ( player.song && player.song._trackCid ) ) {
+		await listen.ask( cid );
+	} else {
+		await playTrackInDock( cid );
+	}
+}
+
 async function onClick( e ) {
 	const link = linkIn( e.composedPath() );
 	if ( ! link ) {
@@ -58,16 +85,10 @@ async function onClick( e ) {
 		// browser does that itself, and the song plays on here.
 		return;
 	}
-	const listen = listenRequest( href );
-	if ( listen ) {
+	const request = listenRequest( href );
+	if ( request ) {
 		e.preventDefault();
-		if ( listen.action === 'trail' ) {
-			await trailToHere( a );
-		} else if ( listen.action === 'queue' ) {
-			await queueTrack( listen.cid, a );
-		} else {
-			await playTrackInDock( listen.cid );
-		}
+		await asked( request, a );
 		return;
 	}
 	const title = titleFromHref( href );

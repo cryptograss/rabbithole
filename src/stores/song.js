@@ -163,11 +163,17 @@ export const useSongStore = defineStore( 'song', () => {
 		return song;
 	}
 
-	/** Play this track now, replacing the playlist. */
-	async function playCid( cid ) {
+	/**
+	 * Play this track now, replacing the playlist.
+	 *
+	 * `play` starts it whatever was happening before: a Listen button is a
+	 * request to hear something, so it plays rather than sitting loaded
+	 * (Justin's item 14).
+	 */
+	async function playCid( cid, { play = false } = {} ) {
 		const song = await fetchTrack( cid );
 		if ( player.model ) {
-			player.model.loadSong( song );
+			player.model.loadSong( song, { play } );
 		} else {
 			initial.value = song;
 		}

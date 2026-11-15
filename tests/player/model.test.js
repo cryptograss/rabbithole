@@ -90,6 +90,15 @@ describe( 'the player model', () => {
 		expect( second.webamp.calls ).not.toContain( 'pause' );
 	} );
 
+	it( 'plays a song it was asked to play, however quiet it was before', () => {
+		// A button that says Listen is the consent: it plays rather than
+		// sitting loaded (Justin's items 14 and 15, 15 Nov 2026).
+		const { model, webamp } = wired();
+		model.loadSong( VICTORY, { play: true } );
+		webamp.set( { media: { status: 'PLAYING' } } );
+		expect( webamp.calls ).not.toContain( 'pause' );
+	} );
+
 	it( 'follows Webamp to the next track in its playlist', () => {
 		const { model, webamp } = wired();
 		expect( model.enqueue( VICTORY ) ).toBe( true );
