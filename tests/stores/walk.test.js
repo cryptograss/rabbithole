@@ -103,6 +103,15 @@ describe( 'revive and stored', () => {
 		expect( revive( 'not json' ) ).toEqual( { current: [], past: [] } );
 		expect( revive( '{"cid":"Qa"}' ) ).toEqual( { current: [], past: [] } );
 	} );
+
+	// A walk stored() can't read is the walk a fresh browser has: null. It
+	// must come back as an empty walk, not throw (blu, 15 Nov: it was an
+	// assignment to a const, and every write swallowed the TypeError).
+	it( 'stores nothing as an empty walk', () => {
+		expect( JSON.parse( stored( null ) ) ).toEqual( { current: [], past: [] } );
+		expect( JSON.parse( stored( 'junk' ) ) ).toEqual( { current: [], past: [] } );
+		expect( JSON.parse( stored( { past: [] } ) ) ).toEqual( { current: [], past: [] } );
+	} );
 } );
 
 describe( 'viaPicker', () => {
