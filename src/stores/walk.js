@@ -50,6 +50,20 @@ export function pushed( walk, entry ) {
 }
 
 /**
+ * The recording that counts as heard: the one loaded, once it plays.
+ *
+ * Pure. Null while nothing is loaded, or while what is loaded is still
+ * waiting for its first note.
+ *
+ * @param {string|null} cid The recording loaded.
+ * @param {boolean} playing Whether the player is playing.
+ * @return {string|null} The recording heard, or null.
+ */
+export function heard( cid, playing ) {
+	return cid && playing ? cid : null;
+}
+
+/**
  * A walk as it was stored, junk tolerated.
  *
  * Pure. localStorage can hold anything a browser felt like keeping: a
@@ -134,10 +148,12 @@ export const useWalkStore = defineStore( 'walk', () => {
 		persist();
 	}
 
-	// The recording that is on now joins the walk, with the via marked for
-	// it if there was one. The first recording of a visit is where you came
-	// in: it has no via.
-	watch( () => player.song && player.song._trackCid, ( cid ) => {
+	// The recording that is on now joins the walk once it plays, with the via
+	// marked for it if there was one. The first recording of a visit is where
+	// you came in: it has no via. Loading isn't hearing (Justin, 15 Nov 2026:
+	// "32 hops ... I certainly haven't let it play for 32 tracks"): every visit
+	// loads a song, and it counted whether or not a note of it played.
+	watch( () => heard( player.song && player.song._trackCid, player.playing ), ( cid ) => {
 		if ( ! cid ) {
 			return;
 		}

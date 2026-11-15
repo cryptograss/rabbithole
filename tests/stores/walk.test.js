@@ -6,7 +6,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { createPinia, setActivePinia } from 'pinia';
 import { reactive, nextTick } from 'vue';
 
-import { pushed, revive, stored, useWalkStore } from '../../src/stores/walk.js';
+import { heard, pushed, revive, stored, useWalkStore } from '../../src/stores/walk.js';
 import { usePlayerStore } from '../../src/stores/player.js';
 import { viaPicker } from '../../src/stores/picker.js';
 
@@ -49,7 +49,7 @@ describe( 'useWalkStore', () => {
 	it( 'gives a marked hop its via when that recording starts', async () => {
 		const player = usePlayerStore();
 		// The model as the app makes it: a plain object with a reactive state.
-		const model = { state: reactive( { song: { _trackCid: 'Qa', title: 'August' }, upNext: [] } ) };
+		const model = { state: reactive( { song: { _trackCid: 'Qa', title: 'August' }, status: 'PLAYING', upNext: [] } ) };
 		player.model = model;
 		const walk = useWalkStore();
 		// Silver 44 was queued by following Kyle Tuttle: the via is marked
@@ -62,5 +62,31 @@ describe( 'useWalkStore', () => {
 			[ 'Qa', null ], [ 'Qs', 'Kyle Tuttle' ],
 		] );
 		expect( revive( window.localStorage.getItem( 'rabbithole-walk' ) )[ 1 ].via ).toEqual( { name: 'Kyle Tuttle', instrument: 'banjo' } );
+	} );
+
+	// Justin, 15 Nov 2026: "32 hops ... I certainly haven't let it play for 32 tracks". Every visit loads a song;
+	// it joins the walk when it plays.
+	it( 'leaves out a song that only sat loaded, and takes it in when it plays', async () => {
+		const player = usePlayerStore();
+		const model = { state: reactive( { song: { _trackCid: 'Qa', title: 'August' }, status: 'STOPPED', upNext: [] } ) };
+		player.model = model;
+		const walk = useWalkStore();
+		await nextTick();
+		expect( walk.hops ).toEqual( [] );
+		model.state.status = 'PLAYING';
+		await nextTick();
+		expect( walk.hops.map( ( h ) => h.cid ) ).toEqual( [ 'Qa' ] );
+		model.state.status = 'PAUSED';
+		model.state.song = { _trackCid: 'Qs', title: 'Silver 44' };
+		await nextTick();
+		expect( walk.hops.map( ( h ) => h.cid ) ).toEqual( [ 'Qa' ] );          // loaded, not yet heard
+	} );
+} );
+
+describe( 'heard', () => {
+	it( 'is the recording once it plays, and nothing while it only sits loaded', () => {
+		expect( heard( 'QmA', false ) ).toBe( null );
+		expect( heard( 'QmA', true ) ).toBe( 'QmA' );
+		expect( heard( null, true ) ).toBe( null );
 	} );
 } );
