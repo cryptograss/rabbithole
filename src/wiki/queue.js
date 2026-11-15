@@ -19,6 +19,10 @@ import { usePaneStore } from '../stores/pane.js';
 import { useLayoutStore } from '../stores/layout.js';
 import { usePlayerStore } from '../stores/player.js';
 import { useWalkStore } from '../stores/walk.js';
+// The picker store imports this module in turn, for the performer graph.
+// Both sides reach for the other only inside a function, by which time
+// each module has finished loading.
+import { usePickerStore } from '../stores/picker.js';
 
 let graphPromise = null;
 
@@ -115,7 +119,14 @@ export async function openTrack( cid ) {
 	}
 }
 
-/** Listen next. */
+/**
+ * Listen next.
+ *
+ * Next means next: whatever the rabbithole lined up by itself stands
+ * aside first, so the song a person asked for is the one that plays when
+ * this one ends. It landed second, behind the quest's pick (re,
+ * #rabbithole, 15 Nov 2026).
+ */
 export async function queueTrack( cid, button ) {
 	const songs = useSongStore();
 	if ( songs.queuedCids.includes( cid ) ) {
@@ -123,6 +134,7 @@ export async function queueTrack( cid, button ) {
 		return;
 	}
 	flashButton( button, 'queuing…' );
+	usePickerStore().giveWay();
 	try {
 		await songs.queueCid( cid );
 	} catch ( err ) {
@@ -166,6 +178,10 @@ export async function queueTrail( target, say = () => {} ) {
 	}
 
 	pane.trail = { from, hops };
+
+	// The trail is the way to the song you asked for: the rabbithole's own
+	// pick stands aside so the first hop plays next.
+	usePickerStore().giveWay();
 
 	const walk = useWalkStore();
 	const queued = [];

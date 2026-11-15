@@ -255,18 +255,38 @@ export const usePickerStore = defineStore( 'picker', () => {
 	}
 
 	/**
+	 * What the rabbithole lined up by itself gets out of the way: a person
+	 * asking for a song by hand means that song, next (item 15). A chase
+	 * or a quest lines another up when the next song starts, so nothing is
+	 * lost by standing aside, and what the person queued is untouched (re,
+	 * #rabbithole, 15 Nov 2026: stopping a chase used to take the whole
+	 * queue with it).
+	 */
+	function giveWay() {
+		if ( next.value && player.model ) {
+			player.model.dropFromQueue( next.value.cid );
+		}
+		next.value = null;
+	}
+
+	/**
 	 * Nothing lined up behind what is playing: put something there, so the
 	 * song that ends goes to the next song (item 28). The rest of the
 	 * record, where one is playing through, is already that.
+	 *
+	 * The charted list is waited for rather than read where it stands: on
+	 * a visit from a Listen link it arrives a moment after the song does,
+	 * and a floor that read it too early found nothing and left the song
+	 * to end in silence (re, 15 Nov 2026).
 	 */
 	async function lineUpSomething() {
 		if ( songs.queuedCids.length || songs.recordRest.length ) {
 			return;
 		}
-		const track = anotherTrack( songs.charted, {
+		const track = anotherTrack( await songs.chartedList(), {
 			currentCid: currentCid(), playedCids: playedCids.value,
 		} );
-		if ( track ) {
+		if ( track && ! songs.queuedCids.length ) {
 			await songs.queueCid( track.cid );
 		}
 	}
@@ -279,14 +299,11 @@ export const usePickerStore = defineStore( 'picker', () => {
 	 * is still the song you're on, so a chase waits for it.
 	 */
 	async function chase( name ) {
+		// Chasing somebody is "their songs next": the quest's own pick
+		// stands aside, and anything the person queued stays put.
+		giveWay();
 		mode.value = 'chase';
 		following.value = name;
-		next.value = null;
-		// Chasing somebody is "their songs next": whatever a quest lined up
-		// gets out of the way, rather than playing first.
-		if ( player.model ) {
-			player.model.clearQueue();
-		}
 		await queueNext();
 		if ( next.value && player.status === 'STOPPED' ) {
 			player.model.playNext();
@@ -295,12 +312,9 @@ export const usePickerStore = defineStore( 'picker', () => {
 
 	/** Stop chasing: the songs choose again, starting with this one. */
 	function stop() {
+		giveWay();
 		mode.value = 'quest';
 		following.value = null;
-		next.value = null;
-		if ( player.model ) {
-			player.model.clearQueue();
-		}
 		return quest().then( lineUpSomething );
 	}
 
@@ -315,7 +329,11 @@ export const usePickerStore = defineStore( 'picker', () => {
 			return;
 		}
 		if ( mode.value === 'chase' ) {
-			if ( following.value && next.value && cid === next.value.cid ) {
+			// One song ahead and no more: the chase lines up another when
+			// the one it queued starts, or when it has none -- which is
+			// where a Play next left it, having asked the chase to stand
+			// aside.
+			if ( following.value && ( ! next.value || cid === next.value.cid ) ) {
 				await queueNext();
 			}
 		} else {
@@ -324,5 +342,5 @@ export const usePickerStore = defineStore( 'picker', () => {
 		await lineUpSomething();
 	}, { immediate: true } );
 
-	return { mode, following, next, offer, look, chase, stop };
+	return { mode, following, next, offer, look, chase, stop, giveWay };
 } );

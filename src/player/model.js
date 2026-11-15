@@ -358,21 +358,31 @@ export class WebampPlayer {
 	}
 
 	/**
-	 * Take everything after the current track out of the playlist.
+	 * Take one recording out of the queue, if it is waiting behind the
+	 * current track.
 	 *
-	 * Starting a chase means "their songs next", so whatever a quest had
-	 * lined up gets out of the way rather than playing first (Justin's
-	 * items 27 and 28, 15 Nov 2026). Webamp's own playlist is the queue,
-	 * so this is its own REMOVE_TRACKS, the way the shade toggle is.
+	 * What the rabbithole lines up by itself -- a quest's pick, a chase's
+	 * next song -- gets out of the way of a song a person asks for by
+	 * hand, so Play next means next (Justin's item 15). It used to take
+	 * the whole queue, which threw away songs the person had queued
+	 * themselves (re, #rabbithole, 15 Nov 2026). Webamp's own playlist is
+	 * the queue, so this is its own REMOVE_TRACKS, the way the shade
+	 * toggle is.
+	 *
+	 * @param {?string} cid The recording to take out.
+	 * @return {Array} The playlist ids removed.
 	 */
-	clearQueue() {
-		if ( ! this.webamp ) {
+	dropFromQueue( cid ) {
+		if ( ! this.webamp || ! cid ) {
 			return [];
 		}
 		const wa = this.webamp.store.getState();
 		const order = ( wa.playlist && wa.playlist.trackOrder ) || [];
 		const at = order.indexOf( wa.playlist && wa.playlist.currentTrack );
-		const ids = at < 0 ? [] : order.slice( at + 1 );
+		const ids = ( at < 0 ? [] : order.slice( at + 1 ) ).filter( ( id ) => {
+			const song = this._songForTrack( wa, id );
+			return song && song._trackCid === cid;
+		} );
 		if ( ids.length ) {
 			this.webamp.store.dispatch( { type: 'REMOVE_TRACKS', ids } );
 		}
