@@ -6,7 +6,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 vi.mock( '../../src/player/webamp-global.js', () => ( { default: () => class {} } ) );
 
-import { WebampPlayer, sameRecording, wholePulses } from '../../src/player/model.js';
+import { WebampPlayer, sameRecording } from '../../src/player/model.js';
 
 const SWORDS = {
 	title: 'Swords to Ploughshares',
@@ -109,32 +109,77 @@ describe( 'the player model', () => {
 		expect( model.state.upNext ).toEqual( [] );
 	} );
 
-	it( 'fires an effect once per arrangement, for as long as it asks', () => {
+	it( 'has an effect in force while the playhead is inside it, with no timer to end it', () => {
 		const { model } = wired();
 		model._tick( 10.1 );
-		expect( model.state.effects.map( ( e ) => e.kind ) ).toEqual( [ 'flourish', 'flash' ] );
-		model._tick( 10.3 );
-		expect( model.state.effects.filter( ( e ) => e.kind === 'flourish' ) ).toHaveLength( 1 );
-		vi.advanceTimersByTime( 1600 );
-		expect( model.state.effects.filter( ( e ) => e.kind === 'flourish' ) ).toHaveLength( 0 );
+		expect( model.effects.value.map( ( e ) => e.kind ).sort() ).toEqual( [ 'enter', 'flourish' ] );
+		// Time passing on the wall is not time passing in the song.
+		vi.advanceTimersByTime( 60000 );
+		expect( model.effects.value.map( ( e ) => e.kind ).sort() ).toEqual( [ 'enter', 'flourish' ] );
+		model._tick( 11.4 );
+		expect( model.effects.value.map( ( e ) => e.kind ) ).toEqual( [ 'flourish' ] );
+		model._tick( 11.6 );
+		expect( model.effects.value ).toEqual( [] );
 	} );
 
-	it( 'lasts whole pulses, so a glow ends dark rather than half-lit', () => {
-		// Paint Exchange's own asks (Skyler, 13 Nov 2026).
-		expect( wholePulses( 2, 1.5 ) ).toEqual( { cycles: 1, seconds: 1.5 } );
-		expect( wholePulses( 1.5, 1 ) ).toEqual( { cycles: 2, seconds: 2 } );
-		expect( wholePulses( 7, 2.5 ) ).toEqual( { cycles: 1, seconds: 2.5 } );
-		expect( wholePulses( 8.5, 1.5 ) ).toEqual( { cycles: 2, seconds: 3 } );
-		// One pulse longer than the cap still plays once, whole.
-		expect( wholePulses( 5, 4.5 ) ).toEqual( { cycles: 1, seconds: 4.5 } );
-		expect( wholePulses( 0.8, 0.6, Infinity ) ).toEqual( { cycles: 1, seconds: 0.6 } );
-	} );
-
-	it( 'tells the card how many pulses to play, matching how long it holds', () => {
+	it( 'follows a seek: into an effect and it is on, out of it and it is off', () => {
 		const { model } = wired();
-		model._tick( 10.1 );
-		const flourish = model.state.effects.find( ( e ) => e.kind === 'flourish' );
-		expect( flourish.seconds ).toBeCloseTo( flourish.cycles * flourish.pulse );
+		model._tick( 10.8 );
+		expect( model.effects.value.some( ( e ) => e.kind === 'flourish' ) ).toBe( true );
+		model._tick( 3 );
+		expect( model.effects.value ).toEqual( [] );
+		model._tick( 200 );
+		expect( model.effects.value ).toEqual( [] );
+	} );
+
+	it( 'wakes at the chart\'s next marker while the song plays, and reads the time there', () => {
+		// The browser reports the time about four times a second; the chart
+		// says exactly when its next marker is.
+		const { model, webamp } = wired();
+		let clock = 9.9;
+		webamp.media = { timeElapsed: () => clock };
+		webamp.set( { media: { status: 'PLAYING', timeElapsed: 9.8 } } );
+		// The audio's own clock is believed over the store's last report.
+		expect( model.state.time ).toBe( 9.9 );
+		expect( model.state.currentSolo ).toBeNull();
+
+		// A tenth of a second later the audio is at the marker, and nothing
+		// has told Webamp's store so.
+		clock = 10.004;
+		vi.advanceTimersByTime( 110 );
+		expect( model.state.time ).toBe( 10.004 );
+		expect( model.state.currentSolo ).toBe( 'Harry Clark' );
+	} );
+
+	it( 'does not wake a song that is not playing, or one with nothing more to say', () => {
+		const { model, webamp } = wired();
+		let clock = 9.9;
+		webamp.media = { timeElapsed: () => clock };
+		webamp.set( { media: { status: 'PAUSED', timeElapsed: 9.9 } } );
+		clock = 10.5;
+		vi.advanceTimersByTime( 1000 );
+		expect( model.state.time ).toBe( 9.9 );
+
+		webamp.set( { media: { status: 'PLAYING', timeElapsed: 10.5 } } );
+		expect( model.state.time ).toBe( 10.5 );
+		clock = 99;
+		vi.advanceTimersByTime( 5000 );
+		// Past the last marker there is nothing to wake for.
+		expect( model.state.time ).toBe( 10.5 );
+	} );
+
+	it( 'wakes again if the song had not got there yet', () => {
+		const { model, webamp } = wired();
+		let clock = 9.9;
+		webamp.media = { timeElapsed: () => clock };
+		webamp.set( { media: { status: 'PLAYING', timeElapsed: 9.9 } } );
+		// Stalled: the alarm goes off and the audio has barely moved.
+		clock = 9.95;
+		vi.advanceTimersByTime( 110 );
+		expect( model.state.currentSolo ).toBeNull();
+		clock = 10.01;
+		vi.advanceTimersByTime( 60 );
+		expect( model.state.currentSolo ).toBe( 'Harry Clark' );
 	} );
 
 	it( 'keeps the soloist while paused: the cards render from time, not status', () => {

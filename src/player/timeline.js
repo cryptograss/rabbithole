@@ -10,6 +10,7 @@
  */
 
 import { musicianEntries, statusAt } from '../musician-status.js';
+import { isVoice } from '../instruments.js';
 
 /**
  * Lay a timeline's section keys out in time.
@@ -119,6 +120,12 @@ export function currentPartIndex( processed, time ) {
 	return active;
 }
 
+/** When the chart next says something after `time`, in seconds, or null when it has no more to say. */
+export function nextMarker( processed, time ) {
+	const next = entries( processed ).find( ( e ) => e.time > time );
+	return next ? next.time : null;
+}
+
 /** The arrangement in force at `time`: the latest entry at or before it. */
 export function currentArrangement( processed, time ) {
 	const startTimes = Object.keys( processed || {} ).map( Number ).sort( ( a, b ) => b - a );
@@ -145,32 +152,6 @@ export function musicianStatus( processed, name, time ) {
 	return statusAt( musicianEntries( processed ), name, time );
 }
 
-/**
- * Times at which somebody comes in or drops out, after the top of the
- * song: the moments a flash marks.
- */
-export function momentTimes( timeline ) {
-	const times = [];
-	Object.entries( timeline || {} ).forEach( ( [ timeStr, arrangement ] ) => {
-		const time = Number( timeStr );
-		if ( isNaN( time ) || time <= 0 || ! arrangement ) {
-			return;
-		}
-		const musicians = arrangement.musicians;
-		if ( musicians ) {
-			if ( musicians.band === 'in' || musicians.band === 'out' ) {
-				times.push( time );
-			} else if ( Object.values( musicians ).some( ( s ) => s === 'in' || s === 'out' ) ) {
-				times.push( time );
-			}
-		}
-		if ( arrangement.detail === 'band-in' ) {
-			times.push( time );
-		}
-	} );
-	return times.sort( ( a, b ) => a - b );
-}
-
 /** Each musician's resting weight: the ensemble's order, 100, 110, 120... */
 export function baseWeights( ensemble ) {
 	const weights = {};
@@ -183,81 +164,242 @@ export function baseWeights( ensemble ) {
 }
 
 /**
- * Where a card sorts right now. Lower is nearer the top.
- *
- * A named scene wins: lead 1, cooldown 5, harmony 7, rhythm 8, anything
- * else 6. Then the plain solo shape. Recent soloists hold the next places
- * by recency, and everyone else sits on their base weight, pushed down a
- * step for each recent soloist above them.
- *
- * A pickup is not in that list, and deliberately. It used to sort to 5,
- * which walked the card up to second place and then, a beat later when
- * they took the solo, to first: "Pickups look weird with the person moving
- * to second place and then to first. Just leave them where they are"
- * (Justin, #rabbithole, 15 Nov 2026, item 21). A pickup is half a bar
- * long; it is something to see, not something to re-sort the band for, so
- * it says so with a glow and leaves the order alone.
+ * The scene a chart names for somebody at this moment, or null: `feature`
+ * first, then the plain shapes -- taking it, or leading in.
  */
-export function dynamicWeight( name, arrangement, { baseWeights: base = {}, recentSoloists = [] } = {} ) {
-	const features = arrangement ? arrangement.feature : null;
-	const scene = features ? features[ name ] : null;
-	if ( scene && scene !== 'pickup' ) {
-		switch ( scene ) {
-			case 'lead': return 1;
-			case 'cooldown': return 5;
-			case 'harmony': return 7;
-			case 'rhythm': return 8;
-			default: return 6;
-		}
+function namedScene( name, arrangement ) {
+	if ( ! arrangement ) {
+		return null;
+	}
+	const featured = arrangement.feature && arrangement.feature[ name ];
+	if ( featured ) {
+		return featured;
 	}
 	if ( soloistsOf( arrangement ).includes( name ) ) {
-		return 1;
+		return 'lead';
 	}
-	const recent = recentSoloists.indexOf( name );
-	if ( recent !== -1 ) {
-		return 10 + recent;
+	return arrangement.pickup === name ? 'pickup' : null;
+}
+
+/**
+ * Who is singing in an arrangement, in the chart's order.
+ *
+ * A chart has no word for singing and does not need one: somebody takes it
+ * (or is featured as the harmony) and what they have in hand is their
+ * voice. Silver 44's last verse is `solo: Justin Holmes` with
+ * `instrumentChanges: { Justin Holmes: vocals }`.
+ */
+export function singersOf( trackData, arrangement ) {
+	if ( ! arrangement ) {
+		return [];
 	}
-	return ( base[ name ] === undefined ? 100 : base[ name ] ) + recentSoloists.length * 5;
+	const instruments = currentInstruments( trackData, arrangement );
+	const named = [ ...soloistsOf( arrangement ), ...Object.keys( arrangement.feature || {} ) ];
+	return [ ...new Set( named ) ].filter( ( name ) => {
+		const scene = namedScene( name, arrangement );
+		return ( scene === 'lead' || scene === 'harmony' ) && isVoice( instruments[ name ] );
+	} );
+}
+
+/**
+ * Who stands at the microphone at `time`, nearest it first.
+ *
+ * The singer steps to the front and the pickers stay where they stand: a
+ * break lights a card where it is, and only a voice moves one (Justin,
+ * #visual-effects, 15 Nov 2026: "I'm not convinced that cards moving to
+ * the top for solos have much value. Moving to the top for vocals makes
+ * sense"). The cards used to re-sort on every solo -- the soloist to the
+ * top, the last three soloists behind them by recency -- so a fiddle tune
+ * shuffled the whole band every thirteen seconds.
+ *
+ * Whoever has sung stays at the front, the latest singer first, until the
+ * song is over: a singer who walked back to their place between verses
+ * would be motion that says "this stopped mattering", which is nothing to
+ * draw an eye for. And it is read off the chart up to `time`, not kept as
+ * the song plays, so seeking back before the first verse puts everybody
+ * back where they started.
+ */
+export function micOrder( trackData, processed, time ) {
+	let front = [];
+	for ( const { time: t, arrangement } of entries( processed ) ) {
+		if ( t > time ) {
+			break;
+		}
+		const singing = singersOf( trackData, arrangement );
+		if ( singing.length ) {
+			front = [ ...singing, ...front.filter( ( name ) => ! singing.includes( name ) ) ];
+		}
+	}
+	return front;
 }
 
 /**
  * The cards, as the arrangement at `time` wants them.
  *
  * One object per person: name, the instrument in hand, the scene class the
- * card wears (lead, pickup, out, or a named scene), whether it is starred,
- * and its sort weight. The engineer, when there is one, comes last.
+ * card wears (lead, pickup, out, or a named scene), whether it carries the
+ * star or the microphone, and its sort weight. `since` and `until` are the
+ * span of the arrangement in force, in the song's seconds, so a pickup
+ * knows how long it has to lead in. The engineer, when there is one, comes
+ * last.
  *
- * @return {Array<{name, instrument, scene, star, weight, engineer}>}
+ * @return {Array<{name, instrument, scene, star, singing, weight, since, until, engineer}>}
  */
-export function cards( trackData, processed, time, { currentSolo = null, recentSoloists = [] } = {} ) {
-	const arrangement = currentArrangement( processed, time );
+export function cards( trackData, processed, time ) {
+	const all = entries( processed );
+	const at = all.filter( ( e ) => e.time <= time ).pop();
+	const next = all.find( ( e ) => e.time > time );
+	const arrangement = at ? at.arrangement : undefined;
+	const since = at ? at.time : 0;
+	const until = next ? next.time : Infinity;
+
 	const instruments = currentInstruments( trackData, arrangement );
 	const base = baseWeights( trackData && trackData.ensemble );
-	const pickup = arrangement ? arrangement.pickup : null;
-	const features = arrangement ? arrangement.feature : null;
-	const solos = soloistsOf( arrangement );
+	const front = micOrder( trackData, processed, time );
+	const singers = singersOf( trackData, arrangement );
 
 	const list = Object.keys( ( trackData && trackData.ensemble ) || {} ).map( ( name ) => {
-		const scene = features && features[ name ] ? features[ name ]
-			: currentSolo === name || solos.includes( name ) ? 'lead'
-				: pickup === name ? 'pickup'
-					: musicianStatus( processed, name, time ) === 'out' ? 'out'
-						: null;
+		const scene = namedScene( name, arrangement )
+			|| ( musicianStatus( processed, name, time ) === 'out' ? 'out' : null );
+		const singing = singers.includes( name );
+		const place = front.indexOf( name );
 		return {
 			name,
 			instrument: instruments[ name ] || '',
 			scene,
-			star: scene === 'lead',
-			weight: dynamicWeight( name, arrangement, { baseWeights: base, recentSoloists } ),
+			star: scene === 'lead' && ! singing,
+			singing,
+			weight: place === -1 ? base[ name ] : 1 + place,
+			since,
+			until,
 			engineer: false,
 		};
 	} );
 
 	if ( trackData && trackData.engineer ) {
-		list.push( { name: trackData.engineer, instrument: 'console', scene: null, star: false, weight: 1000, engineer: true } );
+		list.push( { name: trackData.engineer, instrument: 'console', scene: null, star: false, singing: false, weight: 1000, since, until, engineer: true } );
 	}
 
 	return list;
+}
+
+/*
+ * How long an effect may be in force, in seconds of the song. A chart asks
+ * for what it wants and gets it: Paint Exchange asks for five seconds of
+ * dark and three and a half of glow for Kaitlyn's cello, and for a week it
+ * got three in all, because at the old, hard look anything longer read as
+ * a fault. The bounds are here for a typing mistake, not for taste.
+ */
+const SPANS = {
+	flourish: { fallback: 1.5, min: 0.75, max: 12 },
+	blackout: { fallback: 3, min: 1.5, max: 8 },
+	glow: { fallback: 2, min: 0, max: 6 },
+	bandFlash: { fallback: 0.8, min: 0.75, max: 6 },
+	// How long a card says "just came in".
+	enter: 0.9,
+};
+
+// Nothing written longer ago than this can still be in force.
+const LONGEST = Math.max( SPANS.flourish.max, SPANS.blackout.max + SPANS.glow.max, SPANS.bandFlash.max );
+
+function bounded( asked, { fallback, min, max } ) {
+	const n = Number( asked );
+	return Math.max( min, Math.min( max, n > 0 ? n : fallback ) );
+}
+
+const names = ( value ) => ( Array.isArray( value ) ? value : [ value ] )
+	.map( ( n ) => ( typeof n === 'string' ? n.trim() : '' ) ).filter( Boolean );
+
+/**
+ * The effects in force at `time`: a flourish, a spotlight, a band flash,
+ * somebody coming in.
+ *
+ * Each is a span on the song's own clock -- from the moment the chart
+ * writes it, for as long as it asks -- and it is in force while the
+ * playhead is inside that span. Nothing fires and nothing times out: seek
+ * into the middle of one and it is on, seek out and it is off, pause and
+ * it holds. They used to be fired when the arrangement changed and taken
+ * away by a timer, so a seek that landed anywhere after a spotlight's
+ * marker blacked the pane out, and a pause did not stop one.
+ *
+ * A record is `{ key, kind, target, start, end, color, intensity, pulse }`;
+ * `target` is a name, or null for the whole band. A spotlight also says
+ * whether it is still `dark` (the blackout) or only glowing. The key is the
+ * same on every tick, so whatever draws it can tell one it has seen.
+ *
+ * An effect is light on a card, so it is only ever for somebody who has
+ * one: a chart that asks for a spotlight on "Harry" where the card says
+ * "Harry Clark" gets no spotlight, where it used to get the pane blacked
+ * out for nobody. The editor is where that is said aloud
+ * (musician-status.js unmatchedNames). And there is one stage, so one
+ * spotlight: a second one written before the first is over takes it.
+ *
+ * @return {Array<Object>}
+ */
+export function effectsAt( trackData, processed, time ) {
+	const found = new Map();
+	const add = ( record ) => found.set( record.kind + ':' + record.target, record );
+	const ensemble = Object.keys( ( trackData && trackData.ensemble ) || {} );
+	const carded = new Set( trackData && trackData.engineer ? [ ...ensemble, trackData.engineer ] : ensemble );
+	const onACard = ( value ) => names( value ).filter( ( name ) => carded.has( name ) );
+	const status = musicianEntries( processed );
+
+	for ( const { time: t, arrangement: a } of entries( processed ) ) {
+		if ( t > time ) {
+			break;
+		}
+		const since = time - t;
+		if ( ! a || since >= LONGEST ) {
+			continue;
+		}
+
+		const flourish = bounded( a.flourishDuration, SPANS.flourish );
+		if ( a.flourish && since < flourish ) {
+			onACard( a.flourish ).forEach( ( target ) => add( {
+				key: `flourish:${ target }:${ t }`, kind: 'flourish', target, start: t, end: t + flourish,
+				color: a.flourishColor || 'coral',
+				intensity: Number( a.flourishIntensity ) > 0 ? Number( a.flourishIntensity ) : 0.7,
+				pulse: Number( a.flourishPulseSpeed ) > 0 ? Number( a.flourishPulseSpeed ) : 1.2,
+			} ) );
+		}
+
+		const dark = bounded( a.spotlightBlackout, SPANS.blackout );
+		const glow = Number( a.spotlightGlow ) === 0 ? 0 : bounded( a.spotlightGlow, SPANS.glow );
+		const target = onACard( a.spotlight )[ 0 ];
+		if ( target ) {
+			// The latest one written is the only one there is, over or not.
+			found.delete( 'spotlight' );
+			if ( since < dark + glow ) {
+				found.set( 'spotlight', {
+					key: `spotlight:${ target }:${ t }`, kind: 'spotlight', target, start: t, end: t + dark + glow,
+					dark: since < dark,
+					color: a.spotlightColor || 'coral', intensity: 1, pulse: 2.6,
+				} );
+			}
+		}
+
+		const flash = bounded( a.bandFlashDuration, SPANS.bandFlash );
+		if ( a.bandFlash && since < flash ) {
+			add( {
+				key: `bandFlash:${ t }`, kind: 'bandFlash', target: null, start: t, end: t + flash,
+				color: a.bandFlashColor || 'coral',
+				intensity: Number( a.bandFlashIntensity ) > 0 ? Number( a.bandFlashIntensity ) : 0.5,
+				pulse: Number( a.bandFlashPulseSpeed ) > 0 ? Number( a.bandFlashPulseSpeed ) : 0.6,
+			} );
+		}
+
+		// Somebody comes in: out until this marker, in from it. Not at the
+		// top of the song, where nobody arrives; they are simply there.
+		if ( t > 0 && a.musicians && since < SPANS.enter ) {
+			ensemble
+				.filter( ( name ) => statusAt( status, name, t, { exclusive: true } ) === 'out' && statusAt( status, name, t ) === 'in' )
+				.forEach( ( name ) => add( {
+					key: `enter:${ name }:${ t }`, kind: 'enter', target: name, start: t, end: t + SPANS.enter,
+				} ) );
+		}
+	}
+
+	return [ ...found.values() ];
 }
 
 /*

@@ -8,7 +8,7 @@
  * (`bottom-bar`, `bar-collapsed`) and on `.layout` (`minimized`,
  * `with-editor`), as it always has; this is the one place they are set.
  */
-import { computed, watch, watchEffect, onMounted, onBeforeUnmount } from 'vue';
+import { watch, watchEffect, onMounted, onBeforeUnmount } from 'vue';
 
 import { INITIAL_PARAMS, cameToListen } from './initial-params.js';
 import { traverseTo } from './traverse.js';
@@ -34,13 +34,6 @@ const layout = useLayoutStore();
 const songs = useSongStore();
 const pane = usePaneStore();
 const player = usePlayerStore();
-
-/*
- * A spotlight blacks out the player pane for as long as it lasts, leaving
- * the one card lit (Justin's item 22, 15 Nov 2026). The model already says
- * when one is on and for how long; this is only where it is worn.
- */
-const spotlit = computed( () => player.effects.some( ( e ) => e.kind === 'spotlight' ) );
 
 watchEffect( () => {
 	document.body.classList.toggle( 'bottom-bar', layout.isBar );
@@ -153,7 +146,7 @@ onBeforeUnmount( () => {
 		     17, 15 Nov 2026). It was two bars, one over each column. -->
 		<RabbitholeHeader />
 
-		<div id="rabbithole-sidebar" :class="{ spotlit }">
+		<div id="rabbithole-sidebar">
 			<MiniPlayer v-if="!layout.isBar" />
 
 			<div class="player-container">

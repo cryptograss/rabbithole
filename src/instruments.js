@@ -29,6 +29,19 @@ export function instrumentIcon( instruments ) {
 	return '🎵';
 }
 
+/**
+ * Whether an instrument is a voice.
+ *
+ * A chart says somebody is singing the way it says everything else: they
+ * take it (`solo`), and what they have in hand at that moment
+ * (`instrumentChanges`) is their voice. "vocals", "harmony vocals",
+ * "throatsinging" and "throat singing" are all on the wiki's charts or in
+ * the editor's list.
+ */
+export function isVoice( instrument ) {
+	return /vocal|voice|sing/i.test( String( instrument || '' ) );
+}
+
 export function initials( fullName ) {
 	return String( fullName ).split( ' ' ).map( ( n ) => n[ 0 ] ).join( '' );
 }

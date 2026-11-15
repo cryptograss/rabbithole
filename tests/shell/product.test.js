@@ -65,28 +65,61 @@ describe( 'stylesheets', () => {
 	} );
 
 	it( 'style every scene the chart can put on a card', () => {
-		const css = read( 'src/styles/app.css' ) + read( 'src/styles/scenes.css' );
+		const css = read( 'src/styles/ensemble.css' );
 		for ( const scene of [ 'lead', 'pickup', 'out', 'cooldown', 'harmony', 'rhythm' ] ) {
 			expect( css, `no rule for .musician-card.${ scene }` ).toMatch( new RegExp( `\\.musician-card\\.${ scene }\\b` ) );
 		}
 	} );
 
-	it( 'style the effects the model can fire', () => {
-		const css = read( 'src/styles/app.css' );
-		for ( const cls of [ 'flourish-active', 'spotlight-active', 'fx-dim', 'band-flash-active' ] ) {
-			expect( css ).toContain( '.' + cls );
+	it( 'style every state a card can be put in, and put a card in every state that is styled', () => {
+		// Two halves again: the card names a class for each effect in
+		// force, the sheet says what each looks like, and a name on only
+		// one side is a light that never comes on.
+		const css = read( 'src/styles/ensemble.css' );
+		const card = read( 'src/components/MusicianCard.vue' );
+		for ( const cls of [ 'fx-flourish', 'fx-glow', 'fx-band', 'fx-enter', 'is-lit', 'is-away', 'singing' ] ) {
+			expect( css, `no rule for .${ cls }` ).toContain( '.' + cls );
+			expect( card, `the card never wears ${ cls }` ).toMatch( new RegExp( `['\\s]${ cls }['\\s:,]` ) );
 		}
 		expect( css ).toContain( '.cards-move' );
 	} );
 
 	it( 'black out the player pane for a spotlight, from both ends', () => {
 		// Justin's item 22 (15 Nov 2026): the player pane goes dark for the
-		// length of a spotlight. Two halves, and either one alone does
-		// nothing: App.vue wears the class off the live effect, app.css
-		// says what wearing it looks like.
-		expect( read( 'src/App.vue' ) ).toMatch( /kind === 'spotlight'/ );
-		expect( read( 'src/App.vue' ) ).toMatch( /id="rabbithole-sidebar"[^>]*:class="\{ spotlit \}"/ );
-		expect( read( 'src/styles/app.css' ) ).toContain( '#rabbithole-sidebar.spotlit' );
+		// length of a spotlight. The pane names itself, and the stage is
+		// laid over whatever carries that name; either half alone is a
+		// stage with nowhere to stand.
+		expect( read( 'src/styles/app.css' ) ).toMatch( /#rabbithole-sidebar \{\s*anchor-name: --rh-player-pane;/ );
+		expect( read( 'src/styles/ensemble.css' ) ).toMatch( /\.rh-spotlight \{[^}]*position-anchor: --rh-player-pane;/ );
+		expect( read( 'src/components/Ensemble.vue' ) ).toContain( '<SpotlightStage' );
+		expect( read( 'src/components/SpotlightStage.vue' ) ).toContain( 'class="rh-spotlight"' );
+	} );
+
+	it( 'move nothing for anyone who has asked for less motion', () => {
+		const css = read( 'src/styles/ensemble.css' );
+		const reduced = css.slice( css.indexOf( '@media (prefers-reduced-motion: reduce)' ) );
+		expect( reduced ).toMatch( /animation: none !important/ );
+		expect( reduced ).toMatch( /\.rh-spotlight \{\s*display: none;/ );
+		expect( reduced ).toContain( '.cards-move' );
+	} );
+
+	it( 'touch no shadow and no box\'s size in a keyframe', () => {
+		// The glow used to be five box-shadows pulsed by keyframes, which
+		// repaints the card and whatever it overlaps on every frame.
+		const css = read( 'src/styles/ensemble.css' ).replace( /\/\*[\s\S]*?\*\//g, '' );
+		// Each @keyframes, brace for brace: some are written on one line.
+		const frames = [ ...css.matchAll( /@keyframes [\w-]+\s*\{/g ) ].map( ( m ) => {
+			const from = m.index + m[ 0 ].length;
+			let depth = 1;
+			let to = from;
+			while ( depth && to < css.length ) {
+				depth += css[ to ] === '{' ? 1 : css[ to ] === '}' ? -1 : 0;
+				to++;
+			}
+			return css.slice( from, to - 1 );
+		} );
+		expect( frames.length ).toBeGreaterThan( 15 );
+		expect( frames.join( '\n' ) ).not.toMatch( /box-shadow|width|height|inset|padding|margin|\btop:|\bleft:/ );
 	} );
 
 	it( 'give Webamp\'s window one home per layout', () => {
@@ -98,8 +131,9 @@ describe( 'stylesheets', () => {
 
 describe( 'no timers coordinate the shell', () => {
 	// The audit's finding, pinned: components and stores wait for state,
-	// never for a clock. Effects (model.js) are the one place a duration is
-	// a duration, and the flash on a Listen button (queue.js) is a label.
+	// never for a clock. The model keeps one alarm, for the chart's next
+	// marker (model.js), and the flash on a Listen button (queue.js) is a
+	// label.
 	const files = [ 'src/App.vue', ...filesUnder( 'src/components' ), ...filesUnder( 'src/stores' ) ];
 
 	it.each( files )( '%s has no setTimeout, setInterval or MutationObserver', ( file ) => {

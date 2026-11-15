@@ -132,6 +132,15 @@ export function compactMusicians(timeline, names = []) {
     return { timeline: clone, removed, rewritten, skipped: false };
 }
 
+/*
+ * Where a marker names somebody as a name, or a list of names: who takes
+ * it, and who an effect is for. A flourish or a spotlight for a name
+ * nobody has is light with no card to land on -- the player draws nothing
+ * for it (player/timeline.js effectsAt), so here is where it gets said.
+ */
+const NAMED = ['solo', 'flourish', 'spotlight'];
+const listed = value => (Array.isArray(value) ? value : [value]).filter(n => typeof n === 'string');
+
 /**
  * Names the timeline uses that match nobody on the ensemble.
  *
@@ -160,10 +169,11 @@ export function unmatchedNames(timeline, names = []) {
 
     Object.entries(timeline || {}).forEach(([key, marker]) => {
         if (!marker || typeof marker !== 'object') return;
-        (Array.isArray(marker.solo) ? marker.solo : [marker.solo]).forEach(n => note(n, key + ' solo'));
+        NAMED.forEach(field => listed(marker[field]).forEach(n => note(n, key + ' ' + field)));
         note(marker.pickup, key + ' pickup');
         Object.keys(marker.musicians || {}).forEach(n => note(n, key + ' musicians'));
         Object.keys(marker.instrumentChanges || {}).forEach(n => note(n, key + ' instrument'));
+        Object.keys(marker.feature || {}).forEach(n => note(n, key + ' feature'));
     });
 
     return Object.entries(seen).map(([name, where]) => ({
@@ -177,7 +187,8 @@ export function unmatchedNames(timeline, names = []) {
  * Rename a person everywhere a timeline mentions them.
  *
  * One spelling mistake lives in several places -- the ensemble, every
- * musicians block, solos, pickups, instrument changes -- and fixing it in
+ * musicians block, solos, pickups, instrument changes, the effects that
+ * are for somebody -- and fixing it in
  * one while the rest keep the old spelling is how a person ends up
  * counted twice. If the new name already exists, the two are merged: the
  * ensemble keeps both instrument lists, and where a block names both
@@ -206,14 +217,17 @@ export function renameMusician(timeline, ensemble, from, to) {
 
     Object.values(tl).forEach(marker => {
         if (!marker || typeof marker !== 'object') return;
-        if (marker.solo === oldName) { marker.solo = newName; changed += 1; }
-        if (Array.isArray(marker.solo) && marker.solo.includes(oldName)) {
-            marker.solo = marker.solo.map(n => (n === oldName ? newName : n));
-            changed += 1;
-        }
+        NAMED.forEach(field => {
+            if (marker[field] === oldName) { marker[field] = newName; changed += 1; }
+            if (Array.isArray(marker[field]) && marker[field].includes(oldName)) {
+                marker[field] = marker[field].map(n => (n === oldName ? newName : n));
+                changed += 1;
+            }
+        });
         if (marker.pickup === oldName) { marker.pickup = newName; changed += 1; }
         if (moveKey(marker.musicians)) changed += 1;
         if (moveKey(marker.instrumentChanges)) changed += 1;
+        if (moveKey(marker.feature)) changed += 1;
     });
 
     if (Object.prototype.hasOwnProperty.call(ens, oldName)) {

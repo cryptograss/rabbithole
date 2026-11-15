@@ -59,14 +59,14 @@ function look( page ) {
 		// the tip; with none of it gone there's no rect, and the carrot is whole.
 		const gone = document.querySelector( '.carrot-btn:not([hidden]) mask rect.carrot-gone' );
 		const name = ( card ) => ( card.querySelector( '.musician-name' ) || card ).textContent
-			.replace( /⭐/g, '' ).replace( /\(.*$/, '' ).trim();
+			.replace( /⭐|🎤/gu, '' ).replace( /\(.*$/, '' ).trim();
 		return {
 			clock: /^\d{4}$/.test( digits ) ? Number( digits.slice( 0, 2 ) ) * 60 + Number( digits.slice( 2 ) ) : null,
 			audio: analyser ? analyser.context.state : null,
 			energy,
 			edgeX: gone ? Number( gone.getAttribute( 'x' ) ) : null,
 			lead: [ ...document.querySelectorAll( '.musician-card.lead' ) ].map( name ),
-			flourish: [ ...document.querySelectorAll( '.musician-card.flourish-active' ) ].map( name ),
+			flourish: [ ...document.querySelectorAll( '#ensemble-display .musician-card.fx-flourish' ) ].map( name ),
 			// The page in the pane: the address names it as ?page= (or, on the
 			// wiki itself, as /wiki/<title>).
 			pane: ( new URLSearchParams( location.search ).get( 'page' )
