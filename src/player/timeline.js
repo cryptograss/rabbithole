@@ -11,15 +11,70 @@
 
 import { musicianEntries, statusAt } from '../musician-status.js';
 
+/*
+ * What a moment inside a pass does not take from the pass: whatever
+ * happens once, where it is written, and does not hold until something
+ * changes it. The pass's name, and its lights. A flourish written on a
+ * section is that section's downbeat; a moment later in it that took the
+ * flourish along would fire it a second time.
+ */
+export const happensOnce = ( key ) => key === 'part' || /^(flourish|spotlight|bandFlash)/.test( key );
+
+/**
+ * Where a chart's sections start, in order: [{ name, time, data }].
+ *
+ * `section1`, `section2`... are labels in order, placed one
+ * standardSectionLength apart, starting after the last explicit time; a
+ * section may carry its own `length`, and a chart may skip numbers (Paint
+ * Exchange has no section1). However many there are: this used to count
+ * to twenty and stop, and a chart's twenty-first section was not read,
+ * which the editor's save would then have taken off the page.
+ *
+ * The one place this arithmetic is done. The player lays a chart out by
+ * it and the editor writes one back by it (editor/sections.js), so the
+ * two cannot disagree about where a section starts.
+ */
+export function sectionStarts( trackData ) {
+	const timeline = ( trackData && trackData.timeline ) || {};
+	const standard = trackData && trackData.standardSectionLength;
+	if ( ! standard ) {
+		return [];
+	}
+	const explicit = Object.keys( timeline )
+		.filter( ( key ) => ! key.startsWith( 'section' ) )
+		.map( parseFloat )
+		.filter( ( t ) => ! isNaN( t ) );
+	let at = explicit.length ? Math.max( ...explicit ) : 0;
+
+	return Object.keys( timeline )
+		.filter( ( key ) => /^section\d+$/.test( key ) && timeline[ key ] )
+		.sort( ( a, b ) => Number( a.slice( 7 ) ) - Number( b.slice( 7 ) ) )
+		.map( ( name ) => {
+			const data = timeline[ name ];
+			at += data.length !== undefined ? data.length : standard;
+			return { name, time: at, data };
+		} );
+}
+
 /**
  * Lay a timeline's section keys out in time.
  *
  * A timeline may mix explicit times (`12.5`) with `section1`, `section2`...
- * keys, which are placed one standardSectionLength apart, starting after
- * the last explicit time. A section may carry its own `length`, and
- * numeric keys inside a section are sub-moments at absolute times. Section
- * starts are flagged `_isSectionStart`, sub-moments `_isSubMoment`, so the
- * parts strip can tell them apart.
+ * keys (sectionStarts says where each begins), and numeric keys inside a
+ * section are sub-moments at absolute times. Section starts are flagged
+ * `_isSectionStart`, sub-moments `_isSubMoment`, so the parts strip can
+ * tell them apart.
+ *
+ * Everything a chart writes at a second is in force at that second. A
+ * moment may be written on the very second a section starts -- its own
+ * section's, or the next one's -- and each used to be put down over
+ * whatever was already there, so one of the two was lost: Paint
+ * Exchange's five-second flourish for John Mailander, written at 23.5
+ * where a section starts, never played, and opening that chart in the
+ * editor and saving it would have taken those four lines off the wiki
+ * (magent, 15 Nov 2026, reading every chart through the new effects). So
+ * what is said at each second is gathered first, by who says it, and
+ * each entry is made once from all of it.
  *
  * Returns the timeline itself when there are no sections to place.
  */
@@ -29,58 +84,68 @@ export function processTimeline( trackData ) {
 		return timeline;
 	}
 
-	const processed = {};
-	const explicitTimes = [];
+	// What is said at each second: a marker written at that time, a
+	// section starting there, a moment inside a section.
+	const said = new Map();
+	const at = ( time ) => {
+		if ( ! said.has( time ) ) {
+			said.set( time, {} );
+		}
+		return said.get( time );
+	};
+
 	Object.entries( timeline ).forEach( ( [ key, value ] ) => {
 		if ( ! key.startsWith( 'section' ) ) {
-			const exactTime = parseFloat( key );
-			explicitTimes.push( exactTime );
-			processed[ exactTime ] = value;
+			at( parseFloat( key ) ).marker = value;
 		}
 	} );
 
-	let accumulatedTime = explicitTimes.length ? Math.max( ...explicitTimes ) : 0;
-
-	for ( let i = 1; i <= 20; i++ ) {
-		const sectionData = timeline[ `section${ i }` ];
-		if ( ! sectionData ) {
-			continue;
-		}
-		const sectionLength = sectionData.length !== undefined
-			? sectionData.length
-			: trackData.standardSectionLength;
-
-		accumulatedTime += sectionLength;
-		const sectionStartTime = accumulatedTime;
-
-		const baseSectionData = {};
-		const subMoments = {};
-		for ( const [ key, value ] of Object.entries( sectionData ) ) {
+	for ( const { time, data } of sectionStarts( trackData ) ) {
+		const base = {};
+		const held = {};
+		for ( const [ key, value ] of Object.entries( data ) ) {
 			if ( ! isNaN( parseFloat( key ) ) ) {
-				subMoments[ key ] = value;
-			} else {
-				baseSectionData[ key ] = value;
+				/*
+				 * A sub-moment is inside a pass, not the start of one:
+				 * Maddie's pickup at 0:40 of August, Gaven's flourishes
+				 * at 2:03 and 2:06.
+				 */
+				const here = at( parseFloat( key ) );
+				here.moment = { ...here.moment, ...value };
+				here.pass = held;
+				continue;
+			}
+			base[ key ] = value;
+			/*
+			 * A moment takes who is playing and who is featured from
+			 * its pass, but never the pass's part, unless it names one
+			 * itself. Nothing reads a part off a sub-moment -- the
+			 * parts strip skips them -- and copying it in meant that
+			 * writing the chart back out in seconds (flattenSections)
+			 * turned each of those moments into another B part.
+			 * August's ten passes came back as eighteen, and the
+			 * chartifact that says "second B part" no longer points at
+			 * the same pass the song does (Justin and re, 15 Nov 2026).
+			 */
+			if ( ! happensOnce( key ) ) {
+				held[ key ] = value;
 			}
 		}
-		/*
-		 * A sub-moment is inside a pass, not the start of one: Maddie's
-		 * pickup at 0:40 of August, Gaven's flourishes at 2:03 and 2:06.
-		 * It inherits who is playing and who is featured, but never the
-		 * section's part, unless it names one itself. Nothing reads a
-		 * part off a sub-moment -- the parts strip skips them -- and
-		 * copying it in meant that writing the chart back out in seconds
-		 * (flattenSections) turned each of those moments into another B
-		 * part. August's ten passes came back as eighteen, and the
-		 * chartifact that says "second B part" no longer points at the
-		 * same pass the song does (Justin and re, 15 Nov 2026).
-		 */
-		const { part, ...insideThePass } = baseSectionData;
-		for ( const [ timeStr, momentData ] of Object.entries( subMoments ) ) {
-			processed[ parseFloat( timeStr ) ] = { ...insideThePass, ...momentData, _isSubMoment: true };
-		}
-		processed[ sectionStartTime ] = { ...baseSectionData, _isSectionStart: true };
+		at( time ).section = base;
 	}
 
+	const processed = {};
+	for ( const [ time, { marker, section, moment, pass } ] of said ) {
+		if ( section ) {
+			// A pass starts here, and anything written for this second
+			// is part of how it starts.
+			processed[ time ] = { ...marker, ...section, ...moment, _isSectionStart: true };
+		} else if ( marker ) {
+			processed[ time ] = moment ? { ...marker, ...moment } : marker;
+		} else {
+			processed[ time ] = { ...pass, ...moment, _isSubMoment: true };
+		}
+	}
 	return processed;
 }
 
