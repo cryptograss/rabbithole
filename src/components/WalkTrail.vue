@@ -25,7 +25,7 @@
 <script setup>
 import { computed, ref, watch, onMounted, onBeforeUnmount } from 'vue';
 import { useLayoutStore } from '../stores/layout.js';
-import { useWalkStore, followedVia } from '../stores/walk.js';
+import { useWalkStore, drawerDoes } from '../stores/walk.js';
 import { usePlayerStore } from '../stores/player.js';
 import { useSongStore } from '../stores/song.js';
 import { usePaneStore } from '../stores/pane.js';
@@ -64,33 +64,33 @@ function onMessage( e ) {
 	if ( e.origin !== window.location.origin || ! frame.value || e.source !== frame.value.contentWindow ) {
 		return;
 	}
-	const d = e.data;
-	if ( d && d.connectome === 'close' ) {                     // Escape inside the frame: the graph says so, as over a wiki page
-		open.value = false;
+	const does = drawerDoes( e.data );
+	if ( ! does ) {
 		return;
 	}
-	if ( ! d || d.connectome !== true ) {
-		return;
-	}
-	if ( d.open ) {
+	if ( does.open ) {
 		open.value = true;
-	} else if ( d.play ) {
+	}
+	if ( does.play ) {
 		// A road not taken, taken from the drawer: the walk says who was followed to it.
-		const via = followedVia( d.via );
-		if ( via ) {
-			walk.mark( String( d.play ), via );
+		if ( does.via ) {
+			walk.mark( does.play, does.via );
 		}
-		songs.playCid( String( d.play ) ).then( () => {
+		songs.playCid( does.play ).then( () => {
 			if ( player.model ) {
 				player.model.play();
 			}
 		} ).catch( ( err ) => console.warn( 'Could not play it again:', err ) );
-	} else if ( d.page ) {
+	}
+	if ( does.page ) {
 		layout.stopFollowing();
-		pane.open( String( d.page ) );
-		open.value = false;
-	} else if ( d.clear ) {
+		pane.open( does.page );
+	}
+	if ( does.clear ) {
 		walk.clear();
+	}
+	if ( does.close ) {
+		open.value = false;
 	}
 }
 

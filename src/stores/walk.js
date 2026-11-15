@@ -82,6 +82,42 @@ export function followedVia( via ) {
 }
 
 /**
+ * What the drawer does at a word from the graph in it.
+ *
+ * Pure. The word comes from a frame, so only what it names is done: open;
+ * close (Escape inside the frame); play a recording, following someone to it
+ * where it says who; open a page in the pane, shutting the drawer; or start a
+ * new walk, which shuts the drawer too (re, 15 Nov 2026: left open, the
+ * drawer, gone with the empty walk, came back open by itself when the next
+ * song played).
+ *
+ * @param {*} d What the frame sent.
+ * @return {Object|null} What to do: {open}, {close}, {play, via}, {page, close}
+ *   or {clear, close}; null for anything else.
+ */
+export function drawerDoes( d ) {
+	if ( d && d.connectome === 'close' ) {
+		return { close: true };
+	}
+	if ( ! d || d.connectome !== true ) {
+		return null;
+	}
+	if ( d.open ) {
+		return { open: true };
+	}
+	if ( d.play ) {
+		return { play: String( d.play ), via: followedVia( d.via ) };
+	}
+	if ( d.page ) {
+		return { page: String( d.page ), close: true };
+	}
+	if ( d.clear ) {
+		return { clear: true, close: true };
+	}
+	return null;
+}
+
+/**
  * A walk as it was stored, junk tolerated.
  *
  * Pure. localStorage can hold anything a browser felt like keeping: a

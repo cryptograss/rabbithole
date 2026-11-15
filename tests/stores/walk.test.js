@@ -6,7 +6,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { createPinia, setActivePinia } from 'pinia';
 import { reactive, nextTick } from 'vue';
 
-import { followedVia, heard, pushed, revive, stored, useWalkStore } from '../../src/stores/walk.js';
+import { drawerDoes, followedVia, heard, pushed, revive, stored, useWalkStore } from '../../src/stores/walk.js';
 import { usePlayerStore } from '../../src/stores/player.js';
 import { viaPicker } from '../../src/stores/picker.js';
 
@@ -104,6 +104,26 @@ describe( 'followedVia', () => {
 		model.state.status = 'PLAYING';
 		await nextTick();
 		expect( walk.hops ).toEqual( [ expect.objectContaining( { cid: 'Qr', via: { name: 'Samson Grisman', instrument: 'bass' } } ) ] );
+	} );
+} );
+
+describe( 'drawerDoes', () => {
+	it( 'does only what the graph\'s word names', () => {
+		expect( drawerDoes( { connectome: true, open: true } ) ).toEqual( { open: true } );
+		expect( drawerDoes( { connectome: 'close' } ) ).toEqual( { close: true } );
+		expect( drawerDoes( { connectome: true, play: 'QmA' } ) ).toEqual( { play: 'QmA', via: null } );
+		expect( drawerDoes( { connectome: true, play: 'QmA', via: { name: 'Kyle Tuttle', instrument: 'banjo' } } ) )
+			.toEqual( { play: 'QmA', via: { name: 'Kyle Tuttle', instrument: 'banjo' } } );
+		expect( drawerDoes( { connectome: true, page: 'Harry Clark' } ) ).toEqual( { page: 'Harry Clark', close: true } );
+		expect( drawerDoes( { rabbithole: 'walk' } ) ).toBe( null );
+		expect( drawerDoes( { connectome: true } ) ).toBe( null );
+		expect( drawerDoes( null ) ).toBe( null );
+	} );
+
+	// re, 15 Nov 2026: "start a new rabbithole" left the drawer open, so it came back open by itself
+	// when the next song played.
+	it( 'shuts the drawer when a new walk starts', () => {
+		expect( drawerDoes( { connectome: true, clear: true } ) ).toEqual( { clear: true, close: true } );
 	} );
 } );
 
