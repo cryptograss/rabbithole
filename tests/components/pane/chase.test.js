@@ -1,8 +1,10 @@
 // @vitest-environment happy-dom
 /**
- * Chasing a picker, as it reads in the pane: one line offering it, or a
- * pill beside their name. Justin's points 10 and 13 (#rabbithole, 13 Nov
- * 2026). Both were HTML built in a JS module until the 14th.
+ * Chasing a picker, as it reads in the pane: a button beside their name
+ * offering it, or a pill in the same place while it runs. Justin's points
+ * 10 and 13 (#rabbithole, 13 Nov 2026), and item 23 (15 Nov), which turned
+ * the offer's bar into the button's tooltip. Both were HTML built in a JS
+ * module until the 14th.
  */
 import { describe, it, expect } from 'vitest';
 import { mount } from '@vue/test-utils';
@@ -12,13 +14,16 @@ import PaneChasePill from '../../../src/components/pane/PaneChasePill.vue';
 describe( 'the offer to chase', () => {
 	const offer = () => mount( PaneChaseOffer, { props: { name: 'Harry Clark' } } );
 
-	it( 'offers it in one line, by name, without naming the next song', () => {
-		const text = offer().text();
-		expect( text ).toContain( 'Harry Clark' );
-		expect( text ).toContain( 'Chase Harry' );
+	it( 'is one button, with what a chase is as its tooltip', () => {
+		const w = offer();
+		// The whole of it: the bar that spelled the sentence out above the
+		// title is the tooltip now (item 23).
+		expect( w.element.tagName ).toBe( 'BUTTON' );
+		expect( w.text() ).toContain( 'Chase Harry' );
+		expect( w.attributes( 'title' ) ).toBe( 'Keep playing the songs Harry Clark is on, one after another.' );
 		// "First up: Victory" was the second line nobody asked for.
-		expect( text ).not.toMatch( /first up/i );
-		expect( text ).not.toMatch( /follow/i );
+		expect( w.text() ).not.toMatch( /first up/i );
+		expect( w.text() ).not.toMatch( /follow/i );
 	} );
 
 	it( 'asks for the chase by their full name when pressed', async () => {
@@ -33,7 +38,7 @@ describe( 'the offer to chase', () => {
 	 */
 	it( 'shows a name that looks like markup as the name it is', () => {
 		const w = mount( PaneChaseOffer, { props: { name: '<b>x</b>' } } );
-		expect( w.html() ).not.toContain( '<b>x</b>' );
+		expect( w.element.querySelector( 'b' ) ).toBeNull();
 		expect( w.text() ).toContain( '<b>x</b>' );
 	} );
 } );

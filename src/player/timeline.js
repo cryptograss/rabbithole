@@ -172,18 +172,25 @@ export function baseWeights( ensemble ) {
 /**
  * Where a card sorts right now. Lower is nearer the top.
  *
- * A named scene wins: lead 1, pickup 5, cooldown 5, harmony 7, rhythm 8,
- * anything else 6. Then the plain solo/pickup shape. Recent soloists hold
- * the next places by recency, and everyone else sits on their base weight,
- * pushed down a step for each recent soloist above them.
+ * A named scene wins: lead 1, cooldown 5, harmony 7, rhythm 8, anything
+ * else 6. Then the plain solo shape. Recent soloists hold the next places
+ * by recency, and everyone else sits on their base weight, pushed down a
+ * step for each recent soloist above them.
+ *
+ * A pickup is not in that list, and deliberately. It used to sort to 5,
+ * which walked the card up to second place and then, a beat later when
+ * they took the solo, to first: "Pickups look weird with the person moving
+ * to second place and then to first. Just leave them where they are"
+ * (Justin, #rabbithole, 15 Nov 2026, item 21). A pickup is half a bar
+ * long; it is something to see, not something to re-sort the band for, so
+ * it says so with a glow and leaves the order alone.
  */
 export function dynamicWeight( name, arrangement, { baseWeights: base = {}, recentSoloists = [] } = {} ) {
 	const features = arrangement ? arrangement.feature : null;
 	const scene = features ? features[ name ] : null;
-	if ( scene ) {
+	if ( scene && scene !== 'pickup' ) {
 		switch ( scene ) {
 			case 'lead': return 1;
-			case 'pickup': return 5;
 			case 'cooldown': return 5;
 			case 'harmony': return 7;
 			case 'rhythm': return 8;
@@ -192,9 +199,6 @@ export function dynamicWeight( name, arrangement, { baseWeights: base = {}, rece
 	}
 	if ( soloistsOf( arrangement ).includes( name ) ) {
 		return 1;
-	}
-	if ( arrangement && arrangement.pickup === name ) {
-		return 5;
 	}
 	const recent = recentSoloists.indexOf( name );
 	if ( recent !== -1 ) {
