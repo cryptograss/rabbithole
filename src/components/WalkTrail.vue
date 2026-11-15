@@ -25,7 +25,7 @@
 <script setup>
 import { computed, ref, watch, onMounted, onBeforeUnmount } from 'vue';
 import { useLayoutStore } from '../stores/layout.js';
-import { useWalkStore } from '../stores/walk.js';
+import { useWalkStore, followedVia } from '../stores/walk.js';
 import { usePlayerStore } from '../stores/player.js';
 import { useSongStore } from '../stores/song.js';
 import { usePaneStore } from '../stores/pane.js';
@@ -75,6 +75,11 @@ function onMessage( e ) {
 	if ( d.open ) {
 		open.value = true;
 	} else if ( d.play ) {
+		// A road not taken, taken from the drawer: the walk says who was followed to it.
+		const via = followedVia( d.via );
+		if ( via ) {
+			walk.mark( String( d.play ), via );
+		}
 		songs.playCid( String( d.play ) ).then( () => {
 			if ( player.model ) {
 				player.model.play();
@@ -154,7 +159,7 @@ body.bottom-bar .walk-frame:not(.open) { position: fixed; left: -10000px; top: 0
 /* The drawer, over the page: the same frame, grown. */
 .walk-shade { position: fixed; inset: 0; background: rgba(20, 30, 22, .28); z-index: 400; }
 .walk-frame.open { position: fixed; top: 0; bottom: 0; left: var(--walk-left, 0px); height: auto; margin: 0;
-	width: min(560px, calc(100vw - var(--walk-left, 0px))); background: #fcfcfb;
+	width: min(920px, calc(100vw - var(--walk-left, 0px) - 24px)); background: #fcfcfb;
 	border-right: 2px solid #4a7c59; box-shadow: 6px 0 22px rgba(0,0,0,.22); z-index: 401; }
 .walk-frame.open.bar { top: auto; bottom: var(--walk-bottom, 0px); left: 0; right: 0; width: auto;
 	height: min(640px, calc(100vh - var(--walk-bottom, 0px) - 16px)); border-right: none; border-top: 2px solid #4a7c59; border-radius: 14px 14px 0 0;

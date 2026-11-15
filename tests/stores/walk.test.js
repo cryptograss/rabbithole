@@ -6,7 +6,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { createPinia, setActivePinia } from 'pinia';
 import { reactive, nextTick } from 'vue';
 
-import { heard, pushed, revive, stored, useWalkStore } from '../../src/stores/walk.js';
+import { followedVia, heard, pushed, revive, stored, useWalkStore } from '../../src/stores/walk.js';
 import { usePlayerStore } from '../../src/stores/player.js';
 import { viaPicker } from '../../src/stores/picker.js';
 
@@ -80,6 +80,30 @@ describe( 'useWalkStore', () => {
 		model.state.song = { _trackCid: 'Qs', title: 'Silver 44' };
 		await nextTick();
 		expect( walk.hops.map( ( h ) => h.cid ) ).toEqual( [ 'Qa' ] );          // loaded, not yet heard
+	} );
+} );
+
+describe( 'followedVia', () => {
+	it( 'is who the drawer says was followed, and no one for anything else', () => {
+		expect( followedVia( { name: 'Kyle Tuttle', instrument: 'banjo' } ) ).toEqual( { name: 'Kyle Tuttle', instrument: 'banjo' } );
+		expect( followedVia( { name: ' Harry Clark ' } ) ).toEqual( { name: 'Harry Clark', instrument: null } );
+		expect( followedVia( { name: '' } ) ).toBe( null );
+		expect( followedVia( { name: 7 } ) ).toBe( null );
+		expect( followedVia( 'Kyle' ) ).toBe( null );
+		expect( followedVia( undefined ) ).toBe( null );
+	} );
+
+	it( 'is what the walk records for the song it marks', async () => {
+		window.localStorage.clear();
+		setActivePinia( createPinia() );
+		const model = { state: reactive( { song: null, status: 'STOPPED', upNext: [] } ) };
+		usePlayerStore().model = model;
+		const walk = useWalkStore();
+		walk.mark( 'Qr', followedVia( { name: 'Samson Grisman', instrument: 'bass' } ) );
+		model.state.song = { _trackCid: 'Qr', title: 'Moon Factory' };
+		model.state.status = 'PLAYING';
+		await nextTick();
+		expect( walk.hops ).toEqual( [ expect.objectContaining( { cid: 'Qr', via: { name: 'Samson Grisman', instrument: 'bass' } } ) ] );
 	} );
 } );
 

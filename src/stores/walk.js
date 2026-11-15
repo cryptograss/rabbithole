@@ -64,6 +64,24 @@ export function heard( cid, playing ) {
 }
 
 /**
+ * Who was followed, as the graph in the drawer says it: a road not taken from
+ * the song on now, taken there (Justin, 15 Nov 2026: "showing other unused but
+ * potential connections and allowing the user to explore those").
+ *
+ * Pure. The word comes from a frame, so it is checked like anything stored:
+ * a name, and an instrument if there is one; anything else is no one.
+ *
+ * @param {*} via What the frame sent.
+ * @return {Object|null} {name, instrument}, or null.
+ */
+export function followedVia( via ) {
+	if ( ! via || typeof via.name !== 'string' || ! via.name.trim() ) {
+		return null;
+	}
+	return { name: via.name.trim().slice( 0, 200 ), instrument: typeof via.instrument === 'string' && via.instrument ? via.instrument.slice( 0, 100 ) : null };
+}
+
+/**
  * A walk as it was stored, junk tolerated.
  *
  * Pure. localStorage can hold anything a browser felt like keeping: a
