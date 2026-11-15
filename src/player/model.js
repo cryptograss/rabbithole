@@ -528,9 +528,14 @@ export class WebampPlayer {
 			}, seconds );
 		}
 		if ( arrangement.spotlight ) {
-			// A card highlight, not a blackout: the other players recede to
-			// 0.55 rather than vanish, and the page is untouched (Skyler:
-			// "it should highlight the name subtly").
+			// The player pane goes black for the length of it and the one
+			// card stays lit (Justin, item 22, 15 Nov 2026: "black out
+			// everything in the player pane except that person and their
+			// glow"). The page beside it and the timeline column are
+			// untouched, and the cap keeps it to 3s: judicious, which is
+			// the condition he put on it. Skyler's subtler version --
+			// others at 0.55, nothing blacked out -- is what the fx-dim
+			// class still does on its own, outside a spotlit pane.
 			const asked = ( arrangement.spotlightBlackout || 3 ) + ( arrangement.spotlightGlow || 2 );
 			const pulse = 1.5;
 			const { cycles, seconds } = wholePulses( asked, pulse );

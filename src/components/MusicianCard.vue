@@ -31,9 +31,22 @@ const classes = computed( () => [
 	},
 ] );
 
-// The glow an effect asks for, as variables the stylesheet's keyframes read.
+/*
+ * The glow an effect asks for, as variables the stylesheet's keyframes
+ * read -- and a pickup's, which is not an effect but a scene, so it is
+ * written here rather than fired by the model.
+ *
+ * Blue, and loud: a pickup used to be a yellow 3% swell that also walked
+ * the card up the order. "Just leave them where they are, but make the
+ * glow more significant. I think blue is a better color than yellow for
+ * pickups" (Justin, #rabbithole, 15 Nov 2026, item 21). The blue is
+ * glow.js's own, so it is the same blue everything else in the app glows.
+ */
+const PICKUP = { color: 'blue', intensity: 0.75, pulse: 1.1, cycles: 2 };
+
 const style = computed( () => {
-	const fx = spotlight.value || flourish.value;
+	const fx = spotlight.value || flourish.value
+		|| ( props.card.scene === 'pickup' ? PICKUP : null );
 	if ( ! fx ) {
 		return null;
 	}
@@ -55,7 +68,12 @@ const label = computed( () => ( props.card.star ? '⭐ ' : '' ) + props.card.nam
 	>
 		<!-- The instrument never breaks across lines: "(5-string banjo)" is one
 			thing, and split it reads as two (Justin, 7 Nov 2026). -->
-		<div class="musician-name"><span v-if="chased" class="chasing-rabbit" title="Chasing them: their songs play one after another">🐇</span>{{ label + ( card.instrument ? ' ' : '' ) }}<span v-if="card.instrument" class="musician-instrument">({{ card.instrument }})</span></div>
+		<!-- The rabbit sits at the right end of the card. On the left it
+		     pushed the name across and landed next to the star, which are
+		     two different things saying two different things (Justin's
+		     item 24, 15 Nov 2026). -->
+		<span v-if="chased" class="chasing-rabbit" title="Chasing them: their songs play one after another">🐇</span>
+		<div class="musician-name">{{ label + ( card.instrument ? ' ' : '' ) }}<span v-if="card.instrument" class="musician-instrument">({{ card.instrument }})</span></div>
 		<div class="chartifact-line">{{ card.engineer ? 'Engineer' : 'Chartifact "0x1234ff" owned by cryptograss.eth' }}</div>
 	</div>
 </template>

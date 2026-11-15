@@ -158,10 +158,13 @@ watch( () => pane.shown, ( title ) => picker.look( title ), { immediate: true } 
 			:text="view.text"
 			:displaytitle="view.displaytitle"
 		>
+			<!-- Beside their name, and never both: the pill while they are
+			     being chased, the offer while they are not (Justin's items
+			     13 and 23). -->
 			<template #title>
 				<PaneChasePill v-if="chasing" :name="offer.name" @stop="picker.stop()" />
+				<PaneChaseOffer v-else-if="offer && offer.next" :name="offer.name" @chase="onChase" />
 			</template>
-			<PaneChaseOffer v-if="offer && ! chasing && offer.next" :name="offer.name" @chase="onChase" />
 			<PaneTrail v-if="pane.trail" :trail="pane.trail" />
 		</PaneArticle>
 	</Teleport>

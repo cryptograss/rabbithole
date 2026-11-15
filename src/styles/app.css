@@ -949,9 +949,21 @@ body.bottom-bar .editor-pencil {
 /* The picker being chased: the rabbit on their card, so the chase is
    visible wherever the pane has wandered to (Justin, 13 Nov 2026). The
    card keeps whatever else it is wearing; this is one mark, not a
-   second scene. */
+   second scene.
+
+   At the right end of the card, not the left: there it pushed the name
+   across and sat next to the star, and a star and a rabbit side by side
+   say two different things in one place (Justin's item 24, 15 Nov 2026). */
+.musician-card {
+    position: relative;
+}
+
 .chasing-rabbit {
-    margin-right: 4px;
+    position: absolute;
+    top: 50%;
+    right: 4px;
+    transform: translateY(-50%);
+    line-height: 1;
 }
 
 .musician-card.chased {
@@ -1789,6 +1801,51 @@ body:not(.bottom-bar) #webamp div:has(> #main-window) {
 .musician-card.fx-dim {
     opacity: 0.55;
     transition: opacity 0.4s ease;
+}
+
+/* === The spotlight: the player pane goes dark ===
+
+   Justin, #rabbithole 15 Nov 2026, item 22: "I still think the spotlight
+   thing was badass when used judiciously... Just black out the entire
+   player pane; the info pane and timeline pane can stay as they are, but
+   black out everything in the player pane except that person and their
+   glow for the duration of the spotlight."
+
+   So the dock turns black and everything in it goes but the one card,
+   which is white with its glow on black -- the player included, for the
+   few seconds a spotlight lasts (four at the most: SPOTLIGHT_MAX_SECONDS
+   in player/model.js). The page beside it and the timeline column are
+   untouched, as he asked. */
+#rabbithole-sidebar.spotlit {
+    background: #0b0d0b;
+    transition: background 0.35s ease;
+}
+
+#rabbithole-sidebar.spotlit .webamp-wrapper,
+#rabbithole-sidebar.spotlit .mini-player,
+#rabbithole-sidebar.spotlit .walk-trail,
+#rabbithole-sidebar.spotlit .data-section,
+#rabbithole-sidebar.spotlit .musician-card:not(.spotlight-active) {
+    opacity: 0;
+    transition: opacity 0.35s ease;
+    pointer-events: none;
+}
+
+/* The one lit thing in the room. */
+#rabbithole-sidebar.spotlit .musician-card.spotlight-active {
+    opacity: 1;
+    z-index: 2;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    #rabbithole-sidebar.spotlit,
+    #rabbithole-sidebar.spotlit .webamp-wrapper,
+    #rabbithole-sidebar.spotlit .mini-player,
+    #rabbithole-sidebar.spotlit .walk-trail,
+    #rabbithole-sidebar.spotlit .data-section,
+    #rabbithole-sidebar.spotlit .musician-card:not(.spotlight-active) {
+        transition: none;
+    }
 }
 
 /* A moment: somebody comes in or drops out, and the card says so once. */

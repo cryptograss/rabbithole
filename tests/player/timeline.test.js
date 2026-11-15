@@ -162,6 +162,21 @@ describe( 'cards', () => {
 		expect( at50.slice().sort( ( a, b ) => a.weight - b.weight )[ 0 ].name ).toBe( 'Harry Clark' );
 	} );
 
+	it( 'leaves a pickup where it is in the order', () => {
+		// It used to sort to 5, which walked the card to second place and
+		// then to first a beat later when they took it (Justin, item 21,
+		// 15 Nov 2026). Maddie is third in the ensemble and stays third.
+		const at0 = cards( track, processed, 0 );
+		const order = at0.filter( ( c ) => ! c.engineer ).sort( ( a, b ) => a.weight - b.weight ).map( ( c ) => c.name );
+		expect( order ).toEqual( [ 'Justin Holmes', 'Harry Clark', 'Maddie Denton' ] );
+
+		// A named pickup scene is the same: seen, not re-sorted.
+		const featured = { ...track, timeline: { 0: { part: 'intro', feature: { 'Maddie Denton': 'pickup' } } } };
+		const list = cards( featured, processTimeline( featured ), 0 );
+		expect( list.find( ( c ) => c.name === 'Maddie Denton' ).weight )
+			.toBe( list.find( ( c ) => c.name === 'Justin Holmes' ).weight + 20 );
+	} );
+
 	it( 'reads nobody soloing as null, so "nobody" equals "nobody"', () => {
 		expect( soloistOf( { part: 'A' } ) ).toBeNull();
 		expect( soloistOf( undefined ) ).toBeNull();
