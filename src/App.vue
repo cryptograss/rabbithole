@@ -11,6 +11,7 @@
 import { watch, watchEffect, onMounted, onBeforeUnmount } from 'vue';
 
 import { INITIAL_PARAMS, cameToListen } from './initial-params.js';
+import { traverseTo } from './traverse.js';
 import { useLayoutStore } from './stores/layout.js';
 import { useSongStore } from './stores/song.js';
 import { usePaneStore } from './stores/pane.js';
@@ -19,8 +20,6 @@ import * as wiki from './wiki/api.js';
 
 import RabbitholeHeader from './components/RabbitholeHeader.vue';
 import MiniPlayer from './components/MiniPlayer.vue';
-import SongInfo from './components/SongInfo.vue';
-import FollowSwitch from './components/FollowSwitch.vue';
 import TimelineView from './components/TimelineView.vue';
 import WebampDock from './components/WebampDock.vue';
 import Ensemble from './components/Ensemble.vue';
@@ -41,24 +40,34 @@ watchEffect( () => {
 } );
 
 /*
- * Each song starts on its own page, and the pane follows the solo from
- * there as the song plays (Skyler, 17 and 30 Oct, 8 Nov 2026). So a new
+ * Each song starts on its own page, and in traverse mode the pane travels
+ * with the track as it plays (Skyler, 17 and 30 Oct, 8 Nov 2026). So a new
  * song opens its page, and a change of soloist opens theirs only while the
  * music is playing: loading a song sets its first soloist, and that used
- * to carry the pane off the song page before a note had played. Both wait
- * on following being on; a person reading something keeps reading.
+ * to carry the pane off the song page before a note had played.
+ *
+ * And when nobody is taking it -- an intro, a tag, a stretch where the band
+ * is just playing -- the pane goes back to the song's own page rather than
+ * staying on whoever soloed last (Justin's item 18, 15 Nov 2026). That is
+ * what the song page is: the page the track itself is about.
+ *
+ * All of it waits on traverse mode; a person reading something keeps reading.
  */
-watch( () => [ player.song && player.song._trackCid, player.currentSolo ], ( [ cid, solo ], [ oldCid ] ) => {
-	if ( ! layout.follow ) {
+watch( () => [ player.song && player.song._trackCid, player.currentSolo ], ( [ cid, solo ], [ oldCid, oldSolo ] ) => {
+	if ( ! layout.traverse ) {
 		return;
 	}
-	if ( cid !== oldCid ) {
-		// The first song is openPaneForStart's; this is the next one.
-		if ( oldCid && player.song ) {
-			pane.openSong( player.song );
-		}
-	} else if ( solo && player.playing ) {
+	// The first song is openPaneForStart's; a change of track from here on
+	// is this watcher's.
+	const trackChanged = cid !== oldCid;
+	if ( trackChanged && ! oldCid ) {
+		return;
+	}
+	const where = traverseTo( { trackChanged, playing: player.playing, solo, lastSolo: oldSolo } );
+	if ( where === 'person' ) {
 		pane.open( solo );
+	} else if ( where === 'song' && player.song ) {
+		pane.openSong( player.song );
 	}
 } );
 
@@ -73,7 +82,7 @@ watch( () => layout.isBar && layout.collapsed, ( shaded ) => {
 function onPopState( e ) {
 	const title = e.state && e.state.wikiTitle;
 	if ( title ) {
-		layout.stopFollowing();
+		layout.stopTraversing();
 		pane.open( title, { push: false } );
 	}
 }
@@ -131,25 +140,20 @@ onBeforeUnmount( () => {
 <template>
 	<div class="layout" :class="{ minimized: !layout.isBar && layout.minimized, 'with-editor': layout.editorOpen,
 		'with-timeline': layout.showTimeline && layout.timelineView, 'with-timeline-tab': layout.showTimeline && !layout.timelineView }">
-		<div id="rabbithole-sidebar">
-			<RabbitholeHeader />
+		<!-- One bar, all the way across the top of both columns: who we are,
+		     traverse mode and the carrot, and what is playing (Justin's item
+		     17, 15 Nov 2026). It was two bars, one over each column. -->
+		<RabbitholeHeader />
 
+		<div id="rabbithole-sidebar">
 			<MiniPlayer v-if="!layout.isBar" />
 
 			<div class="player-container">
-				<!-- In the bar the title, cover and selector are the bar's
-				     own; in the sidebar they head the page beside it. -->
-				<SongInfo v-if="layout.isBar" />
-
-				<div class="toggle-row auto-switch-row">
-					<FollowSwitch />
-				</div>
-
+				<!-- Webamp at the very top of the player pane: the bar above
+				     holds what used to stand between them. -->
 				<WebampDock />
 
-				<!-- In the sidebar the cards sit under the player; in the bar
-				     they are the bar's middle zone, after the song parts. -->
-				<Ensemble v-if="!layout.isBar" />
+				<Ensemble />
 
 				<!-- One line, after what is playing: above Webamp, a few hops
 				     pushed it off the bottom of the screen (Justin, 11 Nov
@@ -157,6 +161,9 @@ onBeforeUnmount( () => {
 				     bar the line is a tab at the right end. -->
 				<WalkTrail />
 
+				<!-- The song parts at the bottom, with whatever space is
+				     spare left under the cards rather than under the strip
+				     (Justin's item 19). -->
 				<div class="data-section">
 					<!-- The way into the timeline editor: a pencil on the label
 					     of what it edits. It was on the song's title, where a
@@ -174,18 +181,10 @@ onBeforeUnmount( () => {
 					<LayoutSwitch />
 					<SongParts />
 				</div>
-
-				<Ensemble v-if="layout.isBar" />
 			</div>
 		</div>
 
-		<!-- Beside the sidebar, what is playing heads the page: the title,
-		     the cover and the selector in one line at the top right, where
-		     there is height to spare. Under the title in the sidebar they
-		     cost the player three lines, and the cards went off the bottom
-		     of the window (Justin and Skyler, 13 Nov 2026). -->
 		<div class="pane-column">
-			<SongInfo v-if="!layout.isBar" />
 			<WikiPane />
 		</div>
 
