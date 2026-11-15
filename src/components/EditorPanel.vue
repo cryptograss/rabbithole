@@ -18,15 +18,18 @@ import { ref, computed, watch, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import { useLayoutStore } from '../stores/layout.js';
 import { usePlayerStore } from '../stores/player.js';
 import { useSongStore } from '../stores/song.js';
+import { usePaneStore } from '../stores/pane.js';
 import { useAccountStore } from '../stores/account.js';
 import { EditableTrackData } from '../editor/EditableTrackData.js';
 import { TimelineEditor } from '../editor/TimelineEditor.js';
 import { KeyboardShortcuts } from '../editor/keyboard-shortcuts.js';
 import { saveMetadata, metadataYaml } from '../wiki/api.js';
+import { loginHref } from '../wiki/urls.js';
 
 const layout = useLayoutStore();
 const player = usePlayerStore();
 const songs = useSongStore();
+const pane = usePaneStore();
 const account = useAccountStore();
 
 const CONTAINER_ID = 'timeline-editor-container';
@@ -113,15 +116,20 @@ async function save() {
 	try {
 		const result = await saveMetadata( current._metadataTitle, metadataYaml( data.workingData, current ) );
 		if ( result.kind === 'login' ) {
-			// The edits are kept in this browser, and the login opens in
-			// another tab, so nothing typed is lost: log in there, come
-			// back, press Save again.
+			// The edits are kept in this browser, and Special:UserLogin
+			// returns into Rabbithole with the editor open: sign in and
+			// press Save again.
 			data.backupNow();
 			account.refresh();
+			const url = loginHref( {
+				track: current._alias || current._trackCid,
+				page: pane.shown || pane.wanted,
+				edit: true,
+			} );
 			status.value = {
 				kind: 'error',
-				html: 'Not logged in. <a href="/index.php?title=Special:UserLogin" target="_blank" rel="noopener">'
-					+ 'Log in to PickiPedia</a> in a new tab, then Save again. Your edits stay here.',
+				html: 'Not logged in. <a href="' + escape( url ) + '">'
+					+ 'Log in to PickiPedia</a> to save — your edits stay here and reopen with the chart.',
 			};
 		} else if ( result.kind === 'unchanged' ) {
 			data.markSaved( { unchanged: true } );
@@ -171,8 +179,28 @@ function escape( s ) {
 	return String( s ).replace( /[&<>"]/g, ( c ) => ( { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ c ] ) );
 }
 
-onMounted( build );
-onBeforeUnmount( dispose );
+function backupIfDirty() {
+	if ( editor ) {
+		try {
+			editor.applyPendingRawYaml();
+		} catch ( err ) {
+			// Invalid raw YAML stays unapplied; keep the last valid workingData.
+		}
+	}
+	if ( data && data.isDirty ) {
+		data.backupNow();
+	}
+}
+
+onMounted( () => {
+	build();
+	window.addEventListener( 'pagehide', backupIfDirty );
+} );
+onBeforeUnmount( () => {
+	window.removeEventListener( 'pagehide', backupIfDirty );
+	backupIfDirty();
+	dispose();
+} );
 
 // The song changed under an open editor: the edits are kept in the
 // browser's backup for that recording, and the editor shows the new song.
