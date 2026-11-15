@@ -25,3 +25,38 @@ export function appAddress( title, from = window.location.href ) {
 	url.hash = '';
 	return url.pathname + url.search;
 }
+
+/*
+ * PickiPedia's sign-in page, returning into Rabbithole on the same song,
+ * wiki page and open editor (Special:Rabbithole on the wiki redirects back
+ * to /rabbithole/?...; without returnto, Special:UserLogin lands on
+ * Main_Page — Skyler, #interfaces, 15 Nov 2026).
+ */
+export function loginHref( {
+	track = null,
+	page = null,
+	edit = false,
+	search = typeof window !== 'undefined' ? window.location.search : '',
+} = {} ) {
+	const returnParams = new URLSearchParams( search );
+	if ( track ) {
+		returnParams.set( 'track', track );
+	}
+	if ( page ) {
+		returnParams.set( 'page', page );
+	}
+	if ( edit ) {
+		returnParams.set( 'action', 'edit' );
+	} else if ( returnParams.get( 'action' ) === 'edit' ) {
+		returnParams.delete( 'action' );
+	}
+	const login = new URLSearchParams( {
+		title: 'Special:UserLogin',
+		returnto: 'Special:Rabbithole',
+	} );
+	const query = returnParams.toString();
+	if ( query ) {
+		login.set( 'returntoquery', query );
+	}
+	return '/index.php?' + login.toString();
+}
