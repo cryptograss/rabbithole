@@ -40,8 +40,21 @@ describe( 'processTimeline', () => {
 		expect( processed[ 10 ] ).toMatchObject( { part: 'A', _isSectionStart: true } );
 		// A sub-moment's key is read as an absolute time, not as an offset
 		// inside its section. Pinned as the behaviour, not endorsed as right.
-		expect( processed[ 3 ] ).toMatchObject( { part: 'A', _isSubMoment: true } );
+		expect( processed[ 3 ] ).toMatchObject( { solo: 'Maddie Denton', _isSubMoment: true } );
 		expect( processed[ 3 ]._isSectionStart ).toBeUndefined();
+	} );
+
+	it( 'keeps the section\'s part off its sub-moments: they are inside a pass', () => {
+		const processed = processTimeline( {
+			standardSectionLength: 10,
+			timeline: { section1: { part: 'A', solo: 'Justin Holmes', 3: { pickup: 'Maddie Denton' }, 5: { part: 'B' } } },
+		} );
+		// The pickup inherits who is playing, not the pass it sits inside:
+		// written back out in seconds it would otherwise read as a new A.
+		expect( processed[ 3 ].solo ).toBe( 'Justin Holmes' );
+		expect( processed[ 3 ].part ).toBeUndefined();
+		// A sub-moment that names its own part keeps it.
+		expect( processed[ 5 ].part ).toBe( 'B' );
 	} );
 } );
 

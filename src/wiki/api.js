@@ -569,5 +569,8 @@ export function metadataYaml( working, song ) {
 		ensemble: working.ensemble || {},
 		...( working.standardSectionLength != null ? { standardSectionLength: working.standardSectionLength } : {} ),
 		...( song && song.title ? { title: song.title } : {} ),
-	}, { sortKeys: false, lineWidth: 120 } );
+		// noRefs: never an anchor (&ref_1 / *ref_1). Two markers that happen
+		// to hold the same object are still two markers to everyone who
+		// reads this page -- people, the Lua modules, every other parser.
+	}, { sortKeys: false, lineWidth: 120, noRefs: true } );
 }
