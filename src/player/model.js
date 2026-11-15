@@ -320,9 +320,15 @@ export class WebampPlayer {
 	 * A person chose this song: show it, and make it what Webamp plays.
 	 * This replaces the playlist, queue and all: picking a song is "play
 	 * this instead". Choosing a song loads it; it starts only if something
-	 * was already playing (Skyler, 25 Oct 2026).
+	 * was already playing (Skyler, 25 Oct 2026) -- or if the caller asks
+	 * for it, which is what a button saying Listen, or Play now, means
+	 * (Justin's items 14 and 15, 15 Nov 2026).
+	 *
+	 * @param {Object} song
+	 * @param {Object} [options]
+	 * @param {boolean} [options.play] Start it whatever was happening before.
 	 */
-	loadSong( song ) {
+	loadSong( song, { play = false } = {} ) {
 		this.showSong( song );
 		if ( ! this.webamp ) {
 			return;
@@ -330,7 +336,7 @@ export class WebampPlayer {
 		const wasPlaying = this.webamp.getMediaStatus() === 'PLAYING';
 		this.webamp.stop();
 		this.webamp.setTracksToPlay( [ this._webampTrack( toRaw( song ) ) ] );
-		this._pauseOnNextPlay = ! wasPlaying;
+		this._pauseOnNextPlay = ! ( play || wasPlaying );
 	}
 
 	/**

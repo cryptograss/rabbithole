@@ -28,6 +28,7 @@ import LayoutSwitch from './components/LayoutSwitch.vue';
 import WalkTrail from './components/WalkTrail.vue';
 import WikiPane from './components/WikiPane.vue';
 import EditorPanel from './components/EditorPanel.vue';
+import ListenChoice from './components/ListenChoice.vue';
 
 const layout = useLayoutStore();
 const songs = useSongStore();
@@ -190,5 +191,8 @@ onBeforeUnmount( () => {
 
 		<EditorPanel v-if="layout.editorOpen" />
 		<TimelineView v-else-if="layout.showTimeline" />
+
+		<!-- Asked for a track while another one is playing (item 15). -->
+		<ListenChoice />
 	</div>
 </template>

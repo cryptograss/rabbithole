@@ -16,6 +16,19 @@ describe( 'cameToListen', () => {
 		expect( cameToListen( new URLSearchParams( '?track=QmS3QEZ&page=Song%3AAugust' ) ) ).toBe( false );
 	} );
 
+	it( 'plays when the link says so, whatever else is in the address', () => {
+		// A connectome graph's links name the page to open as well as the
+		// track, so the rule above read them as a reload and they opened
+		// quiet. They say play=1 now (Justin's item 14, 15 Nov 2026).
+		expect( cameToListen( new URLSearchParams( '?track=QmS3QEZ&page=Song%3AAugust&play=1' ) ) ).toBe( true );
+		expect( cameToListen( new URLSearchParams( '?record=QmRec&page=4masks&play=yes' ) ) ).toBe( true );
+	} );
+
+	it( 'opens quiet when the link says play=0', () => {
+		expect( cameToListen( new URLSearchParams( '?track=QmS3QEZ&play=0' ) ) ).toBe( false );
+		expect( cameToListen( new URLSearchParams( '?track=QmS3QEZ&play=no' ) ) ).toBe( false );
+	} );
+
 	it( 'is not the front door', () => {
 		expect( cameToListen( new URLSearchParams( '' ) ) ).toBe( false );
 		expect( cameToListen( new URLSearchParams( '?page=Justin+Holmes' ) ) ).toBe( false );

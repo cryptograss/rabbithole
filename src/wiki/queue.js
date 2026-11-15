@@ -17,6 +17,7 @@ import * as wiki from './api.js';
 import { useSongStore } from '../stores/song.js';
 import { usePaneStore } from '../stores/pane.js';
 import { useLayoutStore } from '../stores/layout.js';
+import { usePlayerStore } from '../stores/player.js';
 import { useWalkStore } from '../stores/walk.js';
 
 let graphPromise = null;
@@ -63,13 +64,52 @@ export function flashButton( button, message ) {
 	}, 2200 );
 }
 
-/** Play this track in the dock, now. Opens the dock first, so a slow fetch happens in front of the player. */
+/**
+ * Play this track in the dock, now. Opens the dock first, so a slow fetch
+ * happens in front of the player.
+ *
+ * It plays: a button that says Listen is the consent (Justin's item 14).
+ * Picking a song from a selector still only loads it.
+ */
 export async function playTrackInDock( cid ) {
 	const layout = useLayoutStore();
 	const songs = useSongStore();
 	layout.openDock();
 	try {
-		await songs.playCid( cid );
+		await songs.playCid( cid, { play: true } );
+	} catch ( err ) {
+		console.warn( 'Could not play', cid, 'in the dock', err );
+	}
+}
+
+/**
+ * A track named somewhere that is about getting there rather than about
+ * hearing it now: the record's own row of tracks, under a song.
+ *
+ * Justin's item 20, 15 Nov 2026: "Clicking that ought to change to that
+ * page. It ought to only start playing that song if nothing is currently
+ * playing." So the pane goes to the track's song page, and the music is
+ * interrupted only when there is no music.
+ */
+export async function openTrack( cid ) {
+	const layout = useLayoutStore();
+	const pane = usePaneStore();
+	const player = usePlayerStore();
+	const songs = useSongStore();
+
+	const page = await wiki.songPageOf( cid, null ).catch( () => null );
+	if ( page ) {
+		// Going somewhere yourself is the end of traverse mode, as every
+		// other navigation in the pane is.
+		layout.stopTraversing();
+		pane.open( page );
+	}
+	if ( player.playing ) {
+		return;
+	}
+	layout.openDock();
+	try {
+		await songs.playCid( cid, { play: true } );
 	} catch ( err ) {
 		console.warn( 'Could not play', cid, 'in the dock', err );
 	}
@@ -95,31 +135,34 @@ export async function queueTrack( cid, button ) {
 }
 
 /**
- * Find me a rabbithole from what is playing to the song on screen, through
- * the people who played on both, and queue the songs along the way.
+ * Find me a rabbithole from what is playing to a song, through the people
+ * who played on both, and queue the songs along the way.
+ *
+ * @param {?string} target The song's page, e.g. "Song:Barlows".
+ * @param {Function} say Called with each thing worth saying as it happens.
+ * @return {?{hops: number, queued: number}} Null when there was no trail.
  */
-export async function trailToHere( button ) {
+export async function queueTrail( target, say = () => {} ) {
 	const songs = useSongStore();
 	const pane = usePaneStore();
 
-	const target = pane.shownSongTitle;
 	const from = songs.current && songs.current.title ? 'Song:' + songs.current.title : null;
 
 	if ( ! from ) {
-		flashButton( button, 'nothing playing to start from' );
-		return;
+		say( 'nothing playing to start from' );
+		return null;
 	}
 	if ( ! target || from === target ) {
-		flashButton( button, 'you are already here' );
-		return;
+		say( 'you are already here' );
+		return null;
 	}
 
-	flashButton( button, 'looking…' );
+	say( 'looking…' );
 	const graph = await performerGraph();
 	const hops = findTrail( graph, from, target );
 	if ( ! hops ) {
-		flashButton( button, 'no way there from here' );
-		return;
+		say( 'no way there from here' );
+		return null;
 	}
 
 	pane.trail = { from, hops };
@@ -141,7 +184,27 @@ export async function trailToHere( button ) {
 			console.warn( 'Could not queue', song, err );
 		}
 	}
-	flashButton( button, hops.length + ' hop' + ( hops.length === 1 ? '' : 's' ) + ', ' + queued.length + ' queued' );
+	say( hops.length + ' hop' + ( hops.length === 1 ? '' : 's' ) + ', ' + queued.length + ' queued' );
+	return { hops: hops.length, queued: queued.length };
+}
+
+/** The trail button on a song's page: a rabbithole to the page on screen. */
+export async function trailToHere( button ) {
+	const pane = usePaneStore();
+	return queueTrail( pane.shownSongTitle, ( message ) => flashButton( button, message ) );
+}
+
+/**
+ * "Chase to here" in the dialogue: a rabbithole from what is playing to the
+ * track that was clicked, wherever its link was (Justin's item 15).
+ */
+export async function trailToTrack( cid, say = () => {} ) {
+	const page = await wiki.songPageOf( cid, null ).catch( () => null );
+	if ( ! page ) {
+		say( 'no song page for that track to trail to' );
+		return null;
+	}
+	return queueTrail( page, say );
 }
 
 /** What a Listen button's href asks for: {cid, action} or null. */
