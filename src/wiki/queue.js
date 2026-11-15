@@ -135,6 +135,10 @@ export async function queueTrack( cid, button ) {
 	}
 	flashButton( button, 'queuing…' );
 	usePickerStore().giveWay();
+	// Queued next is how it connects to what is playing (Justin, 15 Nov
+	// 2026): the walk says so, or the song would read as played cold and
+	// close the rabbithole.
+	useWalkStore().mark( cid, { why: 'next' } );
 	try {
 		await songs.queueCid( cid );
 	} catch ( err ) {

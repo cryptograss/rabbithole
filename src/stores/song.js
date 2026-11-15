@@ -16,6 +16,7 @@ import { runningOrderFrom } from '../record-order.js';
 import * as wiki from '../wiki/api.js';
 import { DEFAULT_TRACK, defaultColorScheme } from '../wiki/demo-songs.js';
 import { usePlayerStore } from './player.js';
+import { useWalkStore } from './walk.js';
 
 export const useSongStore = defineStore( 'song', () => {
 	const player = usePlayerStore();
@@ -152,7 +153,11 @@ export const useSongStore = defineStore( 'song', () => {
 	async function queueRecordRest() {
 		const rest = recordRest.value;
 		recordRest.value = [];
+		const walk = useWalkStore();
 		for ( const cid of rest ) {
+			// Next on the record is how each connects to the one before it;
+			// unmarked, the walk would read the record as songs played cold.
+			walk.mark( cid, { why: 'record' } );
 			try {
 				await queueCid( cid );
 			} catch ( err ) {
