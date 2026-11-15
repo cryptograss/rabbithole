@@ -3,6 +3,7 @@
  * and who is playing when. Nothing here needs a Webamp or a DOM.
  */
 import { describe, it, expect } from 'vitest';
+import { sectionStarts, happensOnce, entries } from '../../src/player/timeline.js';
 import {
 	processTimeline, songParts, songPartTimes, currentPartIndex, currentArrangement,
 	currentInstruments, musicianStatus, baseWeights, cards, soloistOf, soloistsOf,
@@ -58,6 +59,125 @@ describe( 'processTimeline', () => {
 		expect( processed[ 3 ].part ).toBeUndefined();
 		// A sub-moment that names its own part keeps it.
 		expect( processed[ 5 ].part ).toBe( 'B' );
+	} );
+} );
+
+/*
+ * Everything a chart writes at a second is in force at that second: laying
+ * the sections out never drops one thing because another lands on it.
+ */
+describe( 'a moment on the second something else is written', () => {
+	// Paint Exchange's shape: no section1, moments kept under the section
+	// before the one they sound in, and one of them on a section's start.
+	const PAINT = {
+		standardSectionLength: 11.75,
+		timeline: {
+			'0': { part: 'A' },
+			section2: {
+				'28': { flourish: 'John Mailander', flourishColor: 'gold' },
+				'12.8': { musicians: { band: 'in' } },
+				'23.5': { flourish: 'John Mailander', flourishDuration: 5, flourishIntensity: 0.4 },
+			},
+			section3: { part: 'A', '36': { flourish: 'Justin Holmes' } },
+			section4: {},
+			section5: { part: 'B', bandFlash: true },
+		},
+	};
+
+	it( 'keeps a moment written where a later section starts, as part of how that section starts', () => {
+		const processed = processTimeline( PAINT );
+		// section2 is at 11.75 and section3 at 23.5, which is where the moment is.
+		expect( processed[ 23.5 ] ).toEqual( {
+			part: 'A', flourish: 'John Mailander', flourishDuration: 5, flourishIntensity: 0.4, _isSectionStart: true,
+		} );
+		// Nothing else moved, and the parts strip is what it was.
+		expect( entries( processed ).map( ( e ) => e.time ) ).toEqual( [ 0, 11.75, 12.8, 23.5, 28, 35.25, 36, 47 ] );
+		expect( songParts( processed ) ).toEqual( [ 'A', 'A', 'B' ] );
+	} );
+
+	it( 'keeps a moment written on its own section\'s first second', () => {
+		const processed = processTimeline( {
+			standardSectionLength: 10,
+			timeline: { '0': { part: 'intro' }, section1: { part: 'A', solo: 'Kyle Tuttle', '10': { flourish: 'Gaven Largent' } } },
+		} );
+		expect( processed[ 10 ] ).toEqual( { part: 'A', solo: 'Kyle Tuttle', flourish: 'Gaven Largent', _isSectionStart: true } );
+	} );
+
+	it( 'lets the moment have the last word for that second, as it does anywhere in a pass', () => {
+		const processed = processTimeline( {
+			standardSectionLength: 10,
+			timeline: { '0': {}, section1: { '20': { solo: 'Maddie Denton' } }, section2: { part: 'B', solo: 'Kyle Tuttle' } },
+		} );
+		expect( processed[ 20 ] ).toEqual( { part: 'B', solo: 'Maddie Denton', _isSectionStart: true } );
+	} );
+
+	it( 'keeps both a marker written in seconds and a moment written on it', () => {
+		const marker = { part: 'intro', solo: 'Justin Holmes' };
+		const processed = processTimeline( {
+			standardSectionLength: 10,
+			timeline: { '0': marker, '4': { part: 'A' }, section1: { part: 'B', '0': { flourish: 'Kyle Tuttle' } } },
+		} );
+		expect( processed[ 0 ] ).toEqual( { part: 'intro', solo: 'Justin Holmes', flourish: 'Kyle Tuttle' } );
+		// A marker with nothing written on it is the chart's own object still.
+		expect( processTimeline( { standardSectionLength: 10, timeline: { '0': marker, section1: {} } } )[ 0 ] ).toBe( marker );
+	} );
+} );
+
+describe( 'what a moment takes from its pass', () => {
+	it( 'is who is playing, and nothing that happens once', () => {
+		expect( [ 'part', 'flourish', 'flourishDuration', 'flourishColor', 'spotlight', 'spotlightBlackout',
+			'spotlightGlow', 'bandFlash', 'bandFlashDuration' ].every( happensOnce ) ).toBe( true );
+		expect( [ 'solo', 'pickup', 'musicians', 'instrumentChanges', 'feature', 'length' ].some( happensOnce ) ).toBe( false );
+	} );
+
+	it( 'does not fire the pass\'s lights again at every moment inside it', () => {
+		const processed = processTimeline( {
+			standardSectionLength: 10,
+			timeline: {
+				section1: {
+					part: 'B', solo: 'Kaitlyn Raitz', bandFlash: true, flourish: 'Cory Walker', flourishDuration: 5,
+					spotlight: 'Kaitlyn Raitz', spotlightBlackout: 5,
+					'13': { pickup: 'Sam Grisman' },
+					'15': { flourish: 'Sam Grisman' },
+				},
+			},
+		} );
+		expect( processed[ 13 ] ).toEqual( { solo: 'Kaitlyn Raitz', pickup: 'Sam Grisman', _isSubMoment: true } );
+		// Its own flourish, at its own length: the pass's five seconds were the pass's.
+		expect( processed[ 15 ] ).toEqual( { solo: 'Kaitlyn Raitz', flourish: 'Sam Grisman', _isSubMoment: true } );
+	} );
+} );
+
+describe( 'sectionStarts', () => {
+	it( 'is each section in order, where it starts, skipping numbers a chart skips', () => {
+		const starts = sectionStarts( {
+			standardSectionLength: 10,
+			timeline: { '0': {}, '4': {}, section7: { part: 'C' }, section2: { part: 'A', length: 6 }, section3: { part: 'B' } },
+		} );
+		expect( starts.map( ( s ) => [ s.name, s.time ] ) ).toEqual( [ [ 'section2', 10 ], [ 'section3', 20 ], [ 'section7', 30 ] ] );
+		expect( starts[ 0 ].data ).toEqual( { part: 'A', length: 6 } );
+	} );
+
+	it( 'reads every section a chart has, not the first twenty', () => {
+		const timeline = { '0': { part: 'intro' } };
+		for ( let i = 1; i <= 25; i++ ) {
+			timeline[ `section${ i }` ] = { part: i % 2 ? 'A' : 'B' };
+		}
+		const track = { standardSectionLength: 10, timeline };
+		expect( sectionStarts( track ) ).toHaveLength( 25 );
+		const processed = processTimeline( track );
+		expect( processed[ 250 ] ).toEqual( { part: 'A', _isSectionStart: true } );
+		expect( songParts( processed ) ).toHaveLength( 26 );
+	} );
+
+	it( 'is not thrown by a key that is neither a time nor a section', () => {
+		const starts = sectionStarts( { standardSectionLength: 10, timeline: { '0': {}, notes: 'check the B part', section1: {} } } );
+		expect( starts.map( ( s ) => s.time ) ).toEqual( [ 10 ] );
+	} );
+
+	it( 'is nothing for a chart with no section length', () => {
+		expect( sectionStarts( { timeline: { section1: {} } } ) ).toEqual( [] );
+		expect( sectionStarts( null ) ).toEqual( [] );
 	} );
 } );
 

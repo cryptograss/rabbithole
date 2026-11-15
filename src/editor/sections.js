@@ -18,7 +18,7 @@
  * sake of its appearance.
  */
 
-import { processTimeline } from '../player/timeline.js';
+import { processTimeline, sectionStarts, happensOnce } from '../player/timeline.js';
 
 /** Floats accumulate; two times within this are the same moment. */
 const SAME = 1e-6;
@@ -26,40 +26,19 @@ const SAME = 1e-6;
 const near = ( a, b ) => Math.abs( a - b ) < SAME;
 
 /**
- * Where a sectioned chart's sections start, by the same arithmetic the
- * player uses: one section length after the last explicit time, and each
- * section after the one before it.
+ * Where a sectioned chart's sections start: the player's own arithmetic
+ * (player/timeline.js sectionStarts), which is the one place it is done.
  *
  * Returns null for a chart that has no sections to keep.
  */
 export function sectionShape( trackData ) {
-	const timeline = ( trackData && trackData.timeline ) || {};
 	const standard = trackData && trackData.standardSectionLength;
-	const names = Object.keys( timeline ).filter( ( key ) => key.startsWith( 'section' ) );
-	if ( ! standard || ! names.length ) {
+	const sections = sectionStarts( trackData )
+		.map( ( { name, time, data } ) => ( { name, time, length: data.length } ) );
+	if ( ! standard || ! sections.length ) {
 		return null;
 	}
-
-	const explicit = Object.keys( timeline )
-		.filter( ( key ) => ! key.startsWith( 'section' ) )
-		.map( parseFloat )
-		.filter( ( t ) => ! isNaN( t ) );
-
-	let at = explicit.length ? Math.max( ...explicit ) : 0;
-	const sections = [];
-	// The numbers are labels in order, and a chart may skip some
-	// (Paint Exchange has section2, section3, section7); only the ones
-	// that exist take up time.
-	for ( let i = 1; i <= 20; i++ ) {
-		const data = timeline[ `section${ i }` ];
-		if ( ! data ) {
-			continue;
-		}
-		const length = data.length !== undefined ? data.length : standard;
-		at += length;
-		sections.push( { name: `section${ i }`, time: at, length: data.length } );
-	}
-	return { standard, sections, explicitUntil: sections.length ? sections[ 0 ].time : Infinity };
+	return { standard, sections, explicitUntil: sections[ 0 ].time };
 }
 
 /**
@@ -91,7 +70,7 @@ export function sectionize( timeline, shape ) {
 	for ( ;; ) {
 		const last = sections[ sections.length - 1 ];
 		const next = last.time + shape.standard;
-		if ( ! times.some( ( t ) => near( t, next ) ) || used >= 20 ) {
+		if ( ! times.some( ( t ) => near( t, next ) ) ) {
 			break;
 		}
 		used += 1;
@@ -123,12 +102,13 @@ export function sectionize( timeline, shape ) {
 			continue;
 		}
 
-		// Inside a pass: say only what the moment itself adds. Its part is
-		// its own, always written, since a pass is not inherited inwards.
+		// Inside a pass: say only what the moment itself adds. Whatever
+		// happens once -- its part, its lights -- is its own and always
+		// written, since none of that is taken from the pass.
 		const base = sectionData.get( owner.name ) || {};
 		const inside = {};
 		for ( const [ key, value ] of Object.entries( marker ) ) {
-			if ( key === 'part' || JSON.stringify( value ) !== JSON.stringify( base[ key ] ) ) {
+			if ( happensOnce( key ) || JSON.stringify( value ) !== JSON.stringify( base[ key ] ) ) {
 				inside[ key ] = value;
 			}
 		}

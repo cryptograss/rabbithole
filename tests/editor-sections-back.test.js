@@ -89,6 +89,68 @@ describe( 'sectionize', () => {
 		expect( back.section2[ '24' ] ).toEqual( { flourish: 'Sam Grisman' } );
 	} );
 
+	it( 'keeps a moment that was written on the second a section starts', () => {
+		/*
+		 * Paint Exchange has a five-second flourish for John Mailander at
+		 * 23.5, written under one section and landing where the next one
+		 * starts. Resolved to seconds it was put down under the section
+		 * start and lost, so opening the chart and saving it took it off
+		 * the page. It is part of how that section starts, and goes back
+		 * as that.
+		 */
+		const chart = {
+			standardSectionLength: 11.75,
+			timeline: {
+				'0': { part: 'A' },
+				section2: {
+					'12.8': { musicians: { band: 'in' } },
+					'23.5': { flourish: 'John Mailander', flourishDuration: 5 },
+				},
+				section3: { part: 'A', '36': { flourish: 'Justin Holmes' } },
+				section4: {},
+			},
+		};
+		const flat = flatOf( chart );
+		expect( flat[ '23.5' ] ).toEqual( { part: 'A', flourish: 'John Mailander', flourishDuration: 5 } );
+		const back = sectionize( flat, sectionShape( chart ) );
+		expect( back ).toEqual( {
+			'0': { part: 'A' },
+			section2: { '12.8': { musicians: { band: 'in' } } },
+			section3: { part: 'A', flourish: 'John Mailander', flourishDuration: 5 },
+			// 36 sounds in section4, which starts at 35.25.
+			section4: { '36': { flourish: 'Justin Holmes' } },
+		} );
+		// And said that way, it is the same chart.
+		expect( flatOf( { ...chart, timeline: back } ) ).toEqual( flat );
+	} );
+
+	it( 'writes a moment\'s own lights even where its pass has the same ones', () => {
+		// A moment takes nothing that happens once from its pass, so a
+		// flourish it shares with the pass has to be said again or it is
+		// not there.
+		const chart = {
+			standardSectionLength: 10,
+			timeline: {
+				'0': { part: 'intro' },
+				section1: { part: 'A', solo: 'Kyle Tuttle', flourish: 'Gaven Largent', '14': { flourish: 'Gaven Largent' } },
+			},
+		};
+		const back = sectionize( flatOf( chart ), sectionShape( chart ) );
+		expect( back ).toEqual( chart.timeline );
+	} );
+
+	it( 'keeps and makes sections past the twentieth', () => {
+		const timeline = { '0': { part: 'intro' } };
+		for ( let i = 1; i <= 22; i++ ) {
+			timeline[ `section${ i }` ] = { part: i % 2 ? 'A' : 'B' };
+		}
+		const chart = { standardSectionLength: 10, timeline };
+		const flat = { ...flatOf( chart ), 230: { part: 'A', solo: 'Kyle Tuttle' } };
+		const back = sectionize( flat, sectionShape( chart ) );
+		expect( back.section22 ).toEqual( { part: 'B' } );
+		expect( back.section23 ).toEqual( { part: 'A', solo: 'Kyle Tuttle' } );
+	} );
+
 	it( 'writes seconds instead when a section start is gone', () => {
 		const flat = { ...flatOf( AUGUST ) };
 		delete flat[ '35.6' ];
