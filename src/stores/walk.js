@@ -13,10 +13,21 @@
  * The walk records who, not what they played: the instrument for the line's
  * colour is read from the performer graph where the trail is drawn, so a
  * stored walk never goes stale against the wiki.
+ *
+ * A rabbithole is a chain of connected songs, not everything ever heard
+ * (Justin, 15 Nov 2026: "42 songs - what is that, everything I've ever
+ * listened to?"). A song played with no connection to the one before it —
+ * a Listen link played cold, a track opened by hand — is not another step
+ * of the same walk: it closes the walk that was (kept in `past`, so a
+ * walked-out rabbithole is not lost — the Oracle's training data) and
+ * starts a new one. Every line between two songs says why it connects:
+ * the hop carries `via` (who you followed) and `why` (chase, quest, trail,
+ * next, record, road) — Justin, 15 Nov 2026: "show _why_ it connected from
+ * one song to the next, every single line".
  */
 
 import { defineStore } from 'pinia';
-import { ref, watch } from 'vue';
+import { ref, computed, watch } from 'vue';
 
 import { usePlayerStore } from './player.js';
 import { useSongStore } from './song.js';
@@ -24,6 +35,8 @@ import { useSongStore } from './song.js';
 const KEY = 'rabbithole-walk';
 /** A refresh keeps the whole rabbithole; a cap keeps it from growing forever. */
 const CAP = 200;
+/** The rabbitholes walked out before this one, kept beside the walk of now. */
+const PAST_CAP = 8;
 
 /**
  * The walk with one more hop appended.
@@ -47,6 +60,56 @@ export function pushed( walk, entry ) {
 		return walk;
 	}
 	return walk.concat( [ entry ] );
+}
+
+/**
+ * Whether a hop says how it was reached: the word, or who you followed.
+ *
+ * Pure. A hop with neither is a song played cold — Justin's rule: that is
+ * not a step of the walk you are on, it is the start of a new one.
+ *
+ * @param {Object} entry A hop: {cid, song, via, why, at}.
+ * @return {boolean} Whether it connects to the song before it.
+ */
+export function connected( entry ) {
+	return !!( entry && ( entry.why || entry.via ) );
+}
+
+/**
+ * The walk with one more hop, or a new walk where the old one closed.
+ *
+ * Pure. A hop whose recording is already the last one adds nothing, heard
+ * again howsoever it was: the same recording replayed or re-seeked is not
+ * a new place in the walk, and not a new rabbithole either. A hop for a
+ * recording heard earlier and returned to does add one, because the walk
+ * is where you have been, in the order you were there.
+ *
+ * A hop with no connection (no `why`, no `via`) after the walk has begun
+ * closes that walk into `past` and starts a new one with the hop (Justin,
+ * 15 Nov 2026). The walk of now is `current`; the ones before it are
+ * `past`, oldest first, capped at PAST_CAP.
+ *
+ * @param {Object} state The walk: {current, past}.
+ * @param {Object} entry The hop being added: {cid, song, via, why, at}.
+ * @return {Object} The walk after the hop: {current, past}. The same
+ *   object where nothing changed.
+ */
+export function advanced( state, entry ) {
+	if ( ! entry || ! entry.cid || ! Array.isArray( state.current ) ) {
+		return state;
+	}
+	const current = state.current;
+	const last = current[ current.length - 1 ];
+	if ( last && last.cid === entry.cid ) {
+		return state;
+	}
+	if ( current.length && ! connected( entry ) ) {
+		return {
+			current: [ entry ],
+			past: state.past.concat( [ { hops: current, closedAt: entry.at || null } ] ).slice( -PAST_CAP ),
+		};
+	}
+	return { current: pushed( current, entry ), past: state.past };
 }
 
 /**
@@ -86,10 +149,12 @@ export function followedVia( via ) {
  *
  * Pure. The word comes from a frame, so only what it names is done: open;
  * close (Escape inside the frame); play a recording, following someone to it
- * where it says who; open a page in the pane, shutting the drawer; or start a
- * new walk, which shuts the drawer too (re, 15 Nov 2026: left open, the
- * drawer, gone with the empty walk, came back open by itself when the next
- * song played).
+ * where it says who; open a page in the pane, shutting the drawer; or close
+ * the walk of now, which shuts the drawer too (re, 15 Nov 2026: left open,
+ * the drawer, gone with the empty walk, came back open by itself when the
+ * next song played). A new rabbithole starts by itself now — a song played
+ * with no connection closes the walk (Justin, 15 Nov 2026) — so the word
+ * closes the one you are on and keeps it in `past`.
  *
  * @param {*} d What the frame sent.
  * @return {Object|null} What to do: {open}, {close}, {play, via}, {page, close}
@@ -118,27 +183,18 @@ export function drawerDoes( d ) {
 }
 
 /**
- * A walk as it was stored, junk tolerated.
+ * The hops worth keeping out of whatever a walk was stored as.
  *
- * Pure. localStorage can hold anything a browser felt like keeping: a
- * hand-edited value, an older shape, a string where an array belongs. A
- * walk that cannot be trusted is an empty one, never an error.
+ * Pure. Junk in a hop is dropped; a hop that says only who it followed
+ * (the older shape) gains the word "followed", so every line the drawer
+ * draws can say why it connects.
  *
- * @param {string} raw What localStorage held.
+ * @param {Array} list The hops as they were stored.
  * @return {Array} The hops worth keeping, oldest first.
  */
-export function revive( raw ) {
-	let value;
-	try {
-		value = JSON.parse( raw );
-	} catch ( e ) {
-		return [];
-	}
-	if ( ! Array.isArray( value ) ) {
-		return [];
-	}
+function hopsOf( list ) {
 	const hops = [];
-	for ( const entry of value ) {
+	for ( const entry of Array.isArray( list ) ? list : [] ) {
 		if ( ! entry || typeof entry.cid !== 'string' || ! entry.cid ) {
 			continue;
 		}
@@ -149,6 +205,7 @@ export function revive( raw ) {
 			cid: entry.cid,
 			song: typeof entry.song === 'string' ? entry.song : null,
 			via,
+			why: typeof entry.why === 'string' && entry.why ? entry.why : ( via ? 'followed' : null ),
 			at: typeof entry.at === 'number' ? entry.at : null,
 		} );
 	}
@@ -156,39 +213,93 @@ export function revive( raw ) {
 }
 
 /**
+ * A walk as it was stored, junk tolerated.
+ *
+ * Pure. localStorage can hold anything a browser felt like keeping: a
+ * hand-edited value, an older shape, a string where an array belongs. A
+ * walk that cannot be trusted is an empty one, never an error. The older
+ * shape — a bare array of hops, what was stored before walks closed —
+ * comes back as the one walk you are on, nothing behind it.
+ *
+ * @param {string} raw What localStorage held.
+ * @return {Object} {current, past}: the walk of now, and the ones before it.
+ */
+export function revive( raw ) {
+	let value;
+	try {
+		value = JSON.parse( raw );
+	} catch ( e ) {
+		return { current: [], past: [] };
+	}
+	if ( Array.isArray( value ) ) {
+		value = { current: value, past: [] };
+	}
+	if ( ! value || ! Array.isArray( value.current ) ) {
+		return { current: [], past: [] };
+	}
+	return {
+		current: hopsOf( value.current ),
+		past: ( Array.isArray( value.past ) ? value.past : [] )
+			.slice( -PAST_CAP )
+			.map( ( walk ) => ( {
+				hops: hopsOf( walk && walk.hops ),
+				closedAt: walk && typeof walk.closedAt === 'number' ? walk.closedAt : null,
+			} ) )
+			.filter( ( walk ) => walk.hops.length ),
+	};
+}
+
+/**
  * The walk as it is stored: JSON, oldest first, capped.
  *
- * Pure, so the cap is testable without a browser.
+ * Pure, so the cap is testable without a browser. A bare array (the older
+ * shape, and what the store's tests hold) is the walk of now, nothing
+ * behind it.
  *
- * @param {Array} walk The walk.
+ * @param {Object|Array} walk The walk: {current, past}, or a bare array.
  * @return {string} What goes into localStorage.
  */
 export function stored( walk ) {
-	return JSON.stringify( Array.isArray( walk ) ? walk.slice( -CAP ) : [] );
+	const state = Array.isArray( walk ) ? { current: walk, past: [] } : walk;
+	if ( ! state || ! Array.isArray( state.current ) ) {
+		state = { current: [], past: [] };
+	}
+	return JSON.stringify( {
+		current: state.current.slice( -CAP ),
+		past: ( Array.isArray( state.past ) ? state.past : [] ).slice( -PAST_CAP ).map( ( closed ) => ( {
+			hops: ( closed && Array.isArray( closed.hops ) ? closed.hops : [] ).slice( -CAP ),
+			closedAt: closed ? closed.closedAt : null,
+		} ) ),
+	} );
 }
 
 export const useWalkStore = defineStore( 'walk', () => {
 	const player = usePlayerStore();
 	const songs = useSongStore();
 
-	/** Every recording that has been on, oldest first. */
-	const hops = ref( revive( window.localStorage.getItem( KEY ) ) );
+	/** The walk of now, and the rabbitholes walked out before it. */
+	const state = ref( revive( window.localStorage.getItem( KEY ) ) );
+	/** The walk of now: every recording of it that has been on, oldest first. */
+	const hops = computed( () => state.value.current );
+	/** The walks closed before this one, oldest first. */
+	const past = computed( () => state.value.past );
 
 	/** Hops waiting for their recording to start: cid -> via. */
 	const pending = new Map();
 
 	function persist() {
 		try {
-			window.localStorage.setItem( KEY, stored( hops.value ) );
+			window.localStorage.setItem( KEY, stored( state.value ) );
 		} catch ( e ) {
 			/* A full or blocked store is not a broken walk. */
 		}
 	}
 
 	/**
-	 * Say how a recording about to play was reached: who you followed, or
-	 * what hop of a trail-to-here it is. Called before the song starts, so
-	 * the hop carries its via when the watcher sees it.
+	 * Say how a recording about to play was reached: who you followed and
+	 * why (the word: chase, quest, trail, next, record, road), or nothing
+	 * when it is played cold. Called before the song starts, so the hop
+	 * carries its connection when the watcher sees it.
 	 */
 	function mark( cid, via ) {
 		if ( cid ) {
@@ -196,9 +307,26 @@ export const useWalkStore = defineStore( 'walk', () => {
 		}
 	}
 
+	/**
+	 * Close the walk of now, whatever there is of it, and keep it in
+	 * `past`: a rabbithole walked out is not lost (the Oracle's training
+	 * data). The drawer's "start a new rabbithole" asks for this.
+	 */
+	function close() {
+		const current = state.value.current;
+		if ( ! current.length ) {
+			return;
+		}
+		state.value = {
+			current: [],
+			past: state.value.past.concat( [ { hops: current, closedAt: Date.now() } ] ).slice( -PAST_CAP ),
+		};
+		persist();
+	}
+
 	function clear() {
 		pending.clear();
-		hops.value = [];
+		state.value = { current: [], past: [] };
 		persist();
 	}
 
@@ -211,19 +339,20 @@ export const useWalkStore = defineStore( 'walk', () => {
 		if ( ! cid ) {
 			return;
 		}
-		const via = pending.get( cid ) || null;
+		const marked = pending.get( cid ) || null;
 		pending.delete( cid );
-		const next = pushed( hops.value, {
+		const next = advanced( state.value, {
 			cid,
 			song: ( songs.current && songs.current.title ) || null,
-			via,
+			via: marked && marked.name ? { name: marked.name, instrument: marked.instrument || null } : null,
+			why: marked && typeof marked.why === 'string' && marked.why ? marked.why : null,
 			at: Date.now(),
 		} );
-		if ( next !== hops.value ) {
-			hops.value = next;
+		if ( next.current !== state.value.current || next.past !== state.value.past ) {
+			state.value = next;
 			persist();
 		}
 	}, { immediate: true } );
 
-	return { hops, mark, clear };
+	return { hops, past, mark, close, clear };
 } );

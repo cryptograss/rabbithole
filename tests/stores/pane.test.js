@@ -82,3 +82,39 @@ describe( 'the wiki pane', () => {
 		expect( globalThis.fetch ).toHaveBeenCalledTimes( 2 );
 	} );
 } );
+
+describe( 'the connectome in the pane', () => {
+	beforeEach( () => {
+		setActivePinia( createPinia() );
+		history.replaceState( null, '', '/' );
+	} );
+
+	it( 'shows the graph in a frame, and forgets the page it replaced', async () => {
+		// A page is not being read while the graph is up, and asking for
+		// that page again has to open it rather than be taken for the one
+		// already shown (Justin, #rabbithole, 15 Nov 2026).
+		const pending = slowWiki();
+		const pane = usePaneStore();
+		const first = pane.open( 'Song:August' );
+		pending[ 'Song:August' ]();
+		await first;
+		expect( pane.view.kind ).toBe( 'article' );
+
+		pane.openGraph( '/assets/connectome/?cut=Qa&host=rabbithole' );
+		expect( pane.view ).toEqual( { kind: 'graph', src: '/assets/connectome/?cut=Qa&host=rabbithole' } );
+		expect( pane.shown ).toBe( null );
+		expect( pane.wanted ).toBe( null );
+
+		const again = pane.open( 'Song:August' );
+		pending[ 'Song:August' ]();
+		await again;
+		expect( pane.view.kind ).toBe( 'article' );
+		expect( pane.shown ).toBe( 'Song:August' );
+	} );
+
+	it( 'is not opened by nothing', () => {
+		const pane = usePaneStore();
+		pane.openGraph( '' );
+		expect( pane.view.kind ).toBe( 'empty' );
+	} );
+} );

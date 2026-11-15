@@ -27,12 +27,15 @@ import { computed, ref, watch, onMounted, onBeforeUnmount } from 'vue';
 import { useLayoutStore } from '../stores/layout.js';
 import { useWalkStore, drawerDoes } from '../stores/walk.js';
 import { usePlayerStore } from '../stores/player.js';
+import { usePickerStore } from '../stores/picker.js';
 import { useSongStore } from '../stores/song.js';
 import { usePaneStore } from '../stores/pane.js';
+import { walkMessage } from '../wiki/graph-frame.js';
 
 const walk = useWalkStore();
 const layout = useLayoutStore();
 const player = usePlayerStore();
+const picker = usePickerStore();
 const songs = useSongStore();
 const pane = usePaneStore();
 
@@ -48,16 +51,21 @@ function say() {
 	if ( ! win ) {
 		return;
 	}
-	win.postMessage( {
-		rabbithole: 'walk',
-		hops: walk.hops.map( ( h ) => ( { cid: h.cid, song: h.song, via: h.via ? { name: h.via.name, instrument: h.via.instrument } : null, at: h.at } ) ),
+	win.postMessage( walkMessage( {
+		hops: walk.hops,
+		// Every line says why it connects (Justin, 15 Nov 2026); the word is
+		// on the hop, and who is chased goes with it, so the view can show
+		// the one being followed (Justin: the chased picker, "very super
+		// bigly highlighted" in the connectome).
+		chasing: picker.following || null,
+		chaseMode: picker.mode || null,
 		now: ( player.song && player.song._trackCid ) || null,
-		playing: !! player.playing,
+		playing: player.playing,
 		mode: open.value ? 'full' : 'mini',
-	}, window.location.origin );
+	} ), window.location.origin );
 }
 
-watch( () => [ walk.hops, player.song && player.song._trackCid, player.playing, open.value ], say, { deep: true } );
+watch( () => [ walk.hops, player.song && player.song._trackCid, player.playing, open.value, picker.following, picker.mode ], say, { deep: true } );
 
 /** What the graph asks of the player. Only the frame's own words count. */
 function onMessage( e ) {
@@ -87,7 +95,10 @@ function onMessage( e ) {
 		pane.open( does.page );
 	}
 	if ( does.clear ) {
-		walk.clear();
+		// "Start a new rabbithole": close the one you are on and keep it —
+		// a new one starts by itself at the next song played cold (Justin,
+		// 15 Nov 2026), and a walked-out rabbithole is not thrown away.
+		walk.close();
 	}
 	if ( does.close ) {
 		open.value = false;

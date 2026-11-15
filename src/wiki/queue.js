@@ -135,6 +135,10 @@ export async function queueTrack( cid, button ) {
 	}
 	flashButton( button, 'queuing…' );
 	usePickerStore().giveWay();
+	// Queued next is how it connects to what is playing (Justin, 15 Nov
+	// 2026): the walk says so, or the song would read as played cold and
+	// close the rabbithole.
+	useWalkStore().mark( cid, { why: 'next' } );
 	try {
 		await songs.queueCid( cid );
 	} catch ( err ) {
@@ -191,7 +195,7 @@ export async function queueTrail( target, say = () => {} ) {
 			continue;
 		}
 		// Each song on the trail is reached through the person its hop names.
-		walk.mark( cid, { name: hops[ i ].via, instrument: hops[ i ].instrument || null } );
+		walk.mark( cid, { name: hops[ i ].via, instrument: hops[ i ].instrument || null, why: 'trail' } );
 		try {
 			if ( await songs.queueCid( cid ) ) {
 				queued.push( song );

@@ -167,3 +167,27 @@ table {
 .pane-wikitext {
 	display: contents;
 }
+
+/*
+ * The connectome, framed in the pane (Justin, #rabbithole, 15 Nov 2026:
+ * explore it here, not in a tab away from the music). It takes the whole
+ * pane while it is up, since exploring is what you are doing, so the host
+ * is given a height for the frame to fill -- the pane is otherwise as
+ * tall as the article in it.
+ */
+:host( .pane-holds-graph ) {
+	height: 100%;
+	background: #fcfcfb;
+}
+
+:host( .pane-holds-graph ) .pane-root {
+	height: 100%;
+}
+
+.pane-graph {
+	display: block;
+	width: 100%;
+	height: 100%;
+	border: 0;
+	background: #fcfcfb;
+}
