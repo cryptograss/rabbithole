@@ -50,6 +50,74 @@ export function pushed( walk, entry ) {
 }
 
 /**
+ * The recording that counts as heard: the one loaded, once it plays.
+ *
+ * Pure. Null while nothing is loaded, or while what is loaded is still
+ * waiting for its first note.
+ *
+ * @param {string|null} cid The recording loaded.
+ * @param {boolean} playing Whether the player is playing.
+ * @return {string|null} The recording heard, or null.
+ */
+export function heard( cid, playing ) {
+	return cid && playing ? cid : null;
+}
+
+/**
+ * Who was followed, as the graph in the drawer says it: a road not taken from
+ * the song on now, taken there (Justin, 15 Nov 2026: "showing other unused but
+ * potential connections and allowing the user to explore those").
+ *
+ * Pure. The word comes from a frame, so it is checked like anything stored:
+ * a name, and an instrument if there is one; anything else is no one.
+ *
+ * @param {*} via What the frame sent.
+ * @return {Object|null} {name, instrument}, or null.
+ */
+export function followedVia( via ) {
+	if ( ! via || typeof via.name !== 'string' || ! via.name.trim() ) {
+		return null;
+	}
+	return { name: via.name.trim().slice( 0, 200 ), instrument: typeof via.instrument === 'string' && via.instrument ? via.instrument.slice( 0, 100 ) : null };
+}
+
+/**
+ * What the drawer does at a word from the graph in it.
+ *
+ * Pure. The word comes from a frame, so only what it names is done: open;
+ * close (Escape inside the frame); play a recording, following someone to it
+ * where it says who; open a page in the pane, shutting the drawer; or start a
+ * new walk, which shuts the drawer too (re, 15 Nov 2026: left open, the
+ * drawer, gone with the empty walk, came back open by itself when the next
+ * song played).
+ *
+ * @param {*} d What the frame sent.
+ * @return {Object|null} What to do: {open}, {close}, {play, via}, {page, close}
+ *   or {clear, close}; null for anything else.
+ */
+export function drawerDoes( d ) {
+	if ( d && d.connectome === 'close' ) {
+		return { close: true };
+	}
+	if ( ! d || d.connectome !== true ) {
+		return null;
+	}
+	if ( d.open ) {
+		return { open: true };
+	}
+	if ( d.play ) {
+		return { play: String( d.play ), via: followedVia( d.via ) };
+	}
+	if ( d.page ) {
+		return { page: String( d.page ), close: true };
+	}
+	if ( d.clear ) {
+		return { clear: true, close: true };
+	}
+	return null;
+}
+
+/**
  * A walk as it was stored, junk tolerated.
  *
  * Pure. localStorage can hold anything a browser felt like keeping: a
@@ -134,10 +202,12 @@ export const useWalkStore = defineStore( 'walk', () => {
 		persist();
 	}
 
-	// The recording that is on now joins the walk, with the via marked for
-	// it if there was one. The first recording of a visit is where you came
-	// in: it has no via.
-	watch( () => player.song && player.song._trackCid, ( cid ) => {
+	// The recording that is on now joins the walk once it plays, with the via
+	// marked for it if there was one. The first recording of a visit is where
+	// you came in: it has no via. Loading isn't hearing (Justin, 15 Nov 2026:
+	// "32 hops ... I certainly haven't let it play for 32 tracks"): every visit
+	// loads a song, and it counted whether or not a note of it played.
+	watch( () => heard( player.song && player.song._trackCid, player.playing ), ( cid ) => {
 		if ( ! cid ) {
 			return;
 		}
