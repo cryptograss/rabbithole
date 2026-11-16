@@ -842,7 +842,7 @@ export class TimelineEditor {
                     ${ticks.join('')}
                     ${markers}
                     <div class="ruler-playhead" style="top:${pct(this.currentPlayingTime || 0)}%"><img class="ruler-rabbit" src="${RABBIT_URL}" alt="" draggable="false"><span class="ruler-playhead-tag">now <b>${this.formatTime(this.currentPlayingTime || 0).replace(/\.\d$/, '')}</b></span></div>
-                    <div class="ruler-hover" hidden><span class="ruler-hover-time"></span></div>
+                    <div class="ruler-hover" hidden>${this.viewOnly ? '' : '<button type="button" class="ruler-add" title="Add a moment here" aria-label="Add a moment here">+</button>'}<span class="ruler-hover-time"></span></div>
                 </div>
             </div>
         `;
@@ -888,8 +888,16 @@ export class TimelineEditor {
     }
 
     /**
-     * Mouse over the line: show the time under the pointer. Click: go there.
-     * Double-click: drop a marker there and open it to be filled in.
+     * Mouse over the line: show the time under the pointer, and a "+" in
+     * the gutter beside it. Click the wave: go there. Click the "+": drop
+     * a moment there and open it to be filled in.
+     *
+     * Justin, #rabbithole-editor, 16 Nov 2026: "it's too easy to
+     * accidentally mark a moment using the editor". A click on the wave
+     * used to open the form, so every attempt to listen to a spot wrote
+     * one. Seeking is the thing you do all day while charting; adding a
+     * moment is the thing you mean to do. Only the second one needs its
+     * own button, and it is right where you are already pointing.
      */
     _attachRulerListeners() {
         const track = this.container.querySelector('.ruler-track');
@@ -905,21 +913,25 @@ export class TimelineEditor {
             return Math.round((y / rect.height) * duration * 10) / 10;
         };
 
+        // Where the hover line sits, which is what the "+" beside it means.
+        let hoverAt = 0;
+
         const showHover = (clientY) => {
             const rect = track.getBoundingClientRect();
+            hoverAt = timeAt(clientY);
             hover.hidden = false;
             hover.style.top = `${((clientY - rect.top) / rect.height) * 100}%`;
-            hoverTime.textContent = this.formatTime(timeAt(clientY));
+            hoverTime.textContent = this.formatTime(hoverAt);
         };
 
         /*
-         * Scrub, then click.
+         * Scrub, then let go.
          *
          * Skyler, 2026-10-25: a ruler you can scroll through until you get
          * the right time, and then click. So dragging moves the playhead
          * with you -- you hear where you are, which is the only way to find
-         * the moment a solo changes -- and a click that did not drag opens
-         * the form for that moment.
+         * the moment a solo changes -- and letting go leaves the song
+         * where you left it.
          */
         let dragging = false;
         let draggingRabbit = false;
@@ -927,7 +939,7 @@ export class TimelineEditor {
         let moved = false;
 
         track.addEventListener('mousedown', (e) => {
-            if (e.target.closest('.ruler-marker, .ruler-rabbit')) return;
+            if (e.target.closest('.ruler-marker, .ruler-rabbit, .ruler-add')) return;
             dragging = true;
             moved = false;
             startY = e.clientY;
@@ -988,14 +1000,26 @@ export class TimelineEditor {
             const wasRabbit = draggingRabbit;
             draggingRabbit = false;
             const t = timeAt(e.clientY);
-            if (moved) {
-                if (wasRabbit) this._placePlayhead(t);
-                this.seekTo(t);
-            } else {
-                if (this.viewOnly) this.seekTo(t);
-                else this.openMarkerForm(this._snap(t), null);
-            }
+            if (wasRabbit) this._placePlayhead(t);
+            this.seekTo(t);
         });
+
+        /*
+         * The one way to put a new moment on the line by hand: the "+"
+         * that rides the hover line, in the gutter left of the wave. It
+         * opens the form at the time under the pointer, snapped to the
+         * grid when there is one, the same as the click that used to do
+         * this.
+         */
+        const addHere = track.querySelector('.ruler-add');
+        if (addHere) {
+            addHere.addEventListener('mousedown', (e) => e.stopPropagation());
+            addHere.addEventListener('click', (e) => {
+                e.stopPropagation();
+                e.preventDefault();
+                this.openMarkerForm(this._snap(hoverAt), null);
+            });
+        }
 
         track.addEventListener('mousemove', (e) => {
             if (!dragging) showHover(e.clientY);
