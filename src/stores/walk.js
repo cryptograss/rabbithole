@@ -149,15 +149,19 @@ export function followedVia( via ) {
  *
  * Pure. The word comes from a frame, so only what it names is done: open;
  * close (Escape inside the frame); play a recording, following someone to it
- * where it says who; open a page in the pane, shutting the drawer; or close
- * the walk of now, which shuts the drawer too (re, 15 Nov 2026: left open,
- * the drawer, gone with the empty walk, came back open by itself when the
- * next song played). A new rabbithole starts by itself now — a song played
- * with no connection closes the walk (Justin, 15 Nov 2026) — so the word
- * closes the one you are on and keeps it in `past`.
+ * where it says who, and saying which step of the walk it is when the graph
+ * says so (a song already in the walk played from its step — the graph sends
+ * `{ play, step }`, and what is done with that — going back in the
+ * rabbithole, keeping the mode and the picker — is the player's to decide);
+ * open a page in the pane, shutting the drawer; or close the walk of now,
+ * which shuts the drawer too (re, 15 Nov 2026: left open, the drawer, gone
+ * with the empty walk, came back open by itself when the next song played).
+ * A new rabbithole starts by itself now — a song played with no connection
+ * closes the walk (Justin, 15 Nov 2026) — so the word closes the one you are
+ * on and keeps it in `past`.
  *
  * @param {*} d What the frame sent.
- * @return {Object|null} What to do: {open}, {close}, {play, via}, {page, close}
+ * @return {Object|null} What to do: {open}, {close}, {play, via, step}, {page, close}
  *   or {clear, close}; null for anything else.
  */
 export function drawerDoes( d ) {
@@ -171,7 +175,8 @@ export function drawerDoes( d ) {
 		return { open: true };
 	}
 	if ( d.play ) {
-		return { play: String( d.play ), via: followedVia( d.via ) };
+		return { play: String( d.play ), via: followedVia( d.via ),
+			step: typeof d.step === 'number' && d.step >= 0 ? d.step : null };
 	}
 	if ( d.page ) {
 		return { page: String( d.page ), close: true };

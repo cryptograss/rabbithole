@@ -239,9 +239,9 @@ describe( 'drawerDoes', () => {
 	it( 'does only what the graph\'s word names', () => {
 		expect( drawerDoes( { connectome: true, open: true } ) ).toEqual( { open: true } );
 		expect( drawerDoes( { connectome: 'close' } ) ).toEqual( { close: true } );
-		expect( drawerDoes( { connectome: true, play: 'QmA' } ) ).toEqual( { play: 'QmA', via: null } );
+		expect( drawerDoes( { connectome: true, play: 'QmA' } ) ).toEqual( { play: 'QmA', via: null, step: null } );
 		expect( drawerDoes( { connectome: true, play: 'QmA', via: { name: 'Kyle Tuttle', instrument: 'banjo' } } ) )
-			.toEqual( { play: 'QmA', via: { name: 'Kyle Tuttle', instrument: 'banjo' } } );
+			.toEqual( { play: 'QmA', via: { name: 'Kyle Tuttle', instrument: 'banjo' }, step: null } );
 		expect( drawerDoes( { connectome: true, page: 'Harry Clark' } ) ).toEqual( { page: 'Harry Clark', close: true } );
 		expect( drawerDoes( { rabbithole: 'walk' } ) ).toBe( null );
 		expect( drawerDoes( { connectome: true } ) ).toBe( null );
@@ -252,6 +252,16 @@ describe( 'drawerDoes', () => {
 	// when the next song played.
 	it( 'shuts the drawer when a new walk starts', () => {
 		expect( drawerDoes( { connectome: true, clear: true } ) ).toEqual( { clear: true, close: true } );
+	} );
+
+	// The contract of 15 Nov 2026: the graph sends { play, step } for a song already in the walk — clicking
+	// a previous song in "your rabbithole" goes back in the rabbithole (Justin's item 10), which is the
+	// player's to decide from the step. A step that is no number is none.
+	it( 'carries the step of the walk a play asks for', () => {
+		expect( drawerDoes( { connectome: true, play: 'QmB', step: 2 } ) ).toEqual( { play: 'QmB', via: null, step: 2 } );
+		expect( drawerDoes( { connectome: true, play: 'QmB', step: 0 } ).step ).toBe( 0 );
+		expect( drawerDoes( { connectome: true, play: 'QmB', step: 'two' } ).step ).toBe( null );
+		expect( drawerDoes( { connectome: true, play: 'QmB', step: -1 } ).step ).toBe( null );
 	} );
 } );
 
