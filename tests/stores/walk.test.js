@@ -148,6 +148,34 @@ describe( 'useWalkStore', () => {
 		expect( revive( window.localStorage.getItem( 'rabbithole-walk' ) ).current[ 1 ].via ).toEqual( { name: 'Kyle Tuttle', instrument: 'banjo' } );
 	} );
 
+	it( 'moves where you stand for a step, and does not lengthen the walk', async () => {
+		// A step back or forward along the chain is navigation, not a new
+		// place: without this, previous bounced between two songs (re,
+		// #rabbithole, 16 Nov 2026).
+		const player = usePlayerStore();
+		const model = { state: reactive( { song: { _trackCid: 'Qa', title: 'August' }, status: 'PLAYING', upNext: [] } ) };
+		player.model = model;
+		const walk = useWalkStore();
+		walk.mark( 'Qs', { why: 'quest' } );
+		model.state.song = { _trackCid: 'Qs', title: 'Silver 44' };
+		await nextTick();
+		expect( walk.at ).toBe( 1 );
+
+		// Back to August: the walk is the same walk, and you stand on it.
+		walk.mark( 'Qa', { step: 0 } );
+		model.state.song = { _trackCid: 'Qa', title: 'August' };
+		await nextTick();
+		expect( walk.hops.map( ( h ) => h.cid ) ).toEqual( [ 'Qa', 'Qs' ] );
+		expect( walk.at ).toBe( 0 );
+
+		// A step that does not match the walk is taken for what it is.
+		walk.mark( 'Qx', { step: 1 } );
+		model.state.song = { _trackCid: 'Qx', title: 'Elsewhere' };
+		await nextTick();
+		expect( walk.hops.map( ( h ) => h.cid ) ).toEqual( [ 'Qx' ] );
+		expect( walk.at ).toBe( 0 );
+	} );
+
 	// Justin, 15 Nov 2026: "32 hops ... I certainly haven't let it play for 32 tracks". Every visit loads a song;
 	// it joins the walk when it plays.
 	it( 'leaves out a song that only sat loaded, and takes it in when it plays', async () => {

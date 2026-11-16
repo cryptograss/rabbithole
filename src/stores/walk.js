@@ -287,6 +287,18 @@ export const useWalkStore = defineStore( 'walk', () => {
 	const state = ref( revive( window.localStorage.getItem( KEY ) ) );
 	/** The walk of now: every recording of it that has been on, oldest first. */
 	const hops = computed( () => state.value.current );
+	/**
+	 * Where in the walk the rabbithole is standing: an index into `hops`,
+	 * -1 before anything has played.
+	 *
+	 * Stepping back and forward moves along the chain; it does not add to
+	 * it. Without this, "the song before this one" was found by looking up
+	 * the recording playing, and a step back that wrote a hop of its own
+	 * left the next step back on the song just left: August > Silver 44 >
+	 * Swords > Silver 44 > Swords, bouncing (re, #rabbithole, 16 Nov
+	 * 2026). Where you are is a place, not a song.
+	 */
+	const at = ref( state.value.current.length - 1 );
 	/** The walks closed before this one, oldest first. */
 	const past = computed( () => state.value.past );
 
@@ -303,9 +315,13 @@ export const useWalkStore = defineStore( 'walk', () => {
 
 	/**
 	 * Say how a recording about to play was reached: who you followed and
-	 * why (the word: chase, quest, trail, next, record, road), or nothing
-	 * when it is played cold. Called before the song starts, so the hop
-	 * carries its connection when the watcher sees it.
+	 * why (the word: chase, quest, trail, next, record, road, wander), or
+	 * nothing when it is played cold. Called before the song starts, so
+	 * the hop carries its connection when the watcher sees it.
+	 *
+	 * `{ step: n }` says something else: this recording is the walk's own
+	 * hop n, being gone back to or forward to. Nothing is added then --
+	 * the chain is the same chain -- and `at` moves to n.
 	 */
 	function mark( cid, via ) {
 		if ( cid ) {
@@ -327,6 +343,7 @@ export const useWalkStore = defineStore( 'walk', () => {
 			current: [],
 			past: state.value.past.concat( [ { hops: current, closedAt: Date.now() } ] ).slice( -PAST_CAP ),
 		};
+		at.value = -1;
 		persist();
 		useLayoutStore().startTraversing();
 	}
@@ -334,6 +351,7 @@ export const useWalkStore = defineStore( 'walk', () => {
 	function clear() {
 		pending.clear();
 		state.value = { current: [], past: [] };
+		at.value = -1;
 		persist();
 	}
 
@@ -348,6 +366,15 @@ export const useWalkStore = defineStore( 'walk', () => {
 		}
 		const marked = pending.get( cid ) || null;
 		pending.delete( cid );
+		// A step along the walk: where you are changes, what you have
+		// walked does not.
+		if ( marked && typeof marked.step === 'number' ) {
+			const hop = state.value.current[ marked.step ];
+			if ( hop && hop.cid === cid ) {
+				at.value = marked.step;
+				return;
+			}
+		}
 		const next = advanced( state.value, {
 			cid,
 			song: ( songs.current && songs.current.title ) || null,
@@ -366,7 +393,10 @@ export const useWalkStore = defineStore( 'walk', () => {
 				useLayoutStore().startTraversing();
 			}
 		}
+		// A song reached any other way is the end of the walk, whether it
+		// was added or was already the last hop (a replay).
+		at.value = state.value.current.length - 1;
 	}, { immediate: true } );
 
-	return { hops, past, mark, close, clear };
+	return { hops, past, at, mark, close, clear };
 } );

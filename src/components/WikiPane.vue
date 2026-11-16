@@ -120,6 +120,7 @@ function tellGraphs() {
 		playing: player.playing,
 		mode: 'full',
 		night: night.value,
+		at: walk.at,
 	} );
 	for ( const frame of graphFrames() ) {
 		if ( frame.contentWindow ) {
@@ -144,7 +145,7 @@ function onGraphMessage( e ) {
 		if ( does.step !== null && does.step !== undefined ) {
 			// A step of the walk, clicked in the graph: back in this
 			// rabbithole rather than the start of another (item 40).
-			picker.playHop( does.play );
+			picker.playHop( does.play, does.step );
 		} else {
 			// Something playing already? Then this is a question, the same
 			// one a Listen button in the pane asks (item 36).
@@ -227,7 +228,7 @@ onBeforeUnmount( () => window.removeEventListener( 'message', onGraphMessage ) )
 // A graph hears the player when it arrives, and whenever any of it changes.
 watch(
 	() => [ view.value, walk.hops, picker.following, picker.mode,
-		player.song && player.song._trackCid, player.playing, night.value ],
+		player.song && player.song._trackCid, player.playing, night.value, walk.at ],
 	() => nextTick( tellGraphs ),
 	{ deep: true, immediate: true }
 );

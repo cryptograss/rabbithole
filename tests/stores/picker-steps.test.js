@@ -49,7 +49,29 @@ function world( { band = {}, plays = {}, charted = [] } = {} ) {
 	const cards = ref( [] );
 	globalThis.__graph = { band, plays, records: {} };
 	globalThis.__cids = { 'Song:Cicada Song': CICADA, 'Song:Silver 44': SILVER, 'Song:August': AUGUST };
-	globalThis.__walk = { hops: [], mark: vi.fn() };
+	// The walk, as its store really behaves: a mark with a step moves where
+	// you stand, anything else adds a hop at the end (stores/walk.js).
+	const marks = [];
+	globalThis.__walk = {
+		hops: [],
+		at: -1,
+		marks,
+		mark: vi.fn( ( cid, via ) => marks.push( [ cid, via ] ) ),
+		/** A recording started: what the store's watcher does with it. */
+		heard( cid, song ) {
+			const marked = ( marks.filter( ( [ c ] ) => c === cid ).pop() || [] )[ 1 ] || null;
+			if ( marked && typeof marked.step === 'number' && globalThis.__walk.hops[ marked.step ]
+				&& globalThis.__walk.hops[ marked.step ].cid === cid ) {
+				globalThis.__walk.at = marked.step;
+				return;
+			}
+			const last = globalThis.__walk.hops[ globalThis.__walk.hops.length - 1 ];
+			if ( ! last || last.cid !== cid ) {
+				globalThis.__walk.hops.push( { cid, song, via: marked && marked.name ? marked : null, why: marked ? marked.why || null : null } );
+			}
+			globalThis.__walk.at = globalThis.__walk.hops.length - 1;
+		},
+	};
 	globalThis.__layout = { startTraversing: vi.fn(), stopTraversing: vi.fn() };
 	globalThis.__player = {
 		get song() { return song.value; },
@@ -73,6 +95,7 @@ function world( { band = {}, plays = {}, charted = [] } = {} ) {
 					return false;
 				}
 				song.value = { _trackCid: next, title: next };
+				globalThis.__walk.heard( next, next );
 				return true;
 			} ),
 		},
@@ -89,6 +112,7 @@ function world( { band = {}, plays = {}, charted = [] } = {} ) {
 		playCid: vi.fn( async ( cid ) => {
 			globalThis.__songs.queuedCids.length = 0;
 			song.value = { _trackCid: cid, title: cid };
+			globalThis.__walk.heard( cid, cid );
 			return song.value;
 		} ),
 	};
@@ -97,6 +121,7 @@ function world( { band = {}, plays = {}, charted = [] } = {} ) {
 		async plays( cid, on = [] ) {
 			cards.value = on.map( ( name ) => ( { name } ) );
 			song.value = { _trackCid: cid, title: cid };
+			globalThis.__walk.heard( cid, cid );
 			await settle();
 		},
 	};
@@ -154,45 +179,111 @@ describe( 'forward', () => {
 	} );
 } );
 
-describe( 'back', () => {
+describe( 'back and forward along the walk', () => {
 	beforeEach( () => setActivePinia( createPinia() ) );
 
-	it( 'plays the song before this one in the walk, and says that is what it is', async () => {
-		const w = world( {
-			band: { 'Song:Cicada Song': { 'Kyle Tuttle': [ 'banjo' ] } },
-			plays: { 'Kyle Tuttle': [ 'Song:Silver 44' ] },
-		} );
+	/** A rabbithole three songs long, the last one playing. */
+	async function walked( w ) {
+		await w.plays( AUGUST, [] );
+		globalThis.__walk.hops[ 0 ].why = null;
+		await w.plays( SILVER, [] );
+		await w.plays( CICADA, [] );
+		return globalThis.__walk;
+	}
+
+	it( 'plays the song before where you stand', async () => {
+		const w = world();
 		const picker = usePickerStore();
-		globalThis.__walk.hops = [ { cid: AUGUST, song: 'August' }, { cid: CICADA, song: 'Cicada Song' } ];
-		await w.plays( CICADA, [ 'Kyle Tuttle' ] );
+		const walk = await walked( w );
 		const mode = picker.mode;
-		const following = picker.following;
 
 		expect( await picker.back() ).toBe( true );
-		expect( globalThis.__songs.playCid ).toHaveBeenCalledWith( AUGUST, { play: true } );
-		expect( wordFor( AUGUST ) ).toBe( 'back' );
-		// Going back changes where you are, not where you are going.
+		expect( w.song.value._trackCid ).toBe( SILVER );
+		expect( globalThis.__songs.playCid ).toHaveBeenCalledWith( SILVER, { play: true } );
+		// The chain is the same chain: going back is not a new place.
+		expect( walk.hops.map( ( h ) => h.cid ) ).toEqual( [ AUGUST, SILVER, CICADA ] );
+		expect( walk.at ).toBe( 1 );
+		// And where you are going is untouched.
 		expect( picker.mode ).toBe( mode );
-		expect( picker.following ).toBe( following );
+	} );
+
+	it( 'goes back two songs when you press it twice', async () => {
+		// re, #rabbithole, 16 Nov 2026: a step back that wrote a hop of its
+		// own left the next step back on the song just left, so previous
+		// bounced between two songs instead of walking out.
+		const w = world();
+		const picker = usePickerStore();
+		const walk = await walked( w );
+
+		await picker.back();
+		await picker.back();
+		expect( w.song.value._trackCid ).toBe( AUGUST );
+		expect( walk.at ).toBe( 0 );
+		expect( walk.hops.map( ( h ) => h.cid ) ).toEqual( [ AUGUST, SILVER, CICADA ] );
 	} );
 
 	it( 'is nothing to do at the start of a rabbithole', async () => {
 		const w = world();
 		const picker = usePickerStore();
-		globalThis.__walk.hops = [ { cid: AUGUST, song: 'August' } ];
 		await w.plays( AUGUST, [] );
 
 		expect( await picker.back() ).toBe( false );
 		expect( globalThis.__songs.playCid ).not.toHaveBeenCalled();
 	} );
 
-	it( 'takes a step clicked in the graph back to that song, keeping the walk', async () => {
+	it( 'plays the rabbithole forward again from where you went back to', async () => {
+		// Justin's item 40: "play through the rabbithole the same way that
+		// it had been playing".
+		const w = world( { charted: [ { cid: AUGUST }, { cid: SILVER }, { cid: CICADA } ] } );
+		const picker = usePickerStore();
+		const walk = await walked( w );
+		await picker.back();
+		await picker.back();
+
+		expect( await picker.forward() ).toBe( true );
+		expect( w.song.value._trackCid ).toBe( SILVER );
+		expect( walk.at ).toBe( 1 );
+		expect( await picker.forward() ).toBe( true );
+		expect( w.song.value._trackCid ).toBe( CICADA );
+		expect( walk.hops ).toHaveLength( 3 );
+	} );
+
+	it( 'takes a step clicked in the graph to that place in the walk', async () => {
 		const w = world();
 		const picker = usePickerStore();
-		globalThis.__walk.hops = [ { cid: AUGUST }, { cid: SILVER }, { cid: CICADA } ];
-		await w.plays( CICADA, [] );
+		const walk = await walked( w );
 
-		expect( await picker.playHop( AUGUST ) ).toBe( true );
-		expect( wordFor( AUGUST ) ).toBe( 'back' );
+		expect( await picker.playHop( AUGUST, 0 ) ).toBe( true );
+		expect( walk.at ).toBe( 0 );
+		expect( walk.hops ).toHaveLength( 3 );
+	} );
+
+	it( 'knows which August you are standing on when the walk has two', async () => {
+		// Where you are is a place, not a song: a rabbithole can come back
+		// to a recording, and then the song you are on does not say where
+		// in the walk you are.
+		const w = world();
+		const picker = usePickerStore();
+		await w.plays( AUGUST, [] );
+		await w.plays( SILVER, [] );
+		await w.plays( AUGUST, [] );
+		await w.plays( CICADA, [] );
+		expect( globalThis.__walk.hops.map( ( h ) => h.cid ) ).toEqual( [ AUGUST, SILVER, AUGUST, CICADA ] );
+
+		// Clicked the first August in the graph: that is where you stand.
+		await picker.playHop( AUGUST, 0 );
+		expect( globalThis.__walk.at ).toBe( 0 );
+		// And there is nothing before the first song of a rabbithole.
+		expect( await picker.back() ).toBe( false );
+	} );
+
+	it( 'plays a song that is not in this walk as what it is: a song played cold', async () => {
+		const w = world();
+		const picker = usePickerStore();
+		await walked( w );
+
+		expect( await picker.playHop( 'QmSomewhereElse' ) ).toBe( true );
+		// Nothing claimed it was a step of this walk.
+		expect( globalThis.__walk.mark ).toHaveBeenCalledWith( 'QmSomewhereElse', null );
 	} );
 } );

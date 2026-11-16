@@ -63,10 +63,11 @@ function say() {
 		playing: player.playing,
 		mode: open.value ? 'full' : 'mini',
 		night: night.value,
+		at: walk.at,
 	} ), window.location.origin );
 }
 
-watch( () => [ walk.hops, player.song && player.song._trackCid, player.playing, open.value, picker.following, picker.mode, night.value ], say, { deep: true } );
+watch( () => [ walk.hops, player.song && player.song._trackCid, player.playing, open.value, picker.following, picker.mode, night.value, walk.at ], say, { deep: true } );
 
 /** What the graph asks of the player. Only the frame's own words count. */
 function onMessage( e ) {
@@ -84,7 +85,7 @@ function onMessage( e ) {
 		if ( does.step !== null && does.step !== undefined ) {
 			// A song already in this walk, clicked where it sits: back in
 			// the rabbithole, playing on the same way (Justin's item 40).
-			picker.playHop( does.play );
+			picker.playHop( does.play, does.step );
 		} else {
 			// A road not taken, taken from the drawer: the walk says who was
 			// followed to it, and if something is playing, it asks first.

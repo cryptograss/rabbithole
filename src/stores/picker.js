@@ -336,33 +336,39 @@ export const usePickerStore = defineStore( 'picker', () => {
 	}
 
 	/**
-	 * Play a recording this rabbithole has already been to: a step back,
-	 * not a new one. The word on the hop is what keeps the walk whole --
-	 * without one the song reads as played cold, and the rabbithole you
-	 * were in closes behind you (Justin, 15 Nov 2026, item 40: "it needs
-	 * to go back _in the rabbithole_ to that song and play through the
-	 * rabbithole the same way that it had been playing, unless I make a
-	 * change to the picker or quest/chase mode").
+	 * Play a recording this rabbithole has already been to, standing where
+	 * it stands in the walk: a step along the chain, not a new one.
 	 *
-	 * The mode and the chased picker are left exactly as they are, so
-	 * going back changes where you are and nothing about where you are
-	 * going.
+	 * Justin, 15 Nov 2026, item 40: "it needs to go back _in the
+	 * rabbithole_ to that song and play through the rabbithole the same
+	 * way that it had been playing, unless I make a change to the picker
+	 * or quest/chase mode." So the mode and the chased picker are left as
+	 * they are, and the walk is told which hop this is rather than being
+	 * given a new one -- a step back that wrote its own hop left the next
+	 * step back on the song just left (re, 16 Nov 2026).
 	 *
-	 * @param {string} cid The recording to go back to.
-	 * @return {Promise<boolean>} Whether there was one to play.
+	 * @param {string} cid The recording.
+	 * @param {?number} step Its place in the walk, where the caller knows
+	 *   it (the graph sends one); else it is looked up.
+	 * @return {Promise<boolean>} Whether anything was played.
 	 */
-	async function playHop( cid ) {
+	async function playHop( cid, step = null ) {
 		if ( ! cid ) {
 			return false;
 		}
+		const hops = walk.hops;
+		const named = typeof step === 'number' && hops[ step ] && hops[ step ].cid === cid;
+		const index = named ? step : hops.findIndex( ( hop ) => hop.cid === cid );
 		// What the rabbithole lined up for later stands aside: the song
 		// asked for is the one that plays.
 		giveWay();
-		walk.mark( cid, { why: 'back' } );
+		// Not in this walk at all: it is a song played cold, and the walk
+		// store will read it as the start of another, which is what it is.
+		walk.mark( cid, index < 0 ? null : { step: index } );
 		try {
 			await songs.playCid( cid, { play: true } );
 		} catch ( err ) {
-			console.warn( 'Could not go back to', cid, err );
+			console.warn( 'Could not play', cid, err );
 			return false;
 		}
 		return true;
@@ -382,6 +388,15 @@ export const usePickerStore = defineStore( 'picker', () => {
 	 * @return {Promise<boolean>} Whether there was a next song.
 	 */
 	async function forward() {
+		const hops = walk.hops;
+		// Standing behind the end of the walk, forward is the walk's own
+		// next song, the way a browser's forward button is: you go back
+		// and "play through the rabbithole the same way that it had been
+		// playing" (item 40). At the end it extends the walk instead.
+		if ( walk.at >= 0 && walk.at < hops.length - 1 ) {
+			useLayoutStore().startTraversing();
+			return playHop( hops[ walk.at + 1 ].cid, walk.at + 1 );
+		}
 		if ( ! songs.queuedCids.length ) {
 			if ( mode.value === 'chase' && following.value ) {
 				await queueNext();
@@ -407,18 +422,11 @@ export const usePickerStore = defineStore( 'picker', () => {
 	 */
 	async function back() {
 		const hops = walk.hops;
-		const cid = currentCid();
-		let at = -1;
-		for ( let i = hops.length - 1; i >= 0; i-- ) {
-			if ( hops[ i ].cid === cid ) {
-				at = i;
-				break;
-			}
+		const here = walk.at;
+		if ( here > 0 && hops[ here - 1 ] ) {
+			return playHop( hops[ here - 1 ].cid, here - 1 );
 		}
-		// Not in the walk at all (nothing has played yet): the last hop is
-		// where this rabbithole was.
-		const prev = at > 0 ? hops[ at - 1 ] : ( at === -1 ? hops[ hops.length - 1 ] : null );
-		return prev ? playHop( prev.cid ) : false;
+		return false;
 	}
 
 	/*
