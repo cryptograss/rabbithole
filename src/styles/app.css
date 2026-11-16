@@ -745,7 +745,9 @@ body.bottom-bar .pane-column {
 }
 
 .rabbithole-header .up-next {
-    flex: 0 10 auto;
+    /* After the selector, before the name: what plays next is worth more
+       room than a track list already on the page (item 34). */
+    flex: 0 2 auto;
     min-width: 0;
     white-space: nowrap;
     overflow: hidden;
@@ -757,12 +759,13 @@ body.bottom-bar .pane-column {
    the name is the one thing in the bar a person is looking for, and at
    1280px "Swords to Ploughshares" lost its last two letters to a track
    selector that had 170px to spare (Justin, 15 Nov 2026, item 34). The
-   weights are flex-shrink: the name shrinks a fifth as fast as the record
-   line, a thirtieth as fast as the selector, and an ellipsis says so when
-   even that is not enough. */
+   name does not shrink at all; the line beside it and the selector do,
+   the selector first and furthest, and an ellipsis says so in the rare
+   case where even an empty selector leaves the name no room. */
 .rabbithole-header .song-title-display {
     order: 3;
-    flex: 0 0.2 auto;
+    flex: 0 0 auto;
+    max-width: 100%;
     min-width: 0;
     white-space: nowrap;
     overflow: hidden;
@@ -771,18 +774,25 @@ body.bottom-bar .pane-column {
 
 .rabbithole-header .record-line {
     order: 4;
-    flex: 0 1 auto;
+    /* The record's name is six characters: clipping it saves nothing and
+       costs the arrow that says it opens (item 34). */
+    flex: 0 0 auto;
     min-width: 0;
-    flex-shrink: 1;
     margin: 0;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
 }
 
+/* The track selector is the first thing to give way (item 34): it is the
+   widest thing in the bar and the least read, and its options are
+   readable when it is open whatever width it sits at. The row is the flex
+   item here, so the shrink has to be on it and not only on the select
+   inside it. */
 .rabbithole-header .album-row {
     order: 5;
-    flex: 0 0 auto;
+    flex: 0 6 auto;
+    min-width: 0;
     margin: 0;
 }
 
@@ -791,6 +801,7 @@ body.bottom-bar .pane-column {
     flex: 0 6 auto;
     width: 170px;
     min-width: 72px;
+    max-width: 100%;
     padding: 1px 4px;
     font-size: 11px;
     height: 22px;
