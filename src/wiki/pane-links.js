@@ -63,5 +63,5 @@ export function leavesTheApp( href ) {
 		return false;
 	}
 	return url.pathname.startsWith( '/index.php' ) || url.pathname.startsWith( '/wiki/' )
-		|| url.pathname.startsWith( '/assets/' ) || url.pathname === '/bacon' || url.pathname === '/bacon/';
+		|| url.pathname.startsWith( '/assets/' ) || url.pathname === '/bacon' || url.pathname.startsWith( '/bacon/' );
 }

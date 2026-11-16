@@ -31,6 +31,7 @@ describe( 'leavesTheApp', () => {
 		expect( leavesTheApp( '/assets/connectome/?p=Maddie+Denton' ) ).toBe( true );
 		expect( leavesTheApp( '/bacon?p=Maddie+Denton' ) ).toBe( true );
 		expect( leavesTheApp( '/bacon' ) ).toBe( true );
+		expect( leavesTheApp( '/bacon/cepkp1cxqmc' ) ).toBe( true );
 	} );
 	it( 'is false for anchors and other sites', () => {
 		expect( leavesTheApp( '#On_the_record' ) ).toBe( false );

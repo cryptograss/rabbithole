@@ -22,10 +22,12 @@
  */
 export const GRAPH_PATH = '/bacon';
 const OLD_PAGES = [ '/assets/connectome/', '/assets/connectome/index.html' ];
+/** A bacon graph kept as shared, /bacon/ and its ID (pickipedia:blu/bacon-keep): the same page, drawing what was kept. */
+const KEPT_PATH = /^\/bacon\/[cfmr][0-9a-hjkmnp-tv-z]{10}\/?$/;
 
-/** Is this path the graph's page, at either address? */
+/** Is this path the graph's page, at either address, or a kept graph's? */
 function isGraphPath( path ) {
-	return path === GRAPH_PATH || path === GRAPH_PATH + '/' || OLD_PAGES.includes( path );
+	return path === GRAPH_PATH || path === GRAPH_PATH + '/' || OLD_PAGES.includes( path ) || KEPT_PATH.test( path );
 }
 
 /**
@@ -51,7 +53,7 @@ export function graphSrcFor( href ) {
 		return null;
 	}
 	url.searchParams.set( 'host', 'rabbithole' );
-	return GRAPH_PATH + url.search;
+	return ( KEPT_PATH.test( url.pathname ) ? url.pathname.replace( /\/$/, '' ) : GRAPH_PATH ) + url.search;
 }
 
 /** Is this frame showing a connectome? */

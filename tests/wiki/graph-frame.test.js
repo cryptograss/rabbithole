@@ -22,6 +22,14 @@ describe( 'graphSrcFor', () => {
 			.toBe( '/bacon?p=Maddie+Denton&host=rabbithole' );
 	} );
 
+	it( 'frames a kept bacon graph at its own address', () => {
+		expect( graphSrcFor( '/bacon/cepkp1cxqmc' ) ).toBe( '/bacon/cepkp1cxqmc?host=rabbithole' );
+		expect( graphSrcFor( '/bacon/rzjk0p27qd4/' ) ).toBe( '/bacon/rzjk0p27qd4?host=rabbithole' );
+		expect( graphSrcFor( 'https://example.com/bacon/cepkp1cxqmc' ) ).toBe( null );
+		expect( graphSrcFor( '/bacon/cepkp1cxqmi' ) ).toBe( null );          // an i is no ID's
+		expect( graphSrcFor( '/bacon/xepkp1cxqmc' ) ).toBe( null );          // nor an x first
+	} );
+
 	it( 'keeps the host word to one, however the link arrived', () => {
 		expect( graphSrcFor( '/assets/connectome/?host=wiki&a=3' ) )
 			.toBe( '/bacon?host=rabbithole&a=3' );
@@ -51,6 +59,8 @@ describe( 'isGraphFrame', () => {
 		expect( isGraphFrame( frame ) ).toBe( false );
 		frame.setAttribute( 'src', '/baconx?walk=mini' );
 		expect( isGraphFrame( frame ) ).toBe( false );
+		frame.setAttribute( 'src', '/bacon/cepkp1cxqmc?host=rabbithole' );
+		expect( isGraphFrame( frame ) ).toBe( true );
 		expect( isGraphFrame( document.createElement( 'iframe' ) ) ).toBe( false );
 		expect( isGraphFrame( null ) ).toBe( false );
 	} );
