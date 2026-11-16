@@ -29,6 +29,7 @@
 import { defineStore } from 'pinia';
 import { ref, computed, watch } from 'vue';
 
+import { useLayoutStore } from './layout.js';
 import { usePlayerStore } from './player.js';
 import { useSongStore } from './song.js';
 
@@ -110,6 +111,30 @@ export function advanced( state, entry ) {
 		};
 	}
 	return { current: pushed( current, entry ), past: state.past };
+}
+
+/**
+ * The walk cut off where you are standing, with what came after kept.
+ *
+ * Pure. Going somewhere new from the middle of a rabbithole -- you walked
+ * back three songs and then followed somebody else -- means the chain you
+ * are on ends where you stand. What came after was a walk of its own, so
+ * it is kept rather than thrown away (re, #rabbithole, 16 Nov 2026).
+ *
+ * @param {Object} state The walk: {current, past}.
+ * @param {number} at Where you are standing, an index into current.
+ * @param {number} now When the cut happened.
+ * @return {Object} The walk, cut; the same object where nothing changed.
+ */
+export function trimmed( state, at, now = 0 ) {
+	const current = state.current;
+	if ( ! Array.isArray( current ) || at < 0 || at >= current.length - 1 ) {
+		return state;
+	}
+	return {
+		current: current.slice( 0, at + 1 ),
+		past: state.past.concat( [ { hops: current.slice( at + 1 ), closedAt: now || null } ] ).slice( -PAST_CAP ),
+	};
 }
 
 /**
@@ -286,6 +311,18 @@ export const useWalkStore = defineStore( 'walk', () => {
 	const state = ref( revive( window.localStorage.getItem( KEY ) ) );
 	/** The walk of now: every recording of it that has been on, oldest first. */
 	const hops = computed( () => state.value.current );
+	/**
+	 * Where in the walk the rabbithole is standing: an index into `hops`,
+	 * -1 before anything has played.
+	 *
+	 * Stepping back and forward moves along the chain; it does not add to
+	 * it. Without this, "the song before this one" was found by looking up
+	 * the recording playing, and a step back that wrote a hop of its own
+	 * left the next step back on the song just left: August > Silver 44 >
+	 * Swords > Silver 44 > Swords, bouncing (re, #rabbithole, 16 Nov
+	 * 2026). Where you are is a place, not a song.
+	 */
+	const at = ref( state.value.current.length - 1 );
 	/** The walks closed before this one, oldest first. */
 	const past = computed( () => state.value.past );
 
@@ -302,9 +339,13 @@ export const useWalkStore = defineStore( 'walk', () => {
 
 	/**
 	 * Say how a recording about to play was reached: who you followed and
-	 * why (the word: chase, quest, trail, next, record, road), or nothing
-	 * when it is played cold. Called before the song starts, so the hop
-	 * carries its connection when the watcher sees it.
+	 * why (the word: chase, quest, trail, next, record, road, wander), or
+	 * nothing when it is played cold. Called before the song starts, so
+	 * the hop carries its connection when the watcher sees it.
+	 *
+	 * `{ step: n }` says something else: this recording is the walk's own
+	 * hop n, being gone back to or forward to. Nothing is added then --
+	 * the chain is the same chain -- and `at` moves to n.
 	 */
 	function mark( cid, via ) {
 		if ( cid ) {
@@ -326,12 +367,15 @@ export const useWalkStore = defineStore( 'walk', () => {
 			current: [],
 			past: state.value.past.concat( [ { hops: current, closedAt: Date.now() } ] ).slice( -PAST_CAP ),
 		};
+		at.value = -1;
 		persist();
+		useLayoutStore().startTraversing();
 	}
 
 	function clear() {
 		pending.clear();
 		state.value = { current: [], past: [] };
+		at.value = -1;
 		persist();
 	}
 
@@ -346,7 +390,19 @@ export const useWalkStore = defineStore( 'walk', () => {
 		}
 		const marked = pending.get( cid ) || null;
 		pending.delete( cid );
-		const next = advanced( state.value, {
+		// A step along the walk: where you are changes, what you have
+		// walked does not.
+		if ( marked && typeof marked.step === 'number' ) {
+			const hop = state.value.current[ marked.step ];
+			if ( hop && hop.cid === cid ) {
+				at.value = marked.step;
+				return;
+			}
+		}
+		// Somewhere new from the middle: the walk ends where you stand, and
+		// what came after it is kept as a walk of its own.
+		const base = trimmed( state.value, at.value, Date.now() );
+		const next = advanced( base, {
 			cid,
 			song: ( songs.current && songs.current.title ) || null,
 			via: marked && marked.name ? { name: marked.name, instrument: marked.instrument || null } : null,
@@ -354,10 +410,20 @@ export const useWalkStore = defineStore( 'walk', () => {
 			at: Date.now(),
 		} );
 		if ( next.current !== state.value.current || next.past !== state.value.past ) {
+			const fresh = next.past !== base.past;
 			state.value = next;
 			persist();
+			// A new rabbithole travels with the track: the one thing that
+			// has just become true is that you are listening rather than
+			// reading (Justin, 15 Nov 2026, item 32).
+			if ( fresh ) {
+				useLayoutStore().startTraversing();
+			}
 		}
+		// A song reached any other way is the end of the walk, whether it
+		// was added or was already the last hop (a replay).
+		at.value = state.value.current.length - 1;
 	}, { immediate: true } );
 
-	return { hops, past, mark, close, clear };
+	return { hops, past, at, mark, close, clear };
 } );

@@ -50,6 +50,13 @@ describe( 'walkMessage', () => {
 		expect( m.hops ).toEqual( hops );
 	} );
 
+	it( 'says whether Rabbithole is by dark, so a graph in a light page is light', () => {
+		// The graph is a page of its own in a frame: it cannot see the
+		// app's <html> (Justin, 15 Nov 2026, item 35).
+		expect( walkMessage( { hops, night: true } ).night ).toBe( true );
+		expect( walkMessage( { hops } ).night ).toBe( false );
+	} );
+
 	it( 'carries who is chased and in which mode, for the graph to mark them', () => {
 		const m = walkMessage( { hops, chasing: 'Harry Clark', chaseMode: 'chase', now: 'Qc', playing: true } );
 		expect( m.chasing ).toBe( 'Harry Clark' );

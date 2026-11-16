@@ -417,13 +417,89 @@ export function sameOrigin( url ) {
 	}
 }
 
-/** A page's parsed HTML and display title, for the pane. Redirects are followed: a musician's page, not "Redirect to:". */
-export async function parsePage( title, { signal } = {} ) {
-	const data = await api( { action: 'parse', page: title, prop: 'text|displaytitle', formatversion: '2', redirects: '1' }, { signal } );
-	if ( ! data.parse ) {
-		throw new Error( data.error?.info || 'no such page' );
+/**
+ * Pages already parsed this visit, by title: title -> Promise of the parse.
+ *
+ * The pane asks for the same handful of pages over and over -- traverse
+ * mode goes to a soloist's page and back to the song's at every marker --
+ * and each ask was a round trip of two or three seconds on a cold page
+ * (Justin, #rabbithole, 15 Nov 2026, item 33: "Sometimes in traverse mode,
+ * it takes 2 or even 3 seconds to load a picker page - can we prefetch
+ * these so that the load matches the transition?").
+ *
+ * The promise is cached rather than its result, so two asks for one page
+ * in flight together are one request. A page edited elsewhere while the
+ * app is open is still the old one here: the pane asks again with
+ * `fresh: true` where that matters (saving a chart), and a reload empties
+ * this.
+ */
+const parsed = new Map();
+
+/** How many pages are kept: the band of a song, its pages, and room to spare. */
+const PARSED_CAP = 40;
+
+/** Forget the oldest pages once the cache is full. A Map keeps insertion order. */
+function trimParsed() {
+	while ( parsed.size > PARSED_CAP ) {
+		parsed.delete( parsed.keys().next().value );
 	}
-	return data.parse;
+}
+
+/**
+ * A page's parsed HTML and display title, for the pane. Redirects are
+ * followed: a musician's page, not "Redirect to:".
+ *
+ * @param {string} title The page.
+ * @param {Object} [options]
+ * @param {?AbortSignal} [options.signal] To give up on the request.
+ * @param {boolean} [options.fresh] Ask the wiki even if it is in hand.
+ */
+export async function parsePage( title, { signal, fresh = false } = {} ) {
+	const held = fresh ? null : parsed.get( title );
+	if ( held ) {
+		return held;
+	}
+	const asking = api( { action: 'parse', page: title, prop: 'text|displaytitle', formatversion: '2', redirects: '1' }, { signal } )
+		.then( ( data ) => {
+			if ( ! data.parse ) {
+				throw new Error( data.error?.info || 'no such page' );
+			}
+			return data.parse;
+		} );
+	// A page that could not be read is not kept: the next ask tries again.
+	asking.catch( () => {
+		if ( parsed.get( title ) === asking ) {
+			parsed.delete( title );
+		}
+	} );
+	parsed.set( title, asking );
+	trimParsed();
+	return asking;
+}
+
+/**
+ * Fetch pages now so that opening one later is instant: the pages the
+ * music is about to be about (item 33). Nothing is returned and nothing
+ * thrown -- a page that will not load simply is not in hand.
+ *
+ * @param {Array<?string>} titles The pages, in the order they are wanted.
+ */
+export function prefetchPages( titles ) {
+	for ( const title of titles || [] ) {
+		if ( title && ! parsed.has( title ) ) {
+			parsePage( title ).catch( () => {} );
+		}
+	}
+}
+
+/** What is in hand, for the tests. */
+export function parsedTitles() {
+	return [ ...parsed.keys() ];
+}
+
+/** Forget every parsed page. */
+export function forgetParsed() {
+	parsed.clear();
 }
 
 /** Full-text search hits: [{title, snippet}]. */

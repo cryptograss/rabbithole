@@ -16,6 +16,7 @@ import { computed, ref } from 'vue';
 
 import { useListenStore } from '../stores/listen.js';
 import { useSongStore } from '../stores/song.js';
+import { useWalkStore } from '../stores/walk.js';
 import { playTrackInDock, queueTrack, trailToTrack } from '../wiki/queue.js';
 
 const listen = useListenStore();
@@ -27,8 +28,13 @@ const playing = computed( () => ( songs.current && songs.current.title ) || 'wha
 const wanted = computed( () => ( listen.asking && listen.asking.song ) || 'that track' );
 
 async function playNow() {
-	const { cid } = listen.asking;
+	const { cid, via } = listen.asking;
 	listen.close();
+	// Reached by following somebody (a road in a connectome): the walk says
+	// so, as it would have had the track played without being asked about.
+	if ( via ) {
+		useWalkStore().mark( cid, via );
+	}
 	await playTrackInDock( cid );
 }
 

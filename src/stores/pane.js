@@ -67,7 +67,8 @@ export const usePaneStore = defineStore( 'pane', () => {
 		loading.value = true;
 
 		try {
-			const parsed = await wiki.parsePage( title, { signal: mine.signal } );
+			// Asked for again on purpose (force): the wiki, not what is in hand.
+			const parsed = await wiki.parsePage( title, { signal: mine.signal, fresh: force } );
 			if ( ! latest() ) {
 				return;
 			}

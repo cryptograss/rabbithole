@@ -63,7 +63,7 @@ export function isGraphFrame( frame ) {
  * @param {Object} state
  * @return {Object} The message.
  */
-export function walkMessage( { hops = [], chasing = null, chaseMode = null, now = null, playing = false, mode = 'full' } = {} ) {
+export function walkMessage( { hops = [], chasing = null, chaseMode = null, now = null, playing = false, mode = 'full', night = false, at = -1 } = {} ) {
 	return {
 		rabbithole: 'walk',
 		hops: hops.map( ( h ) => ( {
@@ -78,5 +78,14 @@ export function walkMessage( { hops = [], chasing = null, chaseMode = null, now 
 		now,
 		playing: !! playing,
 		mode,
+		// Where in the walk the listener is standing, as an index into the
+		// hops: a rabbithole can come back to a recording, and then the
+		// song on now does not say which step of it you are on.
+		at,
+		// Whether Rabbithole is by dark. The graph is a page of its own in
+		// a frame, so it cannot read the app's <html>; told, it matches
+		// instead of being dark inside a light page (Justin, 15 Nov 2026,
+		// item 35).
+		night: !! night,
 	};
 }

@@ -28,15 +28,15 @@ import { useLayoutStore } from '../stores/layout.js';
 import { useWalkStore, drawerDoes } from '../stores/walk.js';
 import { usePlayerStore } from '../stores/player.js';
 import { usePickerStore } from '../stores/picker.js';
-import { useSongStore } from '../stores/song.js';
 import { usePaneStore } from '../stores/pane.js';
 import { walkMessage } from '../wiki/graph-frame.js';
+import { askOrPlay } from '../wiki/queue.js';
+import { night } from '../night.js';
 
 const walk = useWalkStore();
 const layout = useLayoutStore();
 const player = usePlayerStore();
 const picker = usePickerStore();
-const songs = useSongStore();
 const pane = usePaneStore();
 
 /** The graph's own page, in its "your rabbithole" view, told it is Rabbithole's. */
@@ -62,10 +62,12 @@ function say() {
 		now: ( player.song && player.song._trackCid ) || null,
 		playing: player.playing,
 		mode: open.value ? 'full' : 'mini',
+		night: night.value,
+		at: walk.at,
 	} ), window.location.origin );
 }
 
-watch( () => [ walk.hops, player.song && player.song._trackCid, player.playing, open.value, picker.following, picker.mode ], say, { deep: true } );
+watch( () => [ walk.hops, player.song && player.song._trackCid, player.playing, open.value, picker.following, picker.mode, night.value, walk.at ], say, { deep: true } );
 
 /** What the graph asks of the player. Only the frame's own words count. */
 function onMessage( e ) {
@@ -80,15 +82,15 @@ function onMessage( e ) {
 		open.value = true;
 	}
 	if ( does.play ) {
-		// A road not taken, taken from the drawer: the walk says who was followed to it.
-		if ( does.via ) {
-			walk.mark( does.play, does.via );
+		if ( does.step !== null && does.step !== undefined ) {
+			// A song already in this walk, clicked where it sits: back in
+			// the rabbithole, playing on the same way (Justin's item 40).
+			picker.playHop( does.play, does.step );
+		} else {
+			// A road not taken, taken from the drawer: the walk says who was
+			// followed to it, and if something is playing, it asks first.
+			askOrPlay( does.play, does.via ).catch( ( err ) => console.warn( 'Could not play it:', err ) );
 		}
-		songs.playCid( does.play ).then( () => {
-			if ( player.model ) {
-				player.model.play();
-			}
-		} ).catch( ( err ) => console.warn( 'Could not play it again:', err ) );
 	}
 	if ( does.page ) {
 		layout.stopTraversing();

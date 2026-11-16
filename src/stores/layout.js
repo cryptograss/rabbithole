@@ -184,9 +184,21 @@ export const useLayoutStore = defineStore( 'layout', () => {
 		traverse.value = false;
 	}
 
+	/*
+	 * Travel with the track again. Asked for where the rabbithole takes a
+	 * step of its own rather than where a person goes somewhere to read: a
+	 * new rabbithole, and Webamp's next (Justin, #rabbithole, 15 Nov 2026:
+	 * "If you start a new rabbithole or use the 'next' button on webamp,
+	 * let's have that activate traverse mode"). Stepping is listening, and
+	 * the pane is part of what you are listening to.
+	 */
+	function startTraversing() {
+		traverse.value = true;
+	}
+
 	return {
 		layout, isBar, narrow, phone, auto, pinned, saved,
 		minimized, collapsed, editorOpen, traverse, timelineView, showTimeline, timelineLabels,
-		setLayout, toggleDock, openDock, stopTraversing,
+		setLayout, toggleDock, openDock, stopTraversing, startTraversing,
 	};
 } );

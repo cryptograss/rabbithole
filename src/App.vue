@@ -72,6 +72,26 @@ watch( () => [ player.song && player.song._trackCid, player.currentSolo ], ( [ c
 	}
 } );
 
+/*
+ * The pages this song is about to be about, fetched before the music
+ * needs them (Justin's item 33, 15 Nov 2026: "Sometimes in traverse mode,
+ * it takes 2 or even 3 seconds to load a picker page - can we prefetch
+ * these so that the load matches the transition?").
+ *
+ * The band of the track is the whole set of pages traverse mode can go to
+ * -- a marker's soloist is one of them -- and the song's own page is where
+ * it goes between them. A handful of parses, asked for once per song,
+ * while nothing else is waiting on the wiki.
+ */
+watch( () => [ player.song && player.song._trackCid, player.cards.map( ( card ) => card.name ).join( '|' ) ], () => {
+	if ( ! layout.traverse || ! player.song ) {
+		return;
+	}
+	// The song's own page is in hand already: the pane opened it when the
+	// track changed, and what the pane reads is kept (wiki/api.js).
+	wiki.prefetchPages( player.cards.map( ( card ) => card.name ) );
+}, { immediate: true } );
+
 // Collapsing the bar shades Webamp's window; opening it unshades.
 watch( () => layout.isBar && layout.collapsed, ( shaded ) => {
 	if ( player.model ) {

@@ -23,10 +23,9 @@ import { usePickerStore } from '../stores/picker.js';
 import { useListenStore } from '../stores/listen.js';
 import { usePlayerStore } from '../stores/player.js';
 import { useWalkStore, drawerDoes } from '../stores/walk.js';
-import { useSongStore } from '../stores/song.js';
 import { adoptPaneStyles } from '../wiki/pane-styles.js';
 import { night } from '../night.js';
-import { listenRequest, openTrack, playTrackInDock, queueTrack, trailToHere } from '../wiki/queue.js';
+import { askOrPlay, listenRequest, openTrack, playTrackInDock, queueTrack, trailToHere } from '../wiki/queue.js';
 import { linkIn, titleFromHref, leavesTheApp } from '../wiki/pane-links.js';
 import { markChased } from '../wiki/pane-ensemble.js';
 import { graphSrcFor, isGraphFrame, walkMessage } from '../wiki/graph-frame.js';
@@ -44,7 +43,6 @@ const picker = usePickerStore();
 const listen = useListenStore();
 const player = usePlayerStore();
 const walk = useWalkStore();
-const songs = useSongStore();
 const host = ref( null );
 /* Where Vue renders: a div of our own inside the shadow root, made once. */
 const inside = ref( null );
@@ -121,6 +119,8 @@ function tellGraphs() {
 		now: ( player.song && player.song._trackCid ) || null,
 		playing: player.playing,
 		mode: 'full',
+		night: night.value,
+		at: walk.at,
 	} );
 	for ( const frame of graphFrames() ) {
 		if ( frame.contentWindow ) {
@@ -142,12 +142,16 @@ function onGraphMessage( e ) {
 		return;
 	}
 	if ( does.play ) {
-		if ( does.via ) {
-			walk.mark( does.play, does.via );
+		if ( does.step !== null && does.step !== undefined ) {
+			// A step of the walk, clicked in the graph: back in this
+			// rabbithole rather than the start of another (item 40).
+			picker.playHop( does.play, does.step );
+		} else {
+			// Something playing already? Then this is a question, the same
+			// one a Listen button in the pane asks (item 36).
+			askOrPlay( does.play, does.via )
+				.catch( ( err ) => console.warn( 'Could not play that from the graph:', err ) );
 		}
-		layout.openDock();
-		songs.playCid( does.play, { play: true } )
-			.catch( ( err ) => console.warn( 'Could not play that from the graph:', err ) );
 	}
 	if ( does.page ) {
 		layout.stopTraversing();
@@ -224,7 +228,7 @@ onBeforeUnmount( () => window.removeEventListener( 'message', onGraphMessage ) )
 // A graph hears the player when it arrives, and whenever any of it changes.
 watch(
 	() => [ view.value, walk.hops, picker.following, picker.mode,
-		player.song && player.song._trackCid, player.playing ],
+		player.song && player.song._trackCid, player.playing, night.value, walk.at ],
 	() => nextTick( tellGraphs ),
 	{ deep: true, immediate: true }
 );

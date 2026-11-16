@@ -33,6 +33,7 @@ import { computed, ref, watch } from 'vue';
 import { recordsOn } from '../trail.js';
 import { recordsOf } from '../wiki/api.js';
 import { performerGraph, songCid } from '../wiki/queue.js';
+import { useLayoutStore } from './layout.js';
 import { usePlayerStore } from './player.js';
 import { useSongStore } from './song.js';
 import { useWalkStore } from './walk.js';
@@ -227,12 +228,23 @@ export const usePickerStore = defineStore( 'picker', () => {
 	 * app lines up goes through here, so there is one place that knows
 	 * what is ours and one place that records it.
 	 */
-	async function queueOurs( cid ) {
-		if ( await songs.queueCid( cid ) ) {
-			ours.value = cid;
-			return true;
+	async function queueOurs( cid, stillWanted = () => true ) {
+		if ( ! await songs.queueCid( cid ) ) {
+			return false;
 		}
-		return false;
+		// Loading a track is a fetch, and where you are standing can move
+		// while it is in the air: the quest's pick landed in the queue
+		// after a step back had asked for the walk's own next song instead,
+		// and sat in front of it (seen on the preview, 16 Nov 2026). What
+		// the state no longer wants is withdrawn rather than left there.
+		if ( ! stillWanted() ) {
+			if ( player.model ) {
+				player.model.dropFromQueue( cid );
+			}
+			return false;
+		}
+		ours.value = cid;
+		return true;
 	}
 
 	/** Line up the followed picker's next song, and remember it. */
@@ -278,13 +290,65 @@ export const usePickerStore = defineStore( 'picker', () => {
 		const theirs = name ? nexts.get( name ) : null;
 		// One song behind this one, never more: a record playing through, or
 		// a trail queued to here, is already the answer to what comes next.
-		if ( theirs && ! songs.queuedCids.length ) {
+		// And behind the end of the walk the answer is the walk's own next
+		// song, whatever this one's band could offer (re, 16 Nov 2026).
+		if ( theirs && ! songs.queuedCids.length && ! standingBack() ) {
 			walk.mark( theirs.cid, viaPicker( graph, theirs.song, name, 'quest' ) );
-			if ( await queueOurs( theirs.cid ) ) {
+			if ( await queueOurs( theirs.cid, () => ! standingBack() ) ) {
 				next.value = theirs;
 			}
 		}
 	}
+
+	/**
+	 * Standing behind the end of the walk: the song lined up is the walk's
+	 * own next one, so the rabbithole plays on through itself whether the
+	 * next button asks for it or this song simply ends.
+	 *
+	 * Without it only the button replayed the walk: a song that ended
+	 * where you stood played whatever the quest had lined up, and that
+	 * song joined the walk after the hop you had walked back from -- a
+	 * step nobody took (re, #rabbithole, 16 Nov 2026).
+	 *
+	 * @return {Promise<boolean>} Whether the walk is what comes next.
+	 */
+	async function queueTheWalk() {
+		const hops = walk.hops;
+		const ahead = standingBack() ? hops[ walk.at + 1 ] : null;
+		if ( ! ahead ) {
+			return false;
+		}
+		// The picker on the cards is the one the walk followed here.
+		if ( mode.value !== 'chase' ) {
+			following.value = ahead.via && ahead.via.name ? ahead.via.name : null;
+			next.value = { song: ahead.song, cid: ahead.cid };
+		}
+		if ( songs.queuedCids.includes( ahead.cid ) ) {
+			return true;
+		}
+		giveWay();
+		const step = walk.at + 1;
+		walk.mark( ahead.cid, { step } );
+		await queueOurs( ahead.cid, () => standingBack() && walk.at + 1 === step );
+		return true;
+	}
+
+	/** Standing behind the end of the walk, with a hop still ahead of you. */
+	function standingBack() {
+		return walk.at >= 0 && walk.at < walk.hops.length - 1;
+	}
+
+	/*
+	 * Where you are standing is settled a moment after the song starts --
+	 * the walk takes a hop only once a note plays -- so what is lined up
+	 * is worked out again when it moves. Without this the quest's pick was
+	 * queued against the old place and stayed there (seen on the preview,
+	 * 16 Nov 2026: standing back at Cicada Song, Moon Factory was up next
+	 * instead of the walk's own Drowsy Maggie).
+	 */
+	watch( () => walk.at, () => {
+		queueTheWalk().catch( ( err ) => console.warn( 'Could not line up the walk', err ) );
+	} );
 
 	/**
 	 * What the rabbithole lined up by itself gets out of the way: a person
@@ -315,15 +379,113 @@ export const usePickerStore = defineStore( 'picker', () => {
 	 * to end in silence (re, 15 Nov 2026).
 	 */
 	async function lineUpSomething() {
-		if ( songs.queuedCids.length || songs.recordRest.length ) {
+		if ( songs.queuedCids.length || songs.recordRest.length || standingBack() ) {
 			return;
 		}
 		const track = anotherTrack( await songs.chartedList(), {
 			currentCid: currentCid(), playedCids: playedCids.value,
 		} );
 		if ( track && ! songs.queuedCids.length ) {
-			await queueOurs( track.cid );
+			// Still at the end of the walk when the track comes back.
+			// It says what it is. A hop with no word is a song played cold,
+			// which closes the rabbithole and starts another -- and the
+			// rabbithole reaching for a song itself is the opposite of
+			// that: it is the rabbithole carrying on when nobody on this
+			// song has anywhere left to lead (Justin, #rabbithole, 15 Nov
+			// 2026: "I just clicked 'next' on Cicada Song and it started a
+			// new rabbithole instead of questing through a picker").
+			walk.mark( track.cid, { why: 'wander' } );
+			await queueOurs( track.cid, () => ! standingBack() );
 		}
+	}
+
+	/**
+	 * Play a recording this rabbithole has already been to, standing where
+	 * it stands in the walk: a step along the chain, not a new one.
+	 *
+	 * Justin, 15 Nov 2026, item 40: "it needs to go back _in the
+	 * rabbithole_ to that song and play through the rabbithole the same
+	 * way that it had been playing, unless I make a change to the picker
+	 * or quest/chase mode." So the mode and the chased picker are left as
+	 * they are, and the walk is told which hop this is rather than being
+	 * given a new one -- a step back that wrote its own hop left the next
+	 * step back on the song just left (re, 16 Nov 2026).
+	 *
+	 * @param {string} cid The recording.
+	 * @param {?number} step Its place in the walk, where the caller knows
+	 *   it (the graph sends one); else it is looked up.
+	 * @return {Promise<boolean>} Whether anything was played.
+	 */
+	async function playHop( cid, step = null ) {
+		if ( ! cid ) {
+			return false;
+		}
+		const hops = walk.hops;
+		const named = typeof step === 'number' && hops[ step ] && hops[ step ].cid === cid;
+		const index = named ? step : hops.findIndex( ( hop ) => hop.cid === cid );
+		// What the rabbithole lined up for later stands aside: the song
+		// asked for is the one that plays.
+		giveWay();
+		// Not in this walk at all: it is a song played cold, and the walk
+		// store will read it as the start of another, which is what it is.
+		walk.mark( cid, index < 0 ? null : { step: index } );
+		try {
+			await songs.playCid( cid, { play: true } );
+		} catch ( err ) {
+			console.warn( 'Could not play', cid, err );
+			return false;
+		}
+		return true;
+	}
+
+	/**
+	 * The next song of this rabbithole, now: what is lined up, and if
+	 * nothing is, whatever the chase, the quest or the floor can name.
+	 *
+	 * This is what Webamp's next button means here. Webamp's own next
+	 * walks its playlist, which at the end of a record wrapped round to
+	 * the first track and played it cold -- a song with no word, so the
+	 * rabbithole closed and another began (Justin, 15 Nov 2026). And it
+	 * plays, whatever the player was doing: next on a stopped player that
+	 * loads a song in silence is a button that does nothing (item 39).
+	 *
+	 * @return {Promise<boolean>} Whether there was a next song.
+	 */
+	async function forward() {
+		// What is lined up is what comes next, whoever lined it up: the
+		// walk's own next song while you stand behind the end, a chase's
+		// pick once you start one, a song a person queued by hand. Only
+		// an empty queue needs anything worked out.
+		if ( ! songs.queuedCids.length && ! await queueTheWalk() ) {
+			if ( mode.value === 'chase' && following.value ) {
+				await queueNext();
+			} else {
+				await quest();
+			}
+			await lineUpSomething();
+		}
+		if ( ! player.model ) {
+			return false;
+		}
+		// Stepping on is listening (Justin's item 32).
+		useLayoutStore().startTraversing();
+		return player.model.playNext();
+	}
+
+	/**
+	 * Back a step: the recording before this one in this rabbithole,
+	 * played on. Webamp's previous button, which used to reload the
+	 * current track or stall (item 37).
+	 *
+	 * @return {Promise<boolean>} Whether there was one behind this.
+	 */
+	async function back() {
+		const hops = walk.hops;
+		const here = walk.at;
+		if ( here > 0 && hops[ here - 1 ] ) {
+			return playHop( hops[ here - 1 ].cid, here - 1 );
+		}
+		return false;
 	}
 
 	/*
@@ -366,6 +528,9 @@ export const usePickerStore = defineStore( 'picker', () => {
 		if ( cid === ours.value ) {
 			ours.value = null;
 		}
+		if ( await queueTheWalk() ) {
+			return;
+		}
 		if ( mode.value === 'chase' ) {
 			// One song ahead and no more: the chase lines up another when
 			// the one it queued starts, or when it has none -- which is
@@ -380,5 +545,5 @@ export const usePickerStore = defineStore( 'picker', () => {
 		await lineUpSomething();
 	}, { immediate: true } );
 
-	return { mode, following, next, ours, offer, look, chase, stop, giveWay };
+	return { mode, following, next, ours, offer, look, chase, stop, giveWay, forward, back, playHop };
 } );

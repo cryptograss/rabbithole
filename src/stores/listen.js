@@ -26,16 +26,21 @@ export const useListenStore = defineStore( 'listen', () => {
 	/**
 	 * Ask about a track. The song's name is filled in when the wiki answers;
 	 * the dialogue is up before that, since the question does not wait on it.
+	 *
+	 * `via` is how the track was reached where that is known -- a road not
+	 * taken in a connectome, which is a picker followed -- and it rides
+	 * along so that answering "play now" keeps the word on the walk's hop
+	 * (Justin, 15 Nov 2026, item 36: a play from a graph asks too).
 	 */
-	async function ask( cid, song = null ) {
-		asking.value = { cid, song, page: song ? 'Song:' + song : null };
+	async function ask( cid, song = null, via = null ) {
+		asking.value = { cid, song, page: song ? 'Song:' + song : null, via };
 		said.value = '';
 		if ( song ) {
 			return;
 		}
 		const page = await wiki.songPageOf( cid, null ).catch( () => null );
 		if ( asking.value && asking.value.cid === cid ) {
-			asking.value = { cid, song: page ? page.replace( /^Song:/, '' ) : null, page };
+			asking.value = { cid, song: page ? page.replace( /^Song:/, '' ) : null, page, via };
 		}
 	}
 
