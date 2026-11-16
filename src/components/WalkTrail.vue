@@ -10,7 +10,7 @@
  * explorer", a little collapsed view in the player (the song on now, and
  * one or two before it), and the whole of it when it opens, "more like a
  * flow chart than a constellation". So it is the connectome's own graph
- * (/assets/connectome/?walk), in a frame: the songs are its circles, the
+ * (/bacon?walk), in a frame: the songs are its circles, the
  * picker you followed is the tag on the line between two of them, gold is
  * a Permanent Release and nothing else. In the sidebar the frame shows the
  * last few steps; a click opens it into a drawer over the page, the same
@@ -40,7 +40,7 @@ const picker = usePickerStore();
 const pane = usePaneStore();
 
 /** The graph's own page, in its "your rabbithole" view, told it is Rabbithole's. */
-const SRC = '/assets/connectome/?walk=mini&host=rabbithole';
+const SRC = '/bacon?walk=mini&host=rabbithole';
 
 const open = ref( false );
 const frame = ref( null );

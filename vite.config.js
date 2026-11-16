@@ -105,7 +105,7 @@ export default defineConfig( {
 			'127.0.0.1',
 		],
 		proxy: {
-			...proxied( [ '/api.php', '/index.php', '/load.php', '/wiki', '/images', '/resources', '/extensions', '/assets', '/skins' ] ),
+			...proxied( [ '/api.php', '/index.php', '/load.php', '/wiki', '/images', '/resources', '/extensions', '/assets', '/bacon', '/skins' ] ),
 			'/piki': {
 				target: WIKI,
 				changeOrigin: true,

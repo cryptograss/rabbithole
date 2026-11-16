@@ -29,10 +29,13 @@ describe( 'leavesTheApp', () => {
 	it( 'is true for the big connectome graph, where the card\'s dots and lines lead', () => {
 		expect( leavesTheApp( '/assets/connectome/?a=Maddie+Denton&b=Justin+Myles+Holmes' ) ).toBe( true );
 		expect( leavesTheApp( '/assets/connectome/?p=Maddie+Denton' ) ).toBe( true );
+		expect( leavesTheApp( '/bacon?p=Maddie+Denton' ) ).toBe( true );
+		expect( leavesTheApp( '/bacon' ) ).toBe( true );
 	} );
 	it( 'is false for anchors and other sites', () => {
 		expect( leavesTheApp( '#On_the_record' ) ).toBe( false );
 		expect( leavesTheApp( 'https://justinholmes.com/' ) ).toBe( false );
+		expect( leavesTheApp( '/baconx' ) ).toBe( false );
 		expect( leavesTheApp( null ) ).toBe( false );
 	} );
 } );

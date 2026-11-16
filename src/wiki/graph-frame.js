@@ -2,7 +2,7 @@
  * The connectome, inside Rabbithole: what the player says to a graph in a
  * frame, and which links open one.
  *
- * The graph is a page of its own (/assets/connectome/), script and all, so
+ * The graph is a page of its own (/bacon), script and all, so
  * it cannot be shown the way an article is: injected HTML runs no scripts.
  * It goes in a frame, and the two talk by postMessage, same origin only --
  * the protocol the walk drawer already uses (WalkTrail.vue). Told
@@ -15,8 +15,18 @@
  * drawer's walk and the graph in the pane.
  */
 
-/** Where the connectome's own page lives. */
-export const GRAPH_PATH = '/assets/connectome/';
+/**
+ * Where the graph's page lives: /bacon (Justin, #connectome, 16 Nov 2026).
+ * Its files stay in /assets/connectome/, and a page parsed before the move
+ * still links the old address, which the wiki sends on to /bacon.
+ */
+export const GRAPH_PATH = '/bacon';
+const OLD_PAGES = [ '/assets/connectome/', '/assets/connectome/index.html' ];
+
+/** Is this path the graph's page, at either address? */
+function isGraphPath( path ) {
+	return path === GRAPH_PATH || path === GRAPH_PATH + '/' || OLD_PAGES.includes( path );
+}
 
 /**
  * The frame to show for a link, or null when the link is not a graph's.
@@ -37,17 +47,24 @@ export function graphSrcFor( href ) {
 	} catch ( err ) {
 		return null;
 	}
-	if ( url.origin !== window.location.origin || ! url.pathname.startsWith( GRAPH_PATH ) ) {
+	if ( url.origin !== window.location.origin || ! isGraphPath( url.pathname ) ) {
 		return null;
 	}
 	url.searchParams.set( 'host', 'rabbithole' );
-	return url.pathname + url.search;
+	return GRAPH_PATH + url.search;
 }
 
 /** Is this frame showing a connectome? */
 export function isGraphFrame( frame ) {
 	const src = frame && frame.getAttribute && frame.getAttribute( 'src' );
-	return !! src && src.indexOf( GRAPH_PATH ) !== -1;
+	if ( ! src ) {
+		return false;
+	}
+	try {
+		return isGraphPath( new URL( src, window.location.origin ).pathname );
+	} catch ( err ) {
+		return false;
+	}
 }
 
 /**

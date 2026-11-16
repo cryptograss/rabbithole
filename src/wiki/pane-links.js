@@ -44,9 +44,9 @@ export function titleFromHref( href ) {
 
 /**
  * A link into the wiki that is not an article the pane can show: an edit
- * form, a history, a Special page, or one of the wiki's static pages
- * under /assets/, which is where the big connectome graph lives
- * (/assets/connectome/). The card's dots, lines and "explore" all link
+ * form, a history, a Special page, one of the wiki's static pages under
+ * /assets/, or the big graph's page, /bacon (its old address was
+ * /assets/connectome/). The card's dots, lines and "explore" all link
  * there.
  */
 export function leavesTheApp( href ) {
@@ -63,5 +63,5 @@ export function leavesTheApp( href ) {
 		return false;
 	}
 	return url.pathname.startsWith( '/index.php' ) || url.pathname.startsWith( '/wiki/' )
-		|| url.pathname.startsWith( '/assets/' );
+		|| url.pathname.startsWith( '/assets/' ) || url.pathname === '/bacon' || url.pathname === '/bacon/';
 }
