@@ -788,6 +788,37 @@
     pointer-events: none;
 }
 
+/* The one way to add a moment with the mouse: it rides the hover line, in
+   the gutter left of the wave, so it is beside the second you are
+   pointing at. The line itself takes no clicks; this does. */
+.ruler-add {
+    position: absolute;
+    left: 1px;
+    top: -8px;
+    width: 16px;
+    height: 16px;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+    border: 1px solid #4a7c59;
+    border-radius: 50%;
+    background: #fff;
+    color: #4a7c59;
+    font-size: 13px;
+    font-weight: 700;
+    line-height: 1;
+    cursor: pointer;
+    pointer-events: auto;
+}
+
+.ruler-add:hover,
+.ruler-add:focus-visible {
+    background: #4a7c59;
+    color: #fff;
+}
+
 .ruler-hover-time {
     position: absolute;
     left: 30px;

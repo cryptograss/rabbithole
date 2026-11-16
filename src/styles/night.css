@@ -327,6 +327,15 @@
 		background-color: rgba(33, 28, 34, 0.85);
 	}
 	.ruler-marker.selected .ruler-marker-label { color: var(--night-rust); }
+	.ruler-add {
+		background-color: var(--night-panel);
+		color: var(--night-green-pale);
+	}
+	.ruler-add:hover,
+	.ruler-add:focus-visible {
+		background-color: var(--night-press);
+		color: var(--night-green-pale);
+	}
 	.marker-form { background-color: var(--night-paper); }
 	.marker-form-head strong { color: var(--night-green-pale); }
 	.mf-menu { background-color: var(--night-panel); }
