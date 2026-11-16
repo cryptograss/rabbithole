@@ -9,7 +9,7 @@
  * - Undo/redo support
  */
 
-import { processTimeline } from '../player/timeline.js';
+import { processTimeline, normalizeTimeline } from '../player/timeline.js';
 import { sectionShape, sectionize } from './sections.js';
 
 const BACKUP_INTERVAL = 10000; // Auto-backup every 10 seconds
@@ -44,14 +44,23 @@ export function flattenSections(trackData) {
 export class EditableTrackData {
     constructor(trackData, options = {}) {
         /*
+         * Every moment is an object before anything reads one, however
+         * the chart reached us (player/timeline.js normalizeTimeline).
+         */
+        const chart = {
+            ...trackData,
+            timeline: normalizeTimeline(trackData && trackData.timeline),
+        };
+
+        /*
          * The shape the chart arrived in. A chart written in sections is
          * edited in seconds and saved in sections again, so that a record
          * made around a click keeps saying so (Justin, 15 Nov 2026).
          */
-        this.sections = sectionShape(trackData);
+        this.sections = sectionShape(chart);
 
         // Store deep copies to prevent mutation
-        this.originalData = this._deepClone(flattenSections(trackData));
+        this.originalData = this._deepClone(flattenSections(chart));
         this.workingData = this._deepClone(this.originalData);
 
         // Track the recording title for storage keys
@@ -155,6 +164,21 @@ export class EditableTrackData {
      * Get the current timeline
      */
     get timeline() {
+        return this.workingData.timeline;
+    }
+
+    /**
+     * Put a whole chart in place of the working one.
+     *
+     * The one way a timeline arrives from outside -- pasted into the raw
+     * YAML view, or restored from the browser's backup -- so that what
+     * the editor holds is always a chart of moments, never a bare time
+     * that parsed as null (player/timeline.js normalizeTimeline says
+     * why). It does not notify; the caller does, once it has set
+     * whatever else came with the chart.
+     */
+    replaceTimeline(timeline) {
+        this.workingData.timeline = normalizeTimeline(timeline);
         return this.workingData.timeline;
     }
 
@@ -568,7 +592,8 @@ export class EditableTrackData {
 
             // We could prompt the user here, but for now just load it.
             // A backup made of a sectioned chart is resolved the same way.
-            this.workingData.timeline = flattenSections({ ...this.workingData, timeline: backup.timeline }).timeline;
+            const restored = { ...this.workingData, timeline: normalizeTimeline(backup.timeline) };
+            this.replaceTimeline(flattenSections(restored).timeline);
             if (backup.ensemble) this.workingData.ensemble = backup.ensemble;
             this._notifyChange();
 

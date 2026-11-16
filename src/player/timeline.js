@@ -22,6 +22,44 @@ import { isVoice } from '../instruments.js';
 export const happensOnce = ( key ) => key === 'part' || /^(flourish|spotlight|bandFlash)/.test( key );
 
 /**
+ * A chart's moments, every one of them an object.
+ *
+ * In YAML a time written with nothing under it --
+ *
+ *     '7.7':
+ *     '20.6':
+ *       solo: Justin Holmes
+ *
+ * -- parses as null, which is a reasonable way to write "a marker here,
+ * nothing said about it yet". The ruler already has a word for a moment
+ * that features nobody: "unnamed". So a bare time is an empty moment,
+ * and that is settled here, at the door, rather than guarded at each of
+ * the dozens of places that read `moment.solo` or `moment.part`.
+ *
+ * Justin, #rabbithole-editor, 15 Nov 2026: one null moment, typed into
+ * the raw YAML view and kept in the browser's backup, left Swords to
+ * Ploughshares unopenable -- the editor rendered an empty panel and the
+ * console repeated "can't access property 'solo', e is null" -- and took
+ * the player down with it.
+ *
+ * Every chart passes through here on its way in: from the wiki
+ * (wiki/api.js extractMetadata), from the raw YAML view, and from the
+ * browser's backup of unsaved edits.
+ */
+export function normalizeTimeline( timeline ) {
+	if ( ! timeline || typeof timeline !== 'object' ) {
+		return {};
+	}
+	const out = {};
+	for ( const [ key, moment ] of Object.entries( timeline ) ) {
+		out[ key ] = ( moment && typeof moment === 'object' && ! Array.isArray( moment ) )
+			? moment
+			: {};
+	}
+	return out;
+}
+
+/**
  * Where a chart's sections start, in order: [{ name, time, data }].
  *
  * `section1`, `section2`... are labels in order, placed one
