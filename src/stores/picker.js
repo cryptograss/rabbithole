@@ -33,6 +33,7 @@ import { computed, ref, watch } from 'vue';
 import { recordsOn } from '../trail.js';
 import { recordsOf } from '../wiki/api.js';
 import { performerGraph, songCid } from '../wiki/queue.js';
+import { useLayoutStore } from './layout.js';
 import { usePlayerStore } from './player.js';
 import { useSongStore } from './song.js';
 import { useWalkStore } from './walk.js';
@@ -322,8 +323,102 @@ export const usePickerStore = defineStore( 'picker', () => {
 			currentCid: currentCid(), playedCids: playedCids.value,
 		} );
 		if ( track && ! songs.queuedCids.length ) {
+			// It says what it is. A hop with no word is a song played cold,
+			// which closes the rabbithole and starts another -- and the
+			// rabbithole reaching for a song itself is the opposite of
+			// that: it is the rabbithole carrying on when nobody on this
+			// song has anywhere left to lead (Justin, #rabbithole, 15 Nov
+			// 2026: "I just clicked 'next' on Cicada Song and it started a
+			// new rabbithole instead of questing through a picker").
+			walk.mark( track.cid, { why: 'wander' } );
 			await queueOurs( track.cid );
 		}
+	}
+
+	/**
+	 * Play a recording this rabbithole has already been to: a step back,
+	 * not a new one. The word on the hop is what keeps the walk whole --
+	 * without one the song reads as played cold, and the rabbithole you
+	 * were in closes behind you (Justin, 15 Nov 2026, item 40: "it needs
+	 * to go back _in the rabbithole_ to that song and play through the
+	 * rabbithole the same way that it had been playing, unless I make a
+	 * change to the picker or quest/chase mode").
+	 *
+	 * The mode and the chased picker are left exactly as they are, so
+	 * going back changes where you are and nothing about where you are
+	 * going.
+	 *
+	 * @param {string} cid The recording to go back to.
+	 * @return {Promise<boolean>} Whether there was one to play.
+	 */
+	async function playHop( cid ) {
+		if ( ! cid ) {
+			return false;
+		}
+		// What the rabbithole lined up for later stands aside: the song
+		// asked for is the one that plays.
+		giveWay();
+		walk.mark( cid, { why: 'back' } );
+		try {
+			await songs.playCid( cid, { play: true } );
+		} catch ( err ) {
+			console.warn( 'Could not go back to', cid, err );
+			return false;
+		}
+		return true;
+	}
+
+	/**
+	 * The next song of this rabbithole, now: what is lined up, and if
+	 * nothing is, whatever the chase, the quest or the floor can name.
+	 *
+	 * This is what Webamp's next button means here. Webamp's own next
+	 * walks its playlist, which at the end of a record wrapped round to
+	 * the first track and played it cold -- a song with no word, so the
+	 * rabbithole closed and another began (Justin, 15 Nov 2026). And it
+	 * plays, whatever the player was doing: next on a stopped player that
+	 * loads a song in silence is a button that does nothing (item 39).
+	 *
+	 * @return {Promise<boolean>} Whether there was a next song.
+	 */
+	async function forward() {
+		if ( ! songs.queuedCids.length ) {
+			if ( mode.value === 'chase' && following.value ) {
+				await queueNext();
+			} else {
+				await quest();
+			}
+			await lineUpSomething();
+		}
+		if ( ! player.model ) {
+			return false;
+		}
+		// Stepping on is listening (Justin's item 32).
+		useLayoutStore().startTraversing();
+		return player.model.playNext();
+	}
+
+	/**
+	 * Back a step: the recording before this one in this rabbithole,
+	 * played on. Webamp's previous button, which used to reload the
+	 * current track or stall (item 37).
+	 *
+	 * @return {Promise<boolean>} Whether there was one behind this.
+	 */
+	async function back() {
+		const hops = walk.hops;
+		const cid = currentCid();
+		let at = -1;
+		for ( let i = hops.length - 1; i >= 0; i-- ) {
+			if ( hops[ i ].cid === cid ) {
+				at = i;
+				break;
+			}
+		}
+		// Not in the walk at all (nothing has played yet): the last hop is
+		// where this rabbithole was.
+		const prev = at > 0 ? hops[ at - 1 ] : ( at === -1 ? hops[ hops.length - 1 ] : null );
+		return prev ? playHop( prev.cid ) : false;
 	}
 
 	/*
@@ -380,5 +475,5 @@ export const usePickerStore = defineStore( 'picker', () => {
 		await lineUpSomething();
 	}, { immediate: true } );
 
-	return { mode, following, next, ours, offer, look, chase, stop, giveWay };
+	return { mode, following, next, ours, offer, look, chase, stop, giveWay, forward, back, playHop };
 } );

@@ -17,6 +17,7 @@ import * as wiki from './api.js';
 import { useSongStore } from '../stores/song.js';
 import { usePaneStore } from '../stores/pane.js';
 import { useLayoutStore } from '../stores/layout.js';
+import { useListenStore } from '../stores/listen.js';
 import { usePlayerStore } from '../stores/player.js';
 import { useWalkStore } from '../stores/walk.js';
 // The picker store imports this module in turn, for the performer graph.
@@ -84,6 +85,33 @@ export async function playTrackInDock( cid ) {
 	} catch ( err ) {
 		console.warn( 'Could not play', cid, 'in the dock', err );
 	}
+}
+
+/**
+ * A track asked for, from anywhere: the pane's buttons, a connectome in
+ * the pane, the walk's own drawer.
+ *
+ * One rule, in one place: nothing playing, it plays; something playing,
+ * the three answers are offered (Justin's item 15, and item 36 on 15 Nov
+ * 2026: "I'm still not getting options when I click any of the 'listen in
+ * rabbithole' buttons, on a page or in a bacon graph"). A graph used to
+ * play its pick over whatever was on without asking.
+ *
+ * @param {string} cid The recording asked for.
+ * @param {?Object} via Who was followed to it, where that is known.
+ */
+export async function askOrPlay( cid, via = null ) {
+	const player = usePlayerStore();
+	const listen = useListenStore();
+	const playing = player.song && player.song._trackCid;
+	if ( player.playing && cid !== playing ) {
+		await listen.ask( cid, null, via );
+		return;
+	}
+	if ( via ) {
+		useWalkStore().mark( cid, via );
+	}
+	await playTrackInDock( cid );
 }
 
 /**

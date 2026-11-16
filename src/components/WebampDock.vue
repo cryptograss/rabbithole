@@ -11,6 +11,7 @@
 import { ref, watch, onMounted } from 'vue';
 import { usePlayerStore } from '../stores/player.js';
 import { useSongStore } from '../stores/song.js';
+import { usePickerStore } from '../stores/picker.js';
 
 const player = usePlayerStore();
 const songs = useSongStore();
@@ -24,6 +25,15 @@ async function build() {
 	}
 	mounting = true;
 	const model = player.create( songs.initial );
+	// Next and previous are the rabbithole's steps, not Webamp's playlist
+	// walk: forward lines up whatever the chase, the quest or the floor
+	// names and plays it, and back returns to the song before this one in
+	// this rabbithole (Justin, #rabbithole, 15 Nov 2026, items 32, 37, 39).
+	model.onStep = ( which ) => {
+		const steps = usePickerStore();
+		const step = which === 'next' ? steps.forward() : steps.back();
+		Promise.resolve( step ).catch( ( err ) => console.warn( 'Could not step', which, err ) );
+	};
 	await model.mount( box.value );
 }
 

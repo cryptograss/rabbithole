@@ -753,9 +753,16 @@ body.bottom-bar .pane-column {
     order: 2;
 }
 
+/* The song's name gives way last, and the ones beside it give way first:
+   the name is the one thing in the bar a person is looking for, and at
+   1280px "Swords to Ploughshares" lost its last two letters to a track
+   selector that had 170px to spare (Justin, 15 Nov 2026, item 34). The
+   weights are flex-shrink: the name shrinks a fifth as fast as the record
+   line, a thirtieth as fast as the selector, and an ellipsis says so when
+   even that is not enough. */
 .rabbithole-header .song-title-display {
     order: 3;
-    flex: 0 1 auto;
+    flex: 0 0.2 auto;
     min-width: 0;
     white-space: nowrap;
     overflow: hidden;
@@ -766,6 +773,7 @@ body.bottom-bar .pane-column {
     order: 4;
     flex: 0 1 auto;
     min-width: 0;
+    flex-shrink: 1;
     margin: 0;
     white-space: nowrap;
     overflow: hidden;
@@ -780,8 +788,9 @@ body.bottom-bar .pane-column {
 
 .rabbithole-header .album-row .song-select,
 .rabbithole-header .album-track-select {
-    flex: 0 1 auto;
+    flex: 0 6 auto;
     width: 170px;
+    min-width: 72px;
     padding: 1px 4px;
     font-size: 11px;
     height: 22px;

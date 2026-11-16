@@ -29,6 +29,7 @@
 import { defineStore } from 'pinia';
 import { ref, computed, watch } from 'vue';
 
+import { useLayoutStore } from './layout.js';
 import { usePlayerStore } from './player.js';
 import { useSongStore } from './song.js';
 
@@ -327,6 +328,7 @@ export const useWalkStore = defineStore( 'walk', () => {
 			past: state.value.past.concat( [ { hops: current, closedAt: Date.now() } ] ).slice( -PAST_CAP ),
 		};
 		persist();
+		useLayoutStore().startTraversing();
 	}
 
 	function clear() {
@@ -354,8 +356,15 @@ export const useWalkStore = defineStore( 'walk', () => {
 			at: Date.now(),
 		} );
 		if ( next.current !== state.value.current || next.past !== state.value.past ) {
+			const fresh = next.past !== state.value.past;
 			state.value = next;
 			persist();
+			// A new rabbithole travels with the track: the one thing that
+			// has just become true is that you are listening rather than
+			// reading (Justin, 15 Nov 2026, item 32).
+			if ( fresh ) {
+				useLayoutStore().startTraversing();
+			}
 		}
 	}, { immediate: true } );
 

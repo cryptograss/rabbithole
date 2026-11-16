@@ -52,6 +52,12 @@ export class WebampPlayer {
 	constructor( song ) {
 		this.webamp = null;
 		this.container = null;
+		/**
+		 * What to do when Webamp's next or previous button is pressed:
+		 * called with 'next' or 'previous'. Null until something sets it,
+		 * in which case the buttons do what Webamp does with them.
+		 */
+		this.onStep = null;
 		this.songsByUrl = new Map();
 
 		this.state = reactive( {
@@ -144,6 +150,29 @@ export class WebampPlayer {
 		// 2026). The wheel is the page's: it is stopped here, on the way
 		// down, before Webamp's own listener sees it.
 		container.addEventListener( 'wheel', ( e ) => e.stopPropagation(), { capture: true, passive: true } );
+
+		// Next and previous belong to the rabbithole, not to Webamp's
+		// playlist. Webamp's own next wrapped round to the first track at
+		// the end of a record and played it cold, which closed the
+		// rabbithole and began another, and its previous reloaded the track
+		// it was on (Justin, #rabbithole, 15 Nov 2026, items 37 and 38).
+		// The buttons are Webamp's own DOM, so the click is taken on the
+		// way down, before its handler sees it, and handed to whoever set
+		// `onStep` -- here, the picker store, which knows what the next
+		// song of this rabbithole is and what the last one was.
+		for ( const kind of [ 'mousedown', 'click' ] ) {
+			container.addEventListener( kind, ( e ) => {
+				const button = e.target && e.target.closest && e.target.closest( '#next, #previous' );
+				if ( ! button || ! this.onStep ) {
+					return;
+				}
+				e.preventDefault();
+				e.stopPropagation();
+				if ( kind === 'click' ) {
+					this.onStep( button.id === 'next' ? 'next' : 'previous' );
+				}
+			}, { capture: true } );
+		}
 
 		// With the Web Audio graph bypassed the volume slider drives a gain
 		// node downstream of nothing; point it at the element instead.
