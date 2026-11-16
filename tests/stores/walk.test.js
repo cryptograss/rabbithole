@@ -6,7 +6,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { createPinia, setActivePinia } from 'pinia';
 import { reactive, nextTick } from 'vue';
 
-import { advanced, connected, drawerDoes, followedVia, heard, pushed, revive, stored, useWalkStore } from '../../src/stores/walk.js';
+import { advanced, connected, drawerDoes, followedVia, heard, pushed, revive, stored, trimmed, useWalkStore } from '../../src/stores/walk.js';
 import { usePlayerStore } from '../../src/stores/player.js';
 import { viaPicker } from '../../src/stores/picker.js';
 
@@ -72,6 +72,21 @@ describe( 'advanced', () => {
 		}
 		expect( state.past ).toHaveLength( 8 );
 		expect( state.current ).toEqual( [ { cid: 'Qd11', song: 'Other 11', via: null, why: null, at: 11 } ] );
+	} );
+} );
+
+describe( 'trimmed', () => {
+	const walk = { current: [ { cid: 'Qa' }, { cid: 'Qs' }, { cid: 'Qc' } ], past: [] };
+
+	it( 'cuts the walk where you stand and keeps what came after', () => {
+		const cut = trimmed( walk, 0, 99 );
+		expect( cut.current.map( ( h ) => h.cid ) ).toEqual( [ 'Qa' ] );
+		expect( cut.past ).toEqual( [ { hops: [ { cid: 'Qs' }, { cid: 'Qc' } ], closedAt: 99 } ] );
+	} );
+
+	it( 'is the same walk when you are standing at the end of it, or nowhere', () => {
+		expect( trimmed( walk, 2, 99 ) ).toBe( walk );
+		expect( trimmed( walk, -1, 99 ) ).toBe( walk );
 	} );
 } );
 
@@ -174,6 +189,31 @@ describe( 'useWalkStore', () => {
 		await nextTick();
 		expect( walk.hops.map( ( h ) => h.cid ) ).toEqual( [ 'Qx' ] );
 		expect( walk.at ).toBe( 0 );
+	} );
+
+	it( 'cuts the walk when you go somewhere new from the middle of it', async () => {
+		// re, #rabbithole, 16 Nov 2026: what came after where you stand did
+		// not happen on the way to where you are going now; it was a walk
+		// of its own, so it is kept rather than left hanging off the end.
+		const player = usePlayerStore();
+		const model = { state: reactive( { song: { _trackCid: 'Qa', title: 'August' }, status: 'PLAYING', upNext: [] } ) };
+		player.model = model;
+		const walk = useWalkStore();
+		walk.mark( 'Qs', { why: 'quest' } );
+		model.state.song = { _trackCid: 'Qs', title: 'Silver 44' };
+		await nextTick();
+		walk.mark( 'Qa', { step: 0 } );
+		model.state.song = { _trackCid: 'Qa', title: 'August' };
+		await nextTick();
+		expect( walk.at ).toBe( 0 );
+
+		// From there, somewhere else entirely: followed somebody.
+		walk.mark( 'Qc', { name: 'Harry Clark', why: 'chase' } );
+		model.state.song = { _trackCid: 'Qc', title: 'Cicada Song' };
+		await nextTick();
+		expect( walk.hops.map( ( h ) => h.cid ) ).toEqual( [ 'Qa', 'Qc' ] );
+		expect( walk.past.map( ( p ) => p.hops.map( ( h ) => h.cid ) ) ).toEqual( [ [ 'Qs' ] ] );
+		expect( walk.at ).toBe( 1 );
 	} );
 
 	// Justin, 15 Nov 2026: "32 hops ... I certainly haven't let it play for 32 tracks". Every visit loads a song;

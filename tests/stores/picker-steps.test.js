@@ -37,6 +37,7 @@ import { usePickerStore } from '../../src/stores/picker.js';
 const AUGUST = 'QmAugust';
 const CICADA = 'QmCicada';
 const SILVER = 'QmSilver';
+const PROX = 'QmProximity';
 
 async function settle() {
 	for ( let i = 0; i < 12; i++ ) {
@@ -48,7 +49,7 @@ function world( { band = {}, plays = {}, charted = [] } = {} ) {
 	const song = ref( null );
 	const cards = ref( [] );
 	globalThis.__graph = { band, plays, records: {} };
-	globalThis.__cids = { 'Song:Cicada Song': CICADA, 'Song:Silver 44': SILVER, 'Song:August': AUGUST };
+	globalThis.__cids = { 'Song:Cicada Song': CICADA, 'Song:Silver 44': SILVER, 'Song:August': AUGUST, 'Song:Proximity': PROX };
 	// The walk, as its store really behaves: a mark with a step moves where
 	// you stand, anything else adds a hop at the end (stores/walk.js).
 	const marks = [];
@@ -64,6 +65,11 @@ function world( { band = {}, plays = {}, charted = [] } = {} ) {
 				&& globalThis.__walk.hops[ marked.step ].cid === cid ) {
 				globalThis.__walk.at = marked.step;
 				return;
+			}
+			// Somewhere new from the middle cuts the walk there (stores/walk.js).
+			if ( globalThis.__walk.at >= 0 && globalThis.__walk.at < globalThis.__walk.hops.length - 1 ) {
+				globalThis.__walk.cut = globalThis.__walk.hops.slice( globalThis.__walk.at + 1 );
+				globalThis.__walk.hops = globalThis.__walk.hops.slice( 0, globalThis.__walk.at + 1 );
 			}
 			const last = globalThis.__walk.hops[ globalThis.__walk.hops.length - 1 ];
 			if ( ! last || last.cid !== cid ) {
@@ -275,6 +281,34 @@ describe( 'back and forward along the walk', () => {
 		expect( globalThis.__walk.at ).toBe( 0 );
 		// And there is nothing before the first song of a rabbithole.
 		expect( await picker.back() ).toBe( false );
+	} );
+
+	it( 'lines the walk\'s own next song up while you stand behind the end', async () => {
+		// re, #rabbithole, 16 Nov 2026: only the next button replayed the
+		// walk. A song that ended where you stood played the quest's pick,
+		// and it joined the walk after the hop you had walked back from --
+		// a step nobody took.
+		const w = world( {
+			// The quest and the floor both have somewhere fresh to go:
+			// Proximity, which this rabbithole has not played.
+			band: { [ 'Song:' + SILVER ]: { 'Kyle Tuttle': [ 'banjo' ] } },
+			plays: { 'Kyle Tuttle': [ 'Song:Proximity' ] },
+			charted: [ { cid: AUGUST }, { cid: SILVER }, { cid: CICADA }, { cid: PROX } ],
+		} );
+		const picker = usePickerStore();
+		const walk = await walked( w );
+
+		await picker.back();
+		await settle();
+		// Not a quest's pick, nor the floor's: the song the walk goes to.
+		expect( globalThis.__songs.queuedCids ).toEqual( [ CICADA ] );
+
+		// And when this song ends by itself, that is what plays.
+		globalThis.__player.model.playNext();
+		await settle();
+		expect( w.song.value._trackCid ).toBe( CICADA );
+		expect( walk.at ).toBe( 2 );
+		expect( walk.hops.map( ( h ) => h.cid ) ).toEqual( [ AUGUST, SILVER, CICADA ] );
 	} );
 
 	it( 'plays a song that is not in this walk as what it is: a song played cold', async () => {

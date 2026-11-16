@@ -114,6 +114,30 @@ export function advanced( state, entry ) {
 }
 
 /**
+ * The walk cut off where you are standing, with what came after kept.
+ *
+ * Pure. Going somewhere new from the middle of a rabbithole -- you walked
+ * back three songs and then followed somebody else -- means the chain you
+ * are on ends where you stand. What came after was a walk of its own, so
+ * it is kept rather than thrown away (re, #rabbithole, 16 Nov 2026).
+ *
+ * @param {Object} state The walk: {current, past}.
+ * @param {number} at Where you are standing, an index into current.
+ * @param {number} now When the cut happened.
+ * @return {Object} The walk, cut; the same object where nothing changed.
+ */
+export function trimmed( state, at, now = 0 ) {
+	const current = state.current;
+	if ( ! Array.isArray( current ) || at < 0 || at >= current.length - 1 ) {
+		return state;
+	}
+	return {
+		current: current.slice( 0, at + 1 ),
+		past: state.past.concat( [ { hops: current.slice( at + 1 ), closedAt: now || null } ] ).slice( -PAST_CAP ),
+	};
+}
+
+/**
  * The recording that counts as heard: the one loaded, once it plays.
  *
  * Pure. Null while nothing is loaded, or while what is loaded is still
@@ -375,7 +399,10 @@ export const useWalkStore = defineStore( 'walk', () => {
 				return;
 			}
 		}
-		const next = advanced( state.value, {
+		// Somewhere new from the middle: the walk ends where you stand, and
+		// what came after it is kept as a walk of its own.
+		const base = trimmed( state.value, at.value, Date.now() );
+		const next = advanced( base, {
 			cid,
 			song: ( songs.current && songs.current.title ) || null,
 			via: marked && marked.name ? { name: marked.name, instrument: marked.instrument || null } : null,
@@ -383,7 +410,7 @@ export const useWalkStore = defineStore( 'walk', () => {
 			at: Date.now(),
 		} );
 		if ( next.current !== state.value.current || next.past !== state.value.past ) {
-			const fresh = next.past !== state.value.past;
+			const fresh = next.past !== base.past;
 			state.value = next;
 			persist();
 			// A new rabbithole travels with the track: the one thing that

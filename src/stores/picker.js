@@ -288,6 +288,38 @@ export const usePickerStore = defineStore( 'picker', () => {
 	}
 
 	/**
+	 * Standing behind the end of the walk: the song lined up is the walk's
+	 * own next one, so the rabbithole plays on through itself whether the
+	 * next button asks for it or this song simply ends.
+	 *
+	 * Without it only the button replayed the walk: a song that ended
+	 * where you stood played whatever the quest had lined up, and that
+	 * song joined the walk after the hop you had walked back from -- a
+	 * step nobody took (re, #rabbithole, 16 Nov 2026).
+	 *
+	 * @return {Promise<boolean>} Whether the walk is what comes next.
+	 */
+	async function queueTheWalk() {
+		const hops = walk.hops;
+		const ahead = walk.at >= 0 && walk.at < hops.length - 1 ? hops[ walk.at + 1 ] : null;
+		if ( ! ahead ) {
+			return false;
+		}
+		// The picker on the cards is the one the walk followed here.
+		if ( mode.value !== 'chase' ) {
+			following.value = ahead.via && ahead.via.name ? ahead.via.name : null;
+			next.value = { song: ahead.song, cid: ahead.cid };
+		}
+		if ( songs.queuedCids.includes( ahead.cid ) ) {
+			return true;
+		}
+		giveWay();
+		walk.mark( ahead.cid, { step: walk.at + 1 } );
+		await queueOurs( ahead.cid );
+		return true;
+	}
+
+	/**
 	 * What the rabbithole lined up by itself gets out of the way: a person
 	 * asking for a song by hand means that song, next (item 15). A chase
 	 * or a quest lines another up when the next song starts, so nothing is
@@ -468,6 +500,9 @@ export const usePickerStore = defineStore( 'picker', () => {
 		}
 		if ( cid === ours.value ) {
 			ours.value = null;
+		}
+		if ( await queueTheWalk() ) {
+			return;
 		}
 		if ( mode.value === 'chase' ) {
 			// One song ahead and no more: the chase lines up another when
