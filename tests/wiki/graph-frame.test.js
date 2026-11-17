@@ -8,19 +8,41 @@ import { graphSrcFor, isGraphFrame, walkMessage } from '../../src/wiki/graph-fra
 
 describe( 'graphSrcFor', () => {
 	it( 'takes a connectome link and tells the graph it is inside Rabbithole', () => {
+		expect( graphSrcFor( '/bacon?cut=QmCicada' ) )
+			.toBe( '/bacon?cut=QmCicada&host=rabbithole' );
+		expect( graphSrcFor( '/bacon' ) ).toBe( '/bacon?host=rabbithole' );
+	} );
+
+	it( 'frames the old address at /bacon, with its query (Justin, 16 Nov 2026)', () => {
 		expect( graphSrcFor( '/assets/connectome/?cut=QmCicada' ) )
-			.toBe( '/assets/connectome/?cut=QmCicada&host=rabbithole' );
+			.toBe( '/bacon?cut=QmCicada&host=rabbithole' );
+		expect( graphSrcFor( '/assets/connectome/index.html?walk=mini' ) )
+			.toBe( '/bacon?walk=mini&host=rabbithole' );
+		expect( graphSrcFor( '/bacon/?p=Maddie+Denton' ) )
+			.toBe( '/bacon?p=Maddie+Denton&host=rabbithole' );
+	} );
+
+	it( 'frames a kept bacon graph at its own address', () => {
+		expect( graphSrcFor( '/bacon/cepkp1cxqmc' ) ).toBe( '/bacon/cepkp1cxqmc?host=rabbithole' );
+		expect( graphSrcFor( '/bacon/rzjk0p27qd4/' ) ).toBe( '/bacon/rzjk0p27qd4?host=rabbithole' );
+		expect( graphSrcFor( 'https://example.com/bacon/cepkp1cxqmc' ) ).toBe( null );
+		expect( graphSrcFor( '/bacon/cepkp1cxqmi' ) ).toBe( null );          // an i is no ID's
+		expect( graphSrcFor( '/bacon/xepkp1cxqmc' ) ).toBe( null );          // nor an x first
 	} );
 
 	it( 'keeps the host word to one, however the link arrived', () => {
 		expect( graphSrcFor( '/assets/connectome/?host=wiki&a=3' ) )
-			.toBe( '/assets/connectome/?host=rabbithole&a=3' );
+			.toBe( '/bacon?host=rabbithole&a=3' );
 	} );
 
 	it( 'is null for anything that is not a connectome', () => {
 		expect( graphSrcFor( '/wiki/Song:August' ) ).toBe( null );
 		expect( graphSrcFor( '/assets/logo.png' ) ).toBe( null );
+		expect( graphSrcFor( '/assets/connectome/graph.json' ) ).toBe( null );
+		expect( graphSrcFor( '/baconx' ) ).toBe( null );
+		expect( graphSrcFor( '/bacon/x' ) ).toBe( null );
 		expect( graphSrcFor( 'https://example.com/assets/connectome/' ) ).toBe( null );
+		expect( graphSrcFor( 'https://example.com/bacon' ) ).toBe( null );
 		expect( graphSrcFor( '' ) ).toBe( null );
 		expect( graphSrcFor( null ) ).toBe( null );
 	} );
@@ -29,10 +51,16 @@ describe( 'graphSrcFor', () => {
 describe( 'isGraphFrame', () => {
 	it( 'knows a connectome frame from any other', () => {
 		const frame = document.createElement( 'iframe' );
+		frame.setAttribute( 'src', '/bacon?walk=mini&host=rabbithole' );
+		expect( isGraphFrame( frame ) ).toBe( true );
 		frame.setAttribute( 'src', '/assets/connectome/?walk=mini&host=rabbithole' );
 		expect( isGraphFrame( frame ) ).toBe( true );
 		frame.setAttribute( 'src', '/assets/something-else/' );
 		expect( isGraphFrame( frame ) ).toBe( false );
+		frame.setAttribute( 'src', '/baconx?walk=mini' );
+		expect( isGraphFrame( frame ) ).toBe( false );
+		frame.setAttribute( 'src', '/bacon/cepkp1cxqmc?host=rabbithole' );
+		expect( isGraphFrame( frame ) ).toBe( true );
 		expect( isGraphFrame( document.createElement( 'iframe' ) ) ).toBe( false );
 		expect( isGraphFrame( null ) ).toBe( false );
 	} );

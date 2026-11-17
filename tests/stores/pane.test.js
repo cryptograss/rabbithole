@@ -100,8 +100,8 @@ describe( 'the connectome in the pane', () => {
 		await first;
 		expect( pane.view.kind ).toBe( 'article' );
 
-		pane.openGraph( '/assets/connectome/?cut=Qa&host=rabbithole' );
-		expect( pane.view ).toEqual( { kind: 'graph', src: '/assets/connectome/?cut=Qa&host=rabbithole' } );
+		pane.openGraph( '/bacon?cut=Qa&host=rabbithole' );
+		expect( pane.view ).toEqual( { kind: 'graph', src: '/bacon?cut=Qa&host=rabbithole' } );
 		expect( pane.shown ).toBe( null );
 		expect( pane.wanted ).toBe( null );
 
