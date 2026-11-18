@@ -913,6 +913,60 @@ body.bottom-bar .pane-column {
     transform: translateX(20px);
 }
 
+/* Traverse mode's rocker (Justin, #connectome, 18 Nov 2026): three places
+   on one track, bacon graphs on the left, off in the middle, PickiPedia
+   pages on the right. The one it is on is blue, as the switch's on was. */
+.traverse-rocker {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
+}
+
+.rh-bar-mid .traverse-rocker {
+    color: #fff;
+    font-size: 11.5px;
+}
+
+.traverse-track {
+    display: inline-flex;
+    flex-shrink: 0;
+    padding: 2px;
+    border-radius: 999px;
+    background: rgba(0, 0, 0, 0.22);
+}
+
+.traverse-pos {
+    position: relative;
+    padding: 2px 9px;
+    border-radius: 999px;
+    cursor: pointer;
+    color: inherit;
+    opacity: 0.8;
+}
+
+.traverse-pos input {
+    position: absolute;
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.traverse-pos.on {
+    background: var(--rh-blue);
+    color: #fff;
+    opacity: 1;
+}
+
+.traverse-pos.traverse-off.on {
+    background: rgba(255, 255, 255, 0.28);
+}
+
+.traverse-pos:focus-within {
+    outline: 2px solid #fff;
+    outline-offset: 1px;
+}
+
 /* The box Webamp's window is drawn in. The skin is 116px tall and sits
    10px in (see the home rule below), so the box is that and the cards
    follow it in normal flow; they used to be absolutely positioned inside
@@ -1613,6 +1667,19 @@ body.bottom-bar:has(.parts-chart.two-rows) {
 
     .rh-bar-mid .auto-switch-caption {
         font-size: 10px;
+    }
+
+    /* A phone's bar: the rocker's words get smaller, and "traverse" goes. */
+    .rh-bar-mid .traverse-rocker {
+        font-size: 10px;
+    }
+
+    .traverse-caption {
+        display: none;
+    }
+
+    .traverse-pos {
+        padding: 2px 6px;
     }
 }
 

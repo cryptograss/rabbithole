@@ -6,7 +6,7 @@
  * rather than staying on whoever played last.
  */
 import { describe, it, expect } from 'vitest';
-import { traverseTo } from '../src/traverse.js';
+import { traverseTo, TRAVERSE_MODES, baconAddress } from '../src/traverse.js';
 
 describe( 'traverseTo', () => {
 	it( 'opens the song\'s page when the track changes', () => {
@@ -31,5 +31,23 @@ describe( 'traverseTo', () => {
 	it( 'leaves a reader alone while the song is paused', () => {
 		expect( traverseTo( { playing: false, solo: 'Kyle Tuttle' } ) ).toBeNull();
 		expect( traverseTo( { playing: false, solo: null, lastSolo: 'Kyle Tuttle' } ) ).toBeNull();
+	} );
+} );
+
+describe( 'traverse mode\'s bacon graphs (Justin, #connectome, 18 Nov 2026)', () => {
+	it( 'rocks left to right: bacon graphs, off, PickiPedia pages', () => {
+		expect( TRAVERSE_MODES ).toEqual( [ 'bacon', 'off', 'pages' ] );
+	} );
+
+	it( 'shows the song on now in its own graph', () => {
+		expect( baconAddress( 'QmSong' ) ).toBe( '?cut=QmSong' );
+	} );
+
+	it( 'shows the soloist with the song beside them', () => {
+		expect( baconAddress( 'QmSong', 'Harry Clark' ) ).toBe( '?p=Harry+Clark&playing=QmSong' );
+	} );
+
+	it( 'has nowhere to go without a track', () => {
+		expect( baconAddress( null, 'Harry Clark' ) ).toBe( null );
 	} );
 } );

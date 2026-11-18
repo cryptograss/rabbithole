@@ -122,10 +122,40 @@ function tellGraphs() {
 		night: night.value,
 		at: walk.at,
 	} );
+	// Traverse mode's bacon graph: where it goes now, the song or its soloist (pickipedia:blu/bacon-traverse).
+	// Said again with everything else, and when the frame has loaded, so an ask made while it loads still lands.
+	const go = view.value.kind === 'graph' && view.value.traverse && view.value.to ? { rabbithole: 'go', to: view.value.to } : null;
 	for ( const frame of graphFrames() ) {
 		if ( frame.contentWindow ) {
 			frame.contentWindow.postMessage( message, window.location.origin );
+			if ( go ) {
+				frame.contentWindow.postMessage( go, window.location.origin );
+			}
 		}
+	}
+}
+
+/*
+ * What traverse mode's graph says back (Justin, #connectome, 18 Nov 2026):
+ * it holds no such song, so the song's page it is; or the reader moved it,
+ * which turns traverse mode off -- unless where they went is the song on
+ * now, which turns it back on.
+ */
+function heardFromTraverse( d ) {
+	if ( view.value.kind !== 'graph' || ! view.value.traverse ) {
+		return;
+	}
+	if ( d.missing ) {
+		pane.markUnheld( view.value.cid );
+		return;
+	}
+	const now = player.song && player.song._trackCid;
+	if ( d.cut && d.cut === now ) {
+		pane.letGraphBe();
+		layout.resumeTraversing();
+	} else {
+		pane.letGraphBe();
+		layout.stopTraversing();
 	}
 }
 
@@ -135,6 +165,10 @@ function onGraphMessage( e ) {
 		return;
 	}
 	if ( ! graphFrames().some( ( frame ) => frame.contentWindow === e.source ) ) {
+		return;
+	}
+	if ( e.data && e.data.connectome === true && ( e.data.missing || e.data.moved ) ) {
+		heardFromTraverse( e.data );
 		return;
 	}
 	const does = drawerDoes( e.data );
@@ -179,7 +213,12 @@ async function onClick( e ) {
 	const title = titleFromHref( href );
 	if ( title ) {
 		e.preventDefault();
-		layout.stopTraversing();
+		// Back to the song on now is back on, as traverse mode was; anywhere else, off (Justin, 18 Nov 2026).
+		if ( pane.isSongPage( title, player.song ) ) {
+			layout.resumeTraversing();
+		} else {
+			layout.stopTraversing();
+		}
 		pane.open( title );
 		return;
 	}
@@ -274,7 +313,7 @@ watch( () => pane.shown, ( title ) => picker.look( title ), { immediate: true } 
 			:kind="view.kind"
 			:title="view.title"
 		/>
-		<PaneGraph v-else-if="view.kind === 'graph'" :src="view.src" />
+		<PaneGraph v-else-if="view.kind === 'graph'" :src="view.src" :card="view.card || null" />
 		<PaneArticle
 			v-else-if="view.kind === 'article'"
 			:title="view.title"
