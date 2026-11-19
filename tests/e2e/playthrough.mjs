@@ -3,7 +3,7 @@
  * A playthrough of Rabbithole in a real browser (headless Chromium), with sound.
  *
  * `npm test` (vitest) checks the parts, in a fake DOM with no audio. This
- * checks the whole, the way a person meets it: press the carrot, and the song
+ * checks the whole, the way a person meets it: press play, and the song
  * is fetched, decoded and played, Webamp's clock moves, and what the song's
  * chart says should happen on screen happens when the song gets there.
  *
@@ -43,7 +43,7 @@ function check( name, ok, detail = '' ) {
 	return ok;
 }
 
-/** What the page shows now: Webamp's clock, the audio, the carrot, the cards, the pane's page. */
+/** What the page shows now: Webamp's clock, the audio, the cards, the pane's page. */
 function look( page ) {
 	return page.evaluate( () => {
 		const digits = [ ...document.querySelectorAll( '#time .digit' ) ]
@@ -55,16 +55,12 @@ function look( page ) {
 			analyser.getByteFrequencyData( bins );
 			energy = bins.reduce( ( sum, v ) => sum + v, 0 );
 		}
-		// What's gone of the carrot is a black rect in its mask, from its edge to
-		// the tip; with none of it gone there's no rect, and the carrot is whole.
-		const gone = document.querySelector( '.carrot-btn:not([hidden]) mask rect.carrot-gone' );
 		const name = ( card ) => ( card.querySelector( '.musician-name' ) || card ).textContent
 			.replace( /⭐|🎤/gu, '' ).replace( /\(.*$/, '' ).trim();
 		return {
 			clock: /^\d{4}$/.test( digits ) ? Number( digits.slice( 0, 2 ) ) * 60 + Number( digits.slice( 2 ) ) : null,
 			audio: analyser ? analyser.context.state : null,
 			energy,
-			edgeX: gone ? Number( gone.getAttribute( 'x' ) ) : null,
 			lead: [ ...document.querySelectorAll( '.musician-card.lead' ) ].map( name ),
 			flourish: [ ...document.querySelectorAll( '#ensemble-display .musician-card.fx-flourish' ) ].map( name ),
 			// The page in the pane: the address names it as ?page= (or, on the
@@ -105,8 +101,9 @@ function canonical( value ) {
 		? Object.fromEntries( Object.keys( v ).sort().map( ( k ) => [ k, v[ k ] ] ) ) : v ) );
 }
 
+// The title is a link back to the song's page, with a ↩ after it (18 Nov 2026), which isn't part of its name.
 const songTitle = ( page ) => page.locator( '#song-title-display' )
-	.evaluate( ( h ) => h.firstChild.textContent.trim() );
+	.evaluate( ( h ) => h.firstChild.textContent.replace( '↩', '' ).trim() );
 
 // RH_CHROMIUM: a Chromium of your own, when Playwright's download isn't there.
 const browser = await chromium.launch( { executablePath: process.env.RH_CHROMIUM || undefined } );
@@ -140,6 +137,9 @@ async function run() {
 	await page.goto( BASE );
 	await page.locator( '#song-title-display' ).waitFor();
 	const song = await songTitle( page );
+	// These checks follow the pages traverse opens. The rocker starts on bacon graphs (18 Nov 2026), so set it to
+	// pickipedia pages first; the bacon graph's own moves are rabbithole's unit tests' (tests/stores/pane-bacon*).
+	await page.locator( '.traverse-pos.traverse-pages' ).click();
 
 	let seen = await until( page, ( s ) => s.pane === `Song:${ song }`, 15 );
 	check( 'a song opens on its own Song: page', seen.pane === `Song:${ song }`, `${ song }; pane: ${ seen.pane }` );
@@ -156,9 +156,10 @@ async function run() {
 	console.log( `  chart: Release:${ cid }/Metadata, revision ${ revid }, ${ partTimes.length } parts` );
 
 	const before = await look( page );
-	await page.locator( '.carrot-btn:visible' ).first().click();
+	// Webamp's own play: the carrot in the top bar went on 19 Nov 2026 (Justin, #connectome, 03:15Z).
+	await page.locator( '#webamp #play' ).click();
 	seen = await until( page, ( s ) => s.clock >= ( before.clock || 0 ) + 2, 15 );
-	check( 'pressing the carrot plays: Webamp\'s clock moves', seen.clock >= ( before.clock || 0 ) + 2,
+	check( 'pressing play plays: Webamp\'s clock moves', seen.clock >= ( before.clock || 0 ) + 2,
 		`${ before.clock } s, then ${ seen.clock } s` );
 	check( 'the audio is running', seen.audio === 'running', `AudioContext ${ seen.audio }` );
 	seen = await until( page, ( s ) => s.energy > 0, 5 );
@@ -198,19 +199,6 @@ async function run() {
 		const after = seen.clock;
 		seen = await until( page, ( s ) => s.clock >= after + 2, 6 );
 		check( 'after a seek the clock keeps moving', seen.clock >= after + 2, `${ after } s, then ${ seen.clock } s` );
-
-		// The carrot goes as the song goes: its edge moves from the tip toward
-		// the greens, and seeking back gives it back.
-		const late = seen.edgeX;
-		await chips.nth( 1 ).click();
-		seen = await until( page, ( s ) => s.edgeX !== null && late !== null && s.edgeX > late, 4 );
-		const partTwo = seen.edgeX;
-		check( 'the carrot goes as the song goes: back at part 2 it is longer', late !== null && partTwo !== null && partTwo > late,
-			`edge x ${ late } at part ${ target + 1 }, ${ partTwo } at part 2` );
-		await chips.nth( 0 ).click();
-		seen = await until( page, ( s ) => s.edgeX === null || s.edgeX > partTwo, 4 );
-		check( 'back at the start the carrot is (nearly) whole', seen.edgeX === null || seen.edgeX > partTwo,
-			`edge x ${ seen.edgeX }, was ${ partTwo } at part 2` );
 	}
 
 	// A flourish, when the song reaches it.
@@ -232,12 +220,12 @@ async function run() {
 	}
 
 	// Pause.
-	await page.locator( '.carrot-btn:visible' ).first().click();
+	await page.locator( '#webamp #pause' ).click();
 	await page.waitForTimeout( 500 );
 	const paused = await look( page );
 	await page.waitForTimeout( 2500 );
 	seen = await look( page );
-	check( 'pressing the carrot again pauses', seen.clock === paused.clock, `${ paused.clock } s, then ${ seen.clock } s` );
+	check( 'pressing pause pauses', seen.clock === paused.clock, `${ paused.clock } s, then ${ seen.clock } s` );
 
 	// Chase a picker: their card, then their page offers the chase.
 	const card = page.locator( '.musician-card' ).filter( { hasNotText: seen.pane } ).first();
@@ -265,18 +253,18 @@ async function run() {
 
 	// Tapping a card is steering the pane yourself, so traverse mode turns off; a new song
 	// opens its page only while it's on (#32: "a person reading something keeps reading").
-	// It was called "Follow the solo" until Justin's item 16, 15 Nov 2026.
-	const traverse = page.getByRole( 'checkbox', { name: 'traverse mode' } );
-	check( 'tapping a card turns traverse mode off', ! ( await traverse.isChecked() ) );
-	await page.getByText( 'traverse mode', { exact: true } ).first().click();   // the switch; its checkbox is hidden
-	check( 'and it turns back on', await traverse.isChecked() );
+	// It was called "Follow the solo" until Justin's item 16, 15 Nov 2026, and is a rocker of three since 18 Nov.
+	const mode = ( m ) => page.locator( `.traverse-rocker input[value="${ m }"]` );
+	check( 'tapping a card turns traverse mode off', await mode( 'off' ).isChecked() );
+	await page.locator( '.traverse-pos.traverse-pages' ).click();   // the rocker; its radios are hidden
+	check( 'and it turns back on', await mode( 'pages' ).isChecked() );
 
 	// Pick another song from the dropdown: it opens on its own page, and the editor would save to it.
 	const others = ( await select.locator( 'option' ).evaluateAll( ( os ) => os.map( ( o ) => ( { cid: o.value, title: o.textContent.trim() } ) ) ) )
 		.filter( ( o ) => o.cid !== cid );
 	const other = others[ others.length - 1 ];
 	await select.selectOption( other.cid );
-	await page.waitForFunction( ( t ) => document.querySelector( '#song-title-display' )?.firstChild.textContent.trim() === t, other.title, { timeout: 15000 } ).catch( () => {} );
+	await page.waitForFunction( ( t ) => document.querySelector( '#song-title-display' )?.firstChild.textContent.replace( '↩', '' ).trim() === t, other.title, { timeout: 15000 } ).catch( () => {} );
 	seen = await until( page, ( s ) => s.pane === `Song:${ other.title }`, 15 );
 	check( `picking ${ other.title } from the dropdown opens Song:${ other.title }`, seen.pane === `Song:${ other.title }`, `pane: ${ seen.pane }` );
 

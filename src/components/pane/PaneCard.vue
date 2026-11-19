@@ -1,11 +1,13 @@
 <script setup>
 /*
  * A picker's card over traverse mode's bacon graph, while they take a solo
- * (Justin, #connectome, 18 Nov 2026): their picture and the details their
- * {{MusicianInfo}} gives, as the wiki draws them, and the way to their page.
- * A click on either is the reader going there, so traverse mode stops, as it
- * does for any link in the pane (WikiPane's click), and it comes back on
- * when they come back to the song.
+ * (Justin, #connectome, 18 Nov 2026), as he trimmed it on 19 Nov 2026,
+ * 03:15Z: their name, which is the way to their page; their picture, small;
+ * and the first three things their {{MusicianInfo}} says they do. No
+ * instrument: the player shows what they're playing. A click on a link is
+ * the reader going there, so traverse mode stops, as it does for any link in
+ * the pane (WikiPane's click), and it comes back on when they come back to
+ * the song.
  */
 import { ref, watch } from 'vue';
 import * as wiki from '../../wiki/api.js';
@@ -16,25 +18,31 @@ const props = defineProps( {
 	name: { type: String, required: true },
 } );
 
-const box = ref( '' );
 const title = ref( props.name );
+const picture = ref( null );
+const does = ref( [] );
 
 watch( () => props.name, async ( name ) => {
-	box.value = '';
 	title.value = name;
+	picture.value = null;
+	does.value = [];
 	const card = await cardOf( name, wiki.parsePage );
 	if ( props.name === name ) {
-		box.value = card.box;
 		title.value = card.title;
+		picture.value = card.picture;
+		does.value = card.does;
 	}
 }, { immediate: true } );
 </script>
 
 <template>
-	<aside class="pane-card" :aria-label="'About ' + title">
+	<aside class="pane-card" :class="{ 'with-pic': picture }" :aria-label="'About ' + title">
+		<img v-if="picture" class="pane-card-pic" :src="picture.src" :srcset="picture.srcset || null"
+			:alt="picture.caption" :title="picture.caption || null">
 		<a class="pane-card-name" :href="wikiPath( title )">{{ title }}</a>
-		<!-- The wiki's own HTML for the box, as the pane shows any article's. -->
-		<div v-if="box" class="pane-card-box" v-html="box"></div>
-		<a class="pane-card-more" :href="wikiPath( title )">Their page on PickiPedia</a>
+		<!-- The wiki's own words for each, links and all, as the pane shows any article's. -->
+		<ul v-if="does.length" class="pane-card-does">
+			<li v-for="( line, i ) in does" :key="i" v-html="line"></li>
+		</ul>
 	</aside>
 </template>

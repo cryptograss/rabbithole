@@ -43,7 +43,7 @@
 		color: var(--night-ink);
 	}
 	.pane-card-name { color: var(--night-green-pale); }
-	.pane-card-more { color: var(--night-green-pale); }
+	.pane-card-does a { color: var(--night-green-pale); }
 
 	/* ---- src/styles/pane-chase.css ---- */
 

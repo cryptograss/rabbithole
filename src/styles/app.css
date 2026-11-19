@@ -833,16 +833,6 @@ body.bottom-bar .pane-column {
     font-size: 10.5px;
 }
 
-.inline-carrot {
-    margin-left: auto;
-    align-self: center;
-}
-
-/* In the bar the carrot sits beside the switch, not at the end of a row. */
-.rh-bar-mid .inline-carrot {
-    margin-left: 0;
-}
-
 /* The switch's caption is beside it in the bar, in the bar's own white. */
 .rh-bar-mid .auto-switch {
     gap: 6px;
