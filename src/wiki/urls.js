@@ -6,9 +6,9 @@
  * nature; HTML is not.
  */
 
-/** A page's address on PickiPedia itself. */
 import { isGraphAddress, SHELL_KEYS } from '../shell.js';
 
+/** A page's address on PickiPedia itself. */
 export function wikiPath( title ) {
 	return '/wiki/' + encodeURIComponent( title.replace( / /g, '_' ) ).replace( /%3A/g, ':' );
 }
