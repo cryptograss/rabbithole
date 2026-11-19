@@ -9,28 +9,28 @@
  * the solo' selector there as well. Then, webamp can sit at the very top of
  * the player pane."
  *
- * Three zones: who we are, what the pane is doing (traverse mode, and the
- * carrot that plays), and what is playing -- with the account chip and the
- * fold arrow at the far end. The song's line is the sidebar's; in the bottom
- * bar Webamp's own title says which song it is, so it goes (item 29).
+ * Three zones: who we are, what the pane is doing (traverse mode), and what
+ * is playing -- with the account chip and the fold arrow at the far end. The
+ * carrot that played sat beside traverse mode until Justin, #connectome, 19
+ * Nov 2026, 03:15Z: "The carrot in the top bar has outlived its usefulness,
+ * IMO. Nix it." Webamp's own buttons play. The song's line is the
+ * sidebar's; in the bottom bar Webamp's own title says which song it is, so
+ * it goes (item 29).
  */
 import { computed, onMounted } from 'vue';
 import { useLayoutStore } from '../stores/layout.js';
 import { useAccountStore } from '../stores/account.js';
 import { useSongStore } from '../stores/song.js';
 import { usePaneStore } from '../stores/pane.js';
-import { usePlayerStore } from '../stores/player.js';
 import { loginHref } from '../wiki/urls.js';
 import rabbit from '../images/rabbit.png';
 import TraverseSwitch from './TraverseSwitch.vue';
-import CarrotButton from './CarrotButton.vue';
 import SongInfo from './SongInfo.vue';
 
 const layout = useLayoutStore();
 const account = useAccountStore();
 const songs = useSongStore();
 const pane = usePaneStore();
-const player = usePlayerStore();
 
 onMounted( () => account.refresh() );
 
@@ -63,12 +63,9 @@ function onLogo() {
 			<h1>rabbithole</h1>
 			<span class="alpha">BETA</span>
 		</span>
-		<!-- The middle of the bar: whether the pane travels with the track,
-		     and the carrot that starts it. -->
+		<!-- The middle of the bar: whether the pane travels with the track. -->
 		<div class="rh-bar-mid">
 			<TraverseSwitch />
-			<CarrotButton id="inline-play-btn" class="inline-carrot" :playing="player.playing" :eaten="player.eaten" :size="30"
-				@toggle="player.togglePlay()" />
 		</div>
 		<!-- Who you are and the way to fold the dock, together. In the
 		     bar the header was a column 116px tall, and these two on

@@ -201,8 +201,8 @@ onBeforeUnmount( () => {
 	<div class="layout" :class="{ minimized: !layout.isBar && layout.minimized, 'with-editor': layout.editorOpen,
 		'with-timeline': layout.showTimeline && layout.timelineView, 'with-timeline-tab': layout.showTimeline && !layout.timelineView }">
 		<!-- One bar, all the way across the top of both columns: who we are,
-		     traverse mode and the carrot, and what is playing (Justin's item
-		     17, 15 Nov 2026). It was two bars, one over each column. -->
+		     traverse mode, and what is playing (Justin's item 17, 15 Nov
+		     2026). It was two bars, one over each column. -->
 		<RabbitholeHeader />
 
 		<div id="rabbithole-sidebar">
