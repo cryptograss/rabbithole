@@ -55,7 +55,7 @@ watchEffect( () => {
  * All of it waits on traverse mode; a person reading something keeps reading.
  */
 watch( () => [ player.song && player.song._trackCid, player.currentSolo ], ( [ cid, solo ], [ oldCid, oldSolo ] ) => {
-	if ( ! layout.traverse ) {
+	if ( layout.traverse === 'off' ) {
 		return;
 	}
 	// The first song is openPaneForStart's; a change of track from here on
@@ -65,10 +65,42 @@ watch( () => [ player.song && player.song._trackCid, player.currentSolo ], ( [ c
 		return;
 	}
 	const where = traverseTo( { trackChanged, playing: player.playing, solo, lastSolo: oldSolo } );
-	if ( where === 'person' ) {
+	if ( where ) {
+		traverse( where === 'person' ? solo : null );
+	}
+} );
+
+/*
+ * Where traverse mode takes the pane, by its rocker (Justin, #connectome,
+ * 18 Nov 2026): in bacon graphs, the song's graph, or the soloist's with the
+ * song beside them; in pages, the song's page or the soloist's. A song the
+ * graph does not hold gets the pages, in either.
+ */
+function traverse( solo ) {
+	if ( ! player.song ) {
+		return;
+	}
+	if ( layout.traverse === 'bacon' && pane.bacon( player.song, solo ) ) {
+		return;
+	}
+	if ( solo ) {
 		pane.open( solo );
-	} else if ( where === 'song' && player.song ) {
+	} else {
 		pane.openSong( player.song );
+	}
+}
+
+// Set on the rocker: the pane goes where the mode says, now, not at the next solo.
+watch( () => layout.chosen, () => {
+	if ( layout.traverse !== 'off' ) {
+		traverse( player.playing ? player.currentSolo : null );
+	}
+} );
+
+// The graph holds no such song: the pages, for this track.
+watch( () => pane.unheld, ( cid ) => {
+	if ( cid && layout.traverse === 'bacon' && player.song && player.song._trackCid === cid ) {
+		traverse( player.playing ? player.currentSolo : null );
 	}
 } );
 
@@ -103,7 +135,12 @@ watch( () => layout.isBar && layout.collapsed, ( shaded ) => {
 function onPopState( e ) {
 	const title = e.state && e.state.wikiTitle;
 	if ( title ) {
-		layout.stopTraversing();
+		// Back to the song's page is back to traverse mode as it was; anywhere else, off (Justin, 18 Nov 2026).
+		if ( pane.isSongPage( title, player.song ) ) {
+			layout.resumeTraversing();
+		} else {
+			layout.stopTraversing();
+		}
 		pane.open( title, { push: false } );
 	}
 }
@@ -117,6 +154,8 @@ function openPaneForStart() {
 	const song = songs.initial;
 	if ( page ) {
 		pane.open( page, { push: false } );
+	} else if ( song && layout.traverse === 'bacon' && pane.bacon( song ) ) {
+		// Traverse mode's bacon graphs: the song starts in its own graph (Justin, #connectome, 18 Nov 2026).
 	} else if ( song ) {
 		pane.openSong( song, { push: false } );
 	} else {

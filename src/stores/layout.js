@@ -24,6 +24,7 @@ import { ref, computed, watch } from 'vue';
 
 import { INITIAL_PARAMS, cameToEdit } from '../initial-params.js';
 import { useMediaQuery } from '../composables/media-query.js';
+import { TRAVERSE_MODES } from '../traverse.js';
 
 export const AUTO_AT = 700;
 /*
@@ -120,18 +121,25 @@ export const useLayoutStore = defineStore( 'layout', () => {
 	const editorOpen = ref( cameToEdit( INITIAL_PARAMS ) );
 
 	/*
-	 * Traverse mode: the information pane loads the pages the track's parts
-	 * are about as it plays. Any navigation a person does turns it off: with
-	 * it on, somebody who clicked through to read about a musician was
-	 * carried off at the next solo, mid-sentence (Justin, 4 Nov 2026). One
-	 * tap turns it back on.
+	 * Traverse mode: where the information pane goes as the track plays. A
+	 * rocker of three (Justin, #connectome, 18 Nov 2026): 'bacon', the song's
+	 * bacon graph, moving to whoever takes a solo with the song beside them;
+	 * 'off'; and 'pages', the pages the track's parts are about, which is what
+	 * traverse mode was until then. Bacon graphs unless set otherwise.
+	 *
+	 * Any navigation a person does turns it off: with it on, somebody who
+	 * clicked through to read about a musician was carried off at the next
+	 * solo, mid-sentence (Justin, 4 Nov 2026). Coming back to the song turns
+	 * it back on as it was (`resume`; 18 Nov: "if they navigate back to the
+	 * song, it turns back on automatically"). Set on the rocker, it stays as
+	 * set, and `chosen` counts the settings so the app can act on one at once.
 	 *
 	 * It was "Follow the solo", which named one of the things it does and
-	 * read as a social-media follow besides; and the code's `follow` meant
-	 * this in one store and chasing a picker in another (Justin's item 16,
-	 * 15 Nov 2026).
+	 * read as a social-media follow besides (Justin's item 16, 15 Nov 2026).
 	 */
-	const traverse = ref( true );
+	const traverse = ref( 'bacon' );
+	const resume = ref( null );
+	const chosen = ref( 0 );
 
 	/*
 	 * The timeline beside the page, read-only, with the rabbit running down
@@ -180,8 +188,30 @@ export const useLayoutStore = defineStore( 'layout', () => {
 		}
 	}
 
+	function setTraverse( mode ) {
+		if ( ! TRAVERSE_MODES.includes( mode ) ) {
+			return;
+		}
+		traverse.value = mode;
+		resume.value = null;
+		chosen.value++;
+	}
+
+	/** The reader went somewhere: off, remembering what it was. */
 	function stopTraversing() {
-		traverse.value = false;
+		if ( traverse.value !== 'off' ) {
+			resume.value = traverse.value;
+			traverse.value = 'off';
+		}
+	}
+
+	/** The reader came back to the song: on again, as it was before they left. Returns the mode now. */
+	function resumeTraversing() {
+		if ( traverse.value === 'off' && resume.value ) {
+			traverse.value = resume.value;
+		}
+		resume.value = null;
+		return traverse.value;
 	}
 
 	/*
@@ -198,7 +228,7 @@ export const useLayoutStore = defineStore( 'layout', () => {
 
 	return {
 		layout, isBar, narrow, phone, auto, pinned, saved,
-		minimized, collapsed, editorOpen, traverse, timelineView, showTimeline, timelineLabels,
-		setLayout, toggleDock, openDock, stopTraversing, startTraversing,
+		minimized, collapsed, editorOpen, traverse, resume, chosen, timelineView, showTimeline, timelineLabels,
+		setLayout, toggleDock, openDock, setTraverse, stopTraversing, resumeTraversing, startTraversing,
 	};
 } );

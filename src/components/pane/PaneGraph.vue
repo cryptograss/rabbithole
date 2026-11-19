@@ -10,17 +10,26 @@
  * The talking is WikiPane's, which holds every graph frame in the pane --
  * this one and any the wiki's own HTML carries -- so there is one place
  * that says what is playing and one that hears the graph back.
+ *
+ * In traverse mode's bacon graphs, the picker taking a solo has their card
+ * over the graph's corner (Justin, #connectome, 18 Nov 2026).
  */
+import PaneCard from './PaneCard.vue';
+
 defineProps( {
 	src: { type: String, required: true },
+	card: { type: String, default: null },
 } );
 </script>
 
 <template>
-	<iframe
-		class="pane-graph"
-		:src="src"
-		title="The connectome"
-		loading="eager"
-	></iframe>
+	<div class="pane-graph-wrap">
+		<iframe
+			class="pane-graph"
+			:src="src"
+			title="The connectome"
+			loading="eager"
+		></iframe>
+		<PaneCard v-if="card" :name="card" />
+	</div>
 </template>

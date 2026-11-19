@@ -19,6 +19,9 @@ import { ref, computed } from 'vue';
 
 import * as wiki from '../wiki/api.js';
 import { appAddress } from '../wiki/urls.js';
+import { GRAPH_PATH } from '../wiki/graph-frame.js';
+import { cardOf } from '../wiki/infobox.js';
+import { baconAddress } from '../traverse.js';
 
 export const usePaneStore = defineStore( 'pane', () => {
 	const wanted = ref( null );
@@ -103,8 +106,9 @@ export const usePaneStore = defineStore( 'pane', () => {
 	 * came is still what a reload opens (Justin, #rabbithole, 15 Nov 2026).
 	 *
 	 * @param {string} src The frame's src, from graphSrcFor().
+	 * @param {Object} [traverse] Traverse mode's own: { traverse: true, to, card, cid } (see bacon()).
 	 */
-	function openGraph( src ) {
+	function openGraph( src, traverse = {} ) {
 		if ( ! src ) {
 			return;
 		}
@@ -118,7 +122,58 @@ export const usePaneStore = defineStore( 'pane', () => {
 		// rather than be taken for the page already shown.
 		wanted.value = null;
 		shown.value = null;
-		view.value = { kind: 'graph', src };
+		view.value = Object.assign( { kind: 'graph', src }, traverse );
+	}
+
+	/*
+	 * Traverse mode's bacon graphs (Justin, #connectome, 18 Nov 2026): the
+	 * song on now in its own graph; while somebody takes a solo, them in the
+	 * middle with the song beside them, as big as they are, and their card
+	 * over the corner. It is one frame, moved by message (WikiPane says `to`
+	 * to it), so it slides from one to the next rather than loading again.
+	 *
+	 * A song the graph does not hold gets its page instead: the graph says so
+	 * (markUnheld), and bacon() says no for that track from then on.
+	 */
+	const unheld = ref( null );
+
+	/** The bacon graph for the song on now, or its soloist; false where the graph has no such song. */
+	function bacon( song, solo = null ) {
+		const cid = song && song._trackCid;
+		const to = baconAddress( cid, solo );
+		if ( ! to || unheld.value === cid ) {
+			return false;
+		}
+		const card = solo || null;
+		if ( view.value.kind === 'graph' && view.value.traverse ) {
+			view.value = Object.assign( {}, view.value, { to, card, cid } );
+		} else {
+			const src = GRAPH_PATH + to + '&host=rabbithole';
+			openGraph( src, { traverse: true, to, card, cid } );
+		}
+		// The soloist by their page's own name, once the wiki has said it: a chart's "Justin Holmes" is the
+		// graph's "Justin Myles Holmes". Until then the graph keeps the song, if it doesn't know the name.
+		if ( solo ) {
+			cardOf( solo, wiki.parsePage ).then( ( { title } ) => {
+				const v = view.value;
+				if ( title && title !== solo && v.kind === 'graph' && v.traverse && v.card === solo && v.cid === cid && v.to === to ) {
+					view.value = Object.assign( {}, v, { to: baconAddress( cid, title ) } );
+				}
+			} );
+		}
+		return true;
+	}
+
+	/** The graph has no song for this track. */
+	function markUnheld( cid ) {
+		unheld.value = cid || null;
+	}
+
+	/** The reader moved traverse mode's graph: it is theirs now, told nothing more, and the card goes. */
+	function letGraphBe() {
+		if ( view.value.kind === 'graph' && view.value.traverse ) {
+			view.value = Object.assign( {}, view.value, { to: null, card: null } );
+		}
 	}
 
 	async function search( text ) {
@@ -152,5 +207,11 @@ export const usePaneStore = defineStore( 'pane', () => {
 	/** The title of the song page on screen, or null if the pane shows something else. */
 	const shownSongTitle = computed( () => ( shown.value && shown.value.startsWith( 'Song:' ) ? shown.value : null ) );
 
-	return { wanted, shown, view, loading, trail, shownSongTitle, open, openSong, openGraph, search };
+	/** Is this page the song's own: Song:<title>, or the track's metadata page? */
+	function isSongPage( title, song ) {
+		return !! title && !! song && ( title === 'Song:' + song.title || title === song._metadataTitle );
+	}
+
+	return { wanted, shown, view, loading, trail, shownSongTitle, unheld, open, openSong, openGraph, bacon, markUnheld,
+		letGraphBe, isSongPage, search };
 } );

@@ -29,8 +29,15 @@ const songHref = computed( () => wikiPath( song.value.title ? 'Song:' + song.val
 /** The record's own page, for the record link's href. */
 const recordHref = computed( () => wikiPath( songs.recordPage || '' ) );
 
+/*
+ * Back to the song: traverse mode comes back on as it was before the reader
+ * went off reading (Justin, #connectome, 18 Nov 2026), and the song opens as
+ * that mode has it -- its bacon graph, or its page.
+ */
 function backToSong() {
-	layout.stopTraversing();
+	if ( layout.resumeTraversing() === 'bacon' && pane.bacon( song.value ) ) {
+		return;
+	}
 	pane.openSong( song.value );
 }
 

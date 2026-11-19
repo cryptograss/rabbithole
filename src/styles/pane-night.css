@@ -36,6 +36,14 @@
 	/* The connectome's frame: the graph inside is the wiki's page and keeps
 	   its own night; this is the ground it loads over. */
 	.pane-graph { background: var(--night-paper); }
+	/* The picker's card over traverse mode's graph (18 Nov 2026). */
+	.pane-card {
+		border-color: var(--night-line);
+		background: var(--night-paper);
+		color: var(--night-ink);
+	}
+	.pane-card-name { color: var(--night-green-pale); }
+	.pane-card-more { color: var(--night-green-pale); }
 
 	/* ---- src/styles/pane-chase.css ---- */
 

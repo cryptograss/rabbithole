@@ -35,3 +35,21 @@ export function traverseTo( { trackChanged = false, playing = false, solo = null
 	// there again would push a second entry onto the history.
 	return lastSolo ? 'song' : null;
 }
+
+/** Traverse mode's rocker, left to right (Justin, #connectome, 18 Nov 2026): bacon graphs, off, PickiPedia pages. */
+export const TRAVERSE_MODES = [ 'bacon', 'off', 'pages' ];
+
+/**
+ * Where traverse mode's bacon graph goes: the song on now, in its own graph; or whoever is taking it, in the
+ * middle of theirs, with the song beside them (pickipedia:blu/bacon-traverse reads both). Pure.
+ *
+ * @param {?string} cid The track on now.
+ * @param {?string} solo Who is taking it, if anybody.
+ * @return {?string} The graph's address, or null with no track.
+ */
+export function baconAddress( cid, solo = null ) {
+	if ( ! cid ) {
+		return null;
+	}
+	return '?' + new URLSearchParams( solo ? { p: solo, playing: cid } : { cut: cid } );
+}

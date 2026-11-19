@@ -191,3 +191,105 @@ table {
 	border: 0;
 	background: #fcfcfb;
 }
+
+/* Traverse mode's bacon graph and, while somebody takes a solo, their card
+   over its top right corner (Justin, #connectome, 18 Nov 2026): their
+   picture and their {{MusicianInfo}} box as the wiki draws it, small, and the
+   way to their page. */
+.pane-graph-wrap {
+	position: relative;
+	width: 100%;
+	height: 100%;
+}
+
+.pane-card {
+	position: absolute;
+	top: 10px;
+	right: 10px;
+	width: 220px;
+	max-height: calc(100% - 20px);
+	overflow: auto;
+	padding: 8px 10px 10px;
+	border: 1px solid #d8d4cc;
+	border-radius: 8px;
+	background: rgba(255, 255, 255, 0.96);
+	box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
+	font-size: 12.5px;
+	line-height: 1.35;
+}
+
+.pane-card-name {
+	display: block;
+	margin-bottom: 6px;
+	font-size: 15px;
+	font-weight: bold;
+	text-decoration: none;
+}
+
+.pane-card-box table.wikitable {
+	float: none !important;
+	width: 100% !important;
+	margin: 0 0 6px !important;
+	font-size: 12px;
+}
+
+.pane-card-box img {
+	max-width: 100%;
+	height: auto;
+	max-height: 180px;
+	object-fit: contain;
+}
+
+.pane-card-box figure {
+	margin: 0;
+}
+
+.pane-card-more {
+	font-size: 12px;
+}
+
+/* On a phone the card is small and low, so the song at the top of the ring
+   stays in sight: a thumbnail, no caption, in the bottom left corner. */
+@media ( max-width: 600px ) {
+	.pane-card {
+		top: auto;
+		right: auto;
+		bottom: 8px;
+		left: 6px;
+		right: 128px;
+		width: auto;
+		max-height: 30%;
+		padding: 5px 7px 6px;
+		font-size: 10.5px;
+	}
+
+	.pane-card-name {
+		font-size: 12px;
+		margin-bottom: 3px;
+	}
+
+	.pane-card-box table.wikitable {
+		margin-bottom: 3px !important;
+	}
+
+	.pane-card-box img {
+		max-height: 44px;
+	}
+
+	.pane-card-box figcaption,
+	.pane-card-box td[colspan],
+	.pane-card-box th:not([colspan]) {
+		display: none;
+	}
+
+	/* The box's rows side by side: the picture, then what it says. */
+	.pane-card-box tbody {
+		display: flex;
+		align-items: center;
+		gap: 6px;
+	}
+
+	.pane-card-box tr {
+		display: block;
+	}
+}
