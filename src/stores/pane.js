@@ -22,6 +22,9 @@ import { appAddress } from '../wiki/urls.js';
 import { GRAPH_PATH } from '../wiki/graph-frame.js';
 import { cardOf } from '../wiki/infobox.js';
 import { baconAddress } from '../traverse.js';
+import { graphAt, frameSrc, shellAddress, movesByWord } from '../shell.js';
+import { useLayoutStore } from './layout.js';
+import { usePlayerStore } from './player.js';
 
 export const usePaneStore = defineStore( 'pane', () => {
 	const wanted = ref( null );
@@ -39,6 +42,25 @@ export const usePaneStore = defineStore( 'pane', () => {
 	const trail = ref( null );
 
 	let request = null;
+
+	/*
+	 * The graph's frame: one, for as long as the app is open (shell.js). It
+	 * is made when the pane first holds a graph and is never taken down:
+	 * behind an article it waits as it was, so coming back to it is coming
+	 * back to the same drawing. Within the plain graph it is moved by word;
+	 * a kept graph and a challenge are read from the path, so those load.
+	 */
+	const graphSrc = ref( null );
+	/** Where that frame is, as last asked or heard: "/bacon?p=Cory+Walker". */
+	let graphNow = null;
+	/** Back or Forward came to a step of the graph's: the word for the frame (WikiPane passes it on). */
+	const stepWord = ref( null );
+
+	/** The track that stands (by the name it came by), else the one the address names: kept in the address as the graph's changes. */
+	function trackInAddress() {
+		const song = usePlayerStore().song;
+		return ( song && ( song._alias || song._trackCid ) ) || new URLSearchParams( window.location.search ).get( 'track' );
+	}
 
 	async function open( title, { push = true, force = false } = {} ) {
 		if ( ! title ) {
@@ -108,8 +130,9 @@ export const usePaneStore = defineStore( 'pane', () => {
 	 * @param {string} src The frame's src, from graphSrcFor().
 	 * @param {Object} [traverse] Traverse mode's own: { traverse: true, to, card, cid } (see bacon()).
 	 */
-	function openGraph( src, traverse = {} ) {
-		if ( ! src ) {
+	function openGraph( src, traverse = {}, { step = false, write = true } = {} ) {
+		const at = src ? graphAt( src, window.location.origin ) : null;
+		if ( ! at ) {
 			return;
 		}
 		if ( request ) {
@@ -122,7 +145,76 @@ export const usePaneStore = defineStore( 'pane', () => {
 		// rather than be taken for the page already shown.
 		wanted.value = null;
 		shown.value = null;
-		view.value = Object.assign( { kind: 'graph', src }, traverse );
+		// A step of the reader's (a link they clicked), or the graph taking
+		// over from an article: an entry of its own in the history, so Back
+		// comes back to what was there. Otherwise this entry is the graph's.
+		const from = window.history.state;
+		const push = step || !! ( from && from.wikiTitle );
+		let to = null;
+		if ( graphSrc.value && movesByWord( graphNow || graphSrc.value, at ) ) {
+			to = at.slice( at.indexOf( '?' ) );
+		} else {
+			graphSrc.value = frameSrc( at, useLayoutStore().traverse === 'off' );
+		}
+		graphNow = at;
+		// `fresh`: moved by word into an entry of its own, the frame gives the view a number of its own, and the
+		// step before keeps its drawing.
+		view.value = Object.assign( { kind: 'graph', src: graphSrc.value, to, fresh: push && !! to }, traverse );
+		if ( write ) {
+			window.history[ push ? 'pushState' : 'replaceState' ]( { graph: at }, '', shellAddress( at, trackInAddress() ) );
+		}
+	}
+
+	/**
+	 * What the graph's frame says of where it is: the shell keeps the
+	 * history (shell.js). A step the reader took is an entry; anything else
+	 * (the music moved it, the frame's first view) rewrites the entry in
+	 * sight. Heard only while the pane holds the graph.
+	 *
+	 * @param {Object} d { at, step, n, s }: where, whether a step, and the frame's own number for it.
+	 * @return {boolean} Whether it was taken.
+	 */
+	function heardGraphAt( d ) {
+		const at = d && typeof d.at === 'string' ? graphAt( d.at, window.location.origin ) : null;
+		if ( ! at || view.value.kind !== 'graph' ) {
+			return false;
+		}
+		graphNow = at;
+		window.history[ d.step ? 'pushState' : 'replaceState' ]( { graph: at, n: d.n, s: d.s }, '', shellAddress( at, trackInAddress() ) );
+		return true;
+	}
+
+	/**
+	 * Back or Forward came to an entry of the graph's: the pane holds the
+	 * graph again, and the frame is sent to that step, which it draws as
+	 * it was where it still has it.
+	 *
+	 * @param {Object} state The entry's state: { graph, n, s }.
+	 */
+	function showGraph( state ) {
+		const at = state && graphAt( state.graph, window.location.origin );
+		if ( ! at ) {
+			return;
+		}
+		if ( ! graphSrc.value ) {
+			openGraph( at, {}, { write: false } );                   // no frame yet (a reload since): it loads there
+			return;
+		}
+		if ( request ) {
+			request.abort();
+		}
+		loading.value = false;
+		trail.value = null;
+		wanted.value = null;
+		shown.value = null;
+		graphNow = at;
+		view.value = { kind: 'graph', src: graphSrc.value, to: null };
+		stepWord.value = { rabbithole: 'step', to: at, n: state.n, s: state.s };
+		// The entry's address was written with whatever stood then; a reload from it opens what stands now.
+		const now = shellAddress( at, trackInAddress() );
+		if ( now !== window.location.pathname + window.location.search ) {
+			window.history.replaceState( window.history.state, '', now );
+		}
 	}
 
 	/*
@@ -146,10 +238,9 @@ export const usePaneStore = defineStore( 'pane', () => {
 		}
 		const card = solo || null;
 		if ( view.value.kind === 'graph' && view.value.traverse ) {
-			view.value = Object.assign( {}, view.value, { to, card, cid } );
+			view.value = Object.assign( {}, view.value, { to, card, cid, fresh: false } );
 		} else {
-			const src = GRAPH_PATH + to + '&host=rabbithole';
-			openGraph( src, { traverse: true, to, card, cid } );
+			openGraph( GRAPH_PATH + to, { traverse: true, to, card, cid } );
 		}
 		// The soloist by their page's own name, once the wiki has said it: a chart's "Justin Holmes" is the
 		// graph's "Justin Myles Holmes". Until then the graph keeps the song, if it doesn't know the name.
@@ -169,10 +260,10 @@ export const usePaneStore = defineStore( 'pane', () => {
 		unheld.value = cid || null;
 	}
 
-	/** The reader moved traverse mode's graph: it is theirs now, told nothing more, and the card goes. */
+	/** The reader moved the graph: it is theirs now, told nothing more, and the card goes. */
 	function letGraphBe() {
-		if ( view.value.kind === 'graph' && view.value.traverse ) {
-			view.value = Object.assign( {}, view.value, { to: null, card: null } );
+		if ( view.value.kind === 'graph' && ( view.value.to || view.value.card ) ) {
+			view.value = Object.assign( {}, view.value, { to: null, card: null, fresh: false } );
 		}
 	}
 
@@ -212,6 +303,6 @@ export const usePaneStore = defineStore( 'pane', () => {
 		return !! title && !! song && ( title === 'Song:' + song.title || title === song._metadataTitle );
 	}
 
-	return { wanted, shown, view, loading, trail, shownSongTitle, unheld, open, openSong, openGraph, bacon, markUnheld,
-		letGraphBe, isSongPage, search };
+	return { wanted, shown, view, loading, trail, shownSongTitle, unheld, graphSrc, stepWord, open, openSong, openGraph,
+		heardGraphAt, showGraph, bacon, markUnheld, letGraphBe, isSongPage, search };
 } );

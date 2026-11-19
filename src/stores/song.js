@@ -17,6 +17,7 @@ import * as wiki from '../wiki/api.js';
 import { DEFAULT_TRACK, defaultColorScheme } from '../wiki/demo-songs.js';
 import { soundcheck } from '../soundcheck.js';
 import { usePlayerStore } from './player.js';
+import { GRAPH_START } from '../shell.js';
 import { useWalkStore } from './walk.js';
 
 export const useSongStore = defineStore( 'song', () => {
@@ -91,8 +92,22 @@ export const useSongStore = defineStore( 'song', () => {
 		return parts;
 	} );
 
+	let playWhenReady = false;
+	watch( () => player.ready, ( ready ) => {
+		if ( ready && playWhenReady ) {
+			playWhenReady = false;
+			player.model.play();
+		}
+	} );
+
 	/** Load the track named in the URL, or the default song. */
 	async function boot() {
+		if ( GRAPH_START && ! trackParam && ! recordParam ) {
+			// Come by /bacon with no track named (shell.js): nothing stands until something is asked for.
+			chartedList();
+			loading.value = false;
+			return;
+		}
 		loading.value = true;
 		// However the visit arrived, the rabbithole needs to know what it
 		// can play; the track loads without waiting for the answer.
@@ -207,7 +222,10 @@ export const useSongStore = defineStore( 'song', () => {
 		if ( player.model ) {
 			player.model.loadSong( song, { play } );
 		} else {
+			// No player yet: this song is what it is made with (WebampDock), and it plays once the player stands.
+			// Until one shell (shell.js) there was always a player by the time anything was asked for.
 			initial.value = song;
+			playWhenReady = playWhenReady || play;
 		}
 		return song;
 	}

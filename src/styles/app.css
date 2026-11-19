@@ -1908,3 +1908,31 @@ body:not(.bottom-bar) #webamp div:has(> #main-window) {
     line-height: 1;
     cursor: pointer;
 }
+
+/* === Come by /bacon, with nothing playing yet (body.bare; src/shell.js) ===
+
+   No track stands, so the player's chrome is put away: no bar across the
+   top, no side, and the graph in the pane has the window. The first play
+   takes the class off, and the side comes out of the left (the grid's
+   column grows, as it does unfolding), or the bar up from the bottom. */
+body.bare .layout,
+body.bare .layout.minimized {
+    grid-template-rows: 0 minmax(0, 1fr);
+}
+body.bare:not(.bottom-bar) .layout,
+body.bare:not(.bottom-bar) .layout.minimized {
+    grid-template-columns: 0 minmax(0, 1fr);
+}
+body.bare .rabbithole-header {
+    display: none;
+}
+body.bare #rabbithole-sidebar {
+    visibility: hidden;
+    border-width: 0;
+}
+body.bare.bottom-bar #rabbithole-sidebar {
+    transform: translateY(100%);
+}
+body.bare.bottom-bar .pickipedia-frame {
+    height: 100vh;
+}

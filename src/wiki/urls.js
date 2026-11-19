@@ -7,6 +7,8 @@
  */
 
 /** A page's address on PickiPedia itself. */
+import { isGraphAddress, SHELL_KEYS } from '../shell.js';
+
 export function wikiPath( title ) {
 	return '/wiki/' + encodeURIComponent( title.replace( / /g, '_' ) ).replace( /%3A/g, ':' );
 }
@@ -20,6 +22,14 @@ export function wikiPath( title ) {
  */
 export function appAddress( title, from = window.location.href ) {
 	const url = new URL( from );
+	if ( isGraphAddress( url.pathname ) ) {
+		// From the graph's address (shell.js): what said where the graph was stays behind.
+		for ( const key of [ ...url.searchParams.keys() ] ) {
+			if ( ! SHELL_KEYS.includes( key ) || key === 'play' ) {
+				url.searchParams.delete( key );
+			}
+		}
+	}
 	url.pathname = new URL( import.meta.env.BASE_URL || '/', url.origin ).pathname;
 	url.searchParams.set( 'page', title );
 	url.hash = '';

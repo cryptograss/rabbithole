@@ -25,6 +25,7 @@ import { ref, computed, watch } from 'vue';
 import { INITIAL_PARAMS, cameToEdit } from '../initial-params.js';
 import { useMediaQuery } from '../composables/media-query.js';
 import { TRAVERSE_MODES } from '../traverse.js';
+import { GRAPH_START } from '../shell.js';
 
 export const AUTO_AT = 700;
 /*
@@ -137,8 +138,10 @@ export const useLayoutStore = defineStore( 'layout', () => {
 	 * It was "Follow the solo", which named one of the things it does and
 	 * read as a social-media follow besides (Justin's item 16, 15 Nov 2026).
 	 */
-	const traverse = ref( 'bacon' );
-	const resume = ref( null );
+	// Come by /bacon (shell.js), the reader is steering the graph from the start: off, to come back on as bacon
+	// graphs when they come to the song on now.
+	const traverse = ref( GRAPH_START ? 'off' : 'bacon' );
+	const resume = ref( GRAPH_START ? 'bacon' : null );
 	const chosen = ref( 0 );
 
 	/*

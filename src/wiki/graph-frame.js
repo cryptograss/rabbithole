@@ -26,8 +26,12 @@ const OLD_PAGES = [ '/assets/connectome/', '/assets/connectome/index.html' ];
 const KEPT_PATH = /^\/bacon\/[cfmr][0-9a-hjkmnp-tv-z]{10}\/?$/;
 
 /** Is this path the graph's page, at either address, or a kept graph's? */
+/** A challenge, /bacon/challenge and whom to find: the same page, which reads the name from the address. */
+const CHALLENGE_PATH = /^\/bacon\/challenge(\/[^/]+)?\/?$/;
+
 function isGraphPath( path ) {
-	return path === GRAPH_PATH || path === GRAPH_PATH + '/' || OLD_PAGES.includes( path ) || KEPT_PATH.test( path );
+	return path === GRAPH_PATH || path === GRAPH_PATH + '/' || OLD_PAGES.includes( path ) || KEPT_PATH.test( path ) ||
+		CHALLENGE_PATH.test( path );
 }
 
 /**
@@ -53,7 +57,8 @@ export function graphSrcFor( href ) {
 		return null;
 	}
 	url.searchParams.set( 'host', 'rabbithole' );
-	return ( KEPT_PATH.test( url.pathname ) ? url.pathname.replace( /\/$/, '' ) : GRAPH_PATH ) + url.search;
+	const own = KEPT_PATH.test( url.pathname ) || CHALLENGE_PATH.test( url.pathname );
+	return ( own ? url.pathname.replace( /\/$/, '' ) : GRAPH_PATH ) + url.search;
 }
 
 /** Is this frame showing a connectome? */
@@ -82,7 +87,7 @@ export function isGraphFrame( frame ) {
  * @param {Object} state
  * @return {Object} The message.
  */
-export function walkMessage( { hops = [], chasing = null, chaseMode = null, now = null, playing = false, mode = 'full', night = false, at = -1 } = {} ) {
+export function walkMessage( { hops = [], chasing = null, chaseMode = null, now = null, playing = false, mode = 'full', night = false, at = -1, steering = false } = {} ) {
 	return {
 		rabbithole: 'walk',
 		hops: hops.map( ( h ) => ( {
@@ -106,5 +111,9 @@ export function walkMessage( { hops = [], chasing = null, chaseMode = null, now 
 		// instead of being dark inside a light page (Justin, 15 Nov 2026,
 		// item 35).
 		night: !! night,
+		// Whether the reader is steering the graph (traverse mode off) or the
+		// music is: steering, the graph shows its search bar and the way come
+		// (shell.js; the graph's own page under "one shell").
+		steering: !! steering,
 	};
 }

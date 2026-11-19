@@ -19,11 +19,14 @@ import PaneCard from './PaneCard.vue';
 defineProps( {
 	src: { type: String, required: true },
 	card: { type: String, default: null },
+	// Behind whatever else the pane shows: out of sight, at the size it had, so nothing in it is laid out again
+	// and coming back to it is coming back to the same drawing (shell.js).
+	away: { type: Boolean, default: false },
 } );
 </script>
 
 <template>
-	<div class="pane-graph-wrap">
+	<div class="pane-graph-wrap" :class="{ 'pane-graph-away': away }" :aria-hidden="away ? 'true' : null" :inert="away || null">
 		<iframe
 			class="pane-graph"
 			:src="src"
