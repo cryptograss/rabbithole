@@ -4,7 +4,7 @@
  * player tells it (Justin, #rabbithole, 15 Nov 2026).
  */
 import { describe, it, expect } from 'vitest';
-import { graphSrcFor, isGraphFrame, walkMessage } from '../../src/wiki/graph-frame.js';
+import { graphSrcFor, isGraphFrame, walkMessage, fxMessage } from '../../src/wiki/graph-frame.js';
 
 describe( 'graphSrcFor', () => {
 	it( 'takes a connectome link and tells the graph it is inside Rabbithole', () => {
@@ -102,5 +102,37 @@ describe( 'walkMessage', () => {
 		// A hop from a reactive store carries proxies; the message must
 		// carry values the structured clone can take.
 		expect( () => structuredClone( walkMessage( { hops } ) ) ).not.toThrow();
+	} );
+} );
+
+describe( 'fxMessage: the ensemble list\'s lights, for a graph (Justin, 20 Nov 2026)', () => {
+	const cards = [ { name: 'Justin Holmes', scene: 'lead', singing: true }, { name: 'Cory Walker', scene: 'pickup' }, { name: 'Harry Clark', scene: null }, { name: 'Somebody', engineer: true } ];
+	it( 'names each of the band by the chart and by their page, with the scene the card wears, and leaves the engineer out', () => {
+		const m = fxMessage( { cards, playing: true, titles: { 'Justin Holmes': 'Justin Myles Holmes' } } );
+		expect( m.rabbithole ).toBe( 'fx' );
+		expect( m.playing ).toBe( true );
+		expect( m.band.map( ( b ) => [ b.name, b.title, b.scene, b.singing ] ) ).toEqual( [
+			[ 'Justin Holmes', 'Justin Myles Holmes', 'lead', true ], [ 'Cory Walker', null, 'pickup', false ], [ 'Harry Clark', null, null, false ] ] );
+		expect( m.band.every( ( b ) => b.light === null && b.enter === false ) ).toBe( true );
+	} );
+	it( 'gives a card the one light it shows: a spotlight over a flourish over the band\'s flash, in the list\'s colour and beat', () => {
+		const effects = [
+			{ kind: 'bandFlash', target: null, color: 'gold', intensity: 0.5, pulse: 0.6 },
+			{ kind: 'flourish', target: 'Cory Walker', color: 'coral', intensity: 0.7, pulse: 1.2 },
+			{ kind: 'flourish', target: 'Justin Holmes', color: 'coral', intensity: 9, pulse: 0.1 },
+			{ kind: 'spotlight', target: 'Justin Holmes', color: 'blue', intensity: 1, pulse: 2.6 },
+			{ kind: 'enter', target: 'Harry Clark' },
+		];
+		const m = fxMessage( { cards, effects, color: ( c ) => 'rgb-of-' + c } );
+		const by = Object.fromEntries( m.band.map( ( b ) => [ b.name, b ] ) );
+		expect( by[ 'Justin Holmes' ].light ).toEqual( { kind: 'spotlight', color: 'rgb-of-blue', level: 1, pulse: 2.6 } );
+		expect( by[ 'Cory Walker' ].light ).toEqual( { kind: 'flourish', color: 'rgb-of-coral', level: 0.7, pulse: 1.2 } );
+		expect( by[ 'Harry Clark' ].light ).toEqual( { kind: 'bandFlash', color: 'rgb-of-gold', level: 0.5, pulse: 0.6 } );
+		expect( by[ 'Harry Clark' ].enter ).toBe( true );
+		expect( m.playing ).toBe( false );
+	} );
+	it( 'keeps a light within what a stylesheet is given: level 0.35 to 1.3, a beat of half a second to six', () => {
+		const m = fxMessage( { cards, effects: [ { kind: 'flourish', target: 'Cory Walker', color: 'coral', intensity: 9, pulse: 0.1 } ] } );
+		expect( m.band[ 1 ].light ).toMatchObject( { level: 1.3, pulse: 0.5 } );
 	} );
 } );
