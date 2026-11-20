@@ -7,7 +7,7 @@
  * song chooser stranded at the far end of the bar (Skyler, 8 Nov 2026).
  */
 import { computed } from 'vue';
-import { useSongStore } from '../stores/song.js';
+import { useSongStore, listedOf } from '../stores/song.js';
 import { usePlayerStore } from '../stores/player.js';
 import { useLayoutStore } from '../stores/layout.js';
 import { usePaneStore } from '../stores/pane.js';
@@ -20,7 +20,9 @@ const layout = useLayoutStore();
 const pane = usePaneStore();
 
 const song = computed( () => songs.current );
-const tracks = computed( () => ( songs.album ? songs.album.tracks.slice().sort( ( a, b ) => ( a.track_number || 0 ) - ( b.track_number || 0 ) ) : [] ) );
+// The record's tracks the rabbithole hands out, and the one that stands (stores/song.js, listedOf).
+const tracks = computed( () => ( songs.album
+	? listedOf( songs.album.tracks, songs.ready.map( ( t ) => t.cid ), song.value && song.value._trackCid ) : [] ) );
 const upNextText = computed( () => ( player.upNext.length ? 'Up next: ' + player.upNext.map( ( s ) => s.title ).join( ' · ' ) : '' ) );
 
 /** The song's own page, for the title's href; the click opens it in the pane. */

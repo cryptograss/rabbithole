@@ -81,13 +81,22 @@ export function viaPicker( graph, song, name, why ) {
  * So the names of the recording's record are held against the records the
  * picker's credits on the song are on; when either side is unknown, nothing
  * is ruled out.
+ *
+ * And the recording has to be one the rabbithole may hand out: in
+ * production (wiki/api.js, STATES). A chase and a quest read the
+ * performer graph, which holds every song with a credit, charted or not:
+ * from August a chase of Harry Clark played Cicada Song, then Moon
+ * Factory, which has no chart at all (re, #rabbithole, 16 Nov 2026).
  */
 export async function firstPlayable( songsOf, {
-	currentCid, playedCids, queuedCids, cidOf, recordsOf = async () => [], recordsOn = () => [],
+	currentCid, playedCids, queuedCids, cidOf, recordsOf = async () => [], recordsOn = () => [], ready = async () => true,
 } ) {
 	for ( const song of songsOf ) {
 		const cid = await cidOf( song );
 		if ( ! cid || cid === currentCid || playedCids.has( cid ) || queuedCids.includes( cid ) ) {
+			continue;
+		}
+		if ( ! await ready( cid ) ) {
 			continue;
 		}
 		const names = await recordsOf( cid );
@@ -132,14 +141,14 @@ export function questPick( names, { last = null, unplayed = () => true, choose =
 
 /**
  * Something to play after this one when nothing else can name it: a
- * charted track this rabbithole has not heard, else any other track at
- * all. The floor under item 28 -- "if you're listening to a song in
+ * track in production this rabbithole has not heard, else any other one
+ * in production. The floor under item 28 -- "if you're listening to a song in
  * Rabbithole, and the song ends, it always, no matter what, needs to go
  * to the next song".
  *
  * Pure.
  *
- * @param {Array} tracks Every charted track: {cid, title, album}.
+ * @param {Array} tracks Every track that may be handed out: {cid, title, album}.
  * @param {Object} [options]
  * @param {?string} [options.currentCid] What is playing, which is not next.
  * @param {Set} [options.playedCids] What this rabbithole has played.
@@ -193,7 +202,7 @@ export const usePickerStore = defineStore( 'picker', () => {
 		const graph = await performerGraph();
 		return firstPlayable( graph.plays[ name ] || [], {
 			currentCid: currentCid(), playedCids: playedCids.value, queuedCids: songs.queuedCids, cidOf: songCid,
-			recordsOf, recordsOn: ( song ) => recordsOn( graph, song, name ),
+			recordsOf, recordsOn: ( song ) => recordsOn( graph, song, name ), ready: songs.isReady,
 		} );
 	}
 
@@ -373,7 +382,7 @@ export const usePickerStore = defineStore( 'picker', () => {
 	 * song that ends goes to the next song (item 28). The rest of the
 	 * record, where one is playing through, is already that.
 	 *
-	 * The charted list is waited for rather than read where it stands: on
+	 * The ready list is waited for rather than read where it stands: on
 	 * a visit from a Listen link it arrives a moment after the song does,
 	 * and a floor that read it too early found nothing and left the song
 	 * to end in silence (re, 15 Nov 2026).
@@ -382,7 +391,10 @@ export const usePickerStore = defineStore( 'picker', () => {
 		if ( songs.queuedCids.length || songs.recordRest.length || standingBack() ) {
 			return;
 		}
-		const track = anotherTrack( await songs.chartedList(), {
+		// Only what is in production: the floor is the one that reaches for a
+		// song nobody on this one led to, so it is the last that may reach
+		// for one that is not ready. With none, the song ends and that is that.
+		const track = anotherTrack( await songs.readyList(), {
 			currentCid: currentCid(), playedCids: playedCids.value,
 		} );
 		if ( track && ! songs.queuedCids.length ) {
@@ -504,6 +516,13 @@ export const usePickerStore = defineStore( 'picker', () => {
 		await queueNext();
 		if ( next.value && player.status === 'STOPPED' ) {
 			player.model.playNext();
+		}
+		// A picker with nothing to play that the rabbithole may hand out: the
+		// quest's pick stood aside for them, so the floor goes under this
+		// song, or it ends in silence. Rare once; with three songs in
+		// production it is most pickers (20 Nov 2026).
+		if ( ! next.value ) {
+			await lineUpSomething();
 		}
 	}
 

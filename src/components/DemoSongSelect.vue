@@ -1,8 +1,9 @@
 <script setup>
 /*
- * Every track with a chart on the wiki, by album. It shows the song that
- * is loaded, whatever loaded it, and lists that song even before it has a
- * chart. Songs sit under their album's name, so each option is only a
+ * Every track the rabbithole hands out, by album: the charted ones in
+ * production (stores/song.js, `ready`). It shows the song that is loaded,
+ * whatever loaded it, and lists that song even when it is not one of
+ * them. Songs sit under their album's name, so each option is only a
  * title.
  */
 import { computed } from 'vue';
@@ -19,9 +20,9 @@ const loadedCid = computed( () => {
 } );
 
 /**
- * The loaded song, as an option. A track with no chart yet isn't in
- * songs.charted, but it is still what's playing, so the selector
- * shows it rather than going blank.
+ * The loaded song, as an option. A track not yet in production isn't in
+ * songs.ready, but it is still what's playing, so the selector shows it
+ * rather than going blank.
  */
 function loadedSongAsOption() {
 	const albumTitle = songs.album ? songs.album.title : '';
@@ -29,7 +30,7 @@ function loadedSongAsOption() {
 }
 
 const options = computed( () => {
-	const charted = songs.charted;
+	const charted = songs.ready;
 	if ( ! loadedCid.value ) {
 		return charted;
 	}
@@ -54,7 +55,7 @@ const groups = computed( () => {
 
 <template>
 	<span class="demo-select-row">
-		<select id="song-selector" class="song-select" :value="loadedCid" title="Every song with a chart on PickiPedia"
+		<select id="song-selector" class="song-select" :value="loadedCid" title="Every song ready for Rabbithole"
 			@change="songs.pickTrack( $event.target.value )">
 			<optgroup v-for="g in groups" :key="g.album" :label="g.album">
 				<option v-for="t in g.tracks" :key="t.cid" :value="t.cid">{{ t.title }}</option>

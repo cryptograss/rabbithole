@@ -74,6 +74,47 @@ export async function songPageOf( cid, title ) {
 }
 
 /**
+ * A track's Rabbithole state: how far its chart has come.
+ *
+ * Justin, #rabbithole, 16 Nov 2026: "the state of the metadata is either
+ * alpha, beta or production ... if we post a link to Rabbit Hole, someone
+ * listens to August, I don't want it then their next song ... to take them
+ * to a song that is broken." And #connectome, 20 Nov 2026: "Currently, I
+ * really only want Reuben's, Paint Exchange, and August. None of the
+ * others are fully ready."
+ *
+ * So one key, `state`, at the top of a track's /Metadata page, beside
+ * `timeline` and `ensemble`. The rabbithole hands a listener only tracks
+ * in production: the song list, a chase, a quest, the floor, a trail's
+ * way there, a record's running order. A track somebody names -- a link,
+ * a play button, a step back along their own walk -- plays whatever its
+ * state, so a song can be charted and checked before it is handed out.
+ */
+export const STATES = [ 'alpha', 'beta', 'production' ];
+
+/** The state a metadata page names, or null when it names none of the three. Pure. */
+export function namedState( data ) {
+	const said = data && typeof data === 'object' && typeof data.state === 'string' ? data.state.trim().toLowerCase() : null;
+	return STATES.includes( said ) ? said : null;
+}
+
+/** A track's state: what its page names, and alpha when it names none, or one nobody knows. Pure. */
+export function stateOf( data ) {
+	return namedState( data ) || 'alpha';
+}
+
+/** Whether a metadata page's text says its track is in production: the one the rabbithole may hand out. Pure. */
+export function isProduction( metadataText ) {
+	let data;
+	try {
+		data = jsYaml.load( metadataText );
+	} catch {
+		return false;
+	}
+	return stateOf( data ) === 'production';
+}
+
+/**
  * Ensemble, timeline and the rest out of a metadata page, in either of
  * the two shapes it comes in: flat (what the editor saves) or arthel's
  * studio_versions tree (what gets pasted from a song's YAML).
@@ -86,6 +127,7 @@ export function extractMetadata( data ) {
 		return {
 			ensemble: data.ensemble || {},
 			timeline: normalizeTimeline( data.timeline ),
+			state: stateOf( data ),
 			standardSectionLength: data.standardSectionLength,
 			title: data.title,
 			album: data.album,
@@ -106,6 +148,8 @@ export function extractMetadata( data ) {
 				return {
 					ensemble: release.ensemble || {},
 					timeline: normalizeTimeline( rh.timeline ),
+					// The old shape has nowhere to say; it is not handed out.
+					state: 'alpha',
 					standardSectionLength: rh.standardSectionLength,
 					title: releaseKey,
 					album: releaseKey,
@@ -241,7 +285,8 @@ export async function loadTrack( cid, { forcedEncoding = null, signal } = {} ) {
 	if ( ! release ) {
 		throw new Error( 'Track Release page not found: ' + cid );
 	}
-	const metadata = extractMetadata( await fetchYamlPage( 'Release:' + cid + '/Metadata', { signal } ) || {} );
+	const written = await fetchYamlPage( 'Release:' + cid + '/Metadata', { signal } ) || {};
+	const metadata = extractMetadata( written );
 	const encoding = pickEncoding( release.encodings, { forced: forcedEncoding } )
 		|| await lonePlayable( release, cid, { signal } ).then( ( path ) => path && { cid: path, format: 'file' } );
 	if ( ! encoding ) {
@@ -257,6 +302,8 @@ export async function loadTrack( cid, { forcedEncoding = null, signal } = {} ) {
 		standardSectionLength: metadata.standardSectionLength,
 		engineer: metadata.engineer,
 		_trackCid: cid,
+		/** The state its /Metadata page names, or null where it names none: a save writes it back as it was. */
+		_state: namedState( written ),
 		/** The readable name ?track= came with, if it did; the address keeps it. */
 		_alias: null,
 		_metadataTitle: 'Release:' + cid + '/Metadata',
@@ -299,9 +346,11 @@ export function isCharted( metadataText ) {
 }
 
 /**
- * Every track with a chart on the wiki, as {cid, title, album}, by album
- * then title: the song selector's list. A song is on it once its
- * /Metadata page has a timeline, so charting a song is what puts it there.
+ * Every track with a chart on the wiki, as {cid, title, album, state}, by
+ * album then title. A song is on it once its /Metadata page has a
+ * timeline. What the rabbithole hands out is the part of it in production
+ * (readyTracks): the song selector's list, and what a chase, a quest and
+ * the floor may reach for.
  */
 export async function chartedTracks() {
 	const metadataTitles = [];
@@ -318,10 +367,6 @@ export async function chartedTracks() {
 		from = j.continue?.apcontinue;
 	} while ( from );
 
-	const metadata = await pageTexts( metadataTitles );
-	const cids = metadataTitles.filter( ( t ) => metadata[ t ] && isCharted( metadata[ t ] ) )
-		.map( ( t ) => t.slice( 'Release:'.length, -'/Metadata'.length ) );
-
 	const load = ( text ) => {
 		try {
 			return jsYaml.load( text ) || {};
@@ -329,6 +374,15 @@ export async function chartedTracks() {
 			return {};
 		}
 	};
+	const metadata = await pageTexts( metadataTitles );
+	const states = {};
+	const cids = metadataTitles.filter( ( t ) => metadata[ t ] && isCharted( metadata[ t ] ) )
+		.map( ( t ) => {
+			const cid = t.slice( 'Release:'.length, -'/Metadata'.length );
+			states[ cid ] = stateOf( load( metadata[ t ] ) );
+			return cid;
+		} );
+
 	const releases = await pageTexts( cids.map( ( cid ) => 'Release:' + cid ) );
 	const tracks = cids.map( ( cid ) => ( { cid, release: load( releases[ 'Release:' + cid ] || '' ) } ) );
 	const parents = [ ...new Set( tracks.map( ( t ) => t.release.parent_release ).filter( Boolean ) ) ];
@@ -338,7 +392,13 @@ export async function chartedTracks() {
 		cid,
 		title: release.title || cid,
 		album: ( release.parent_release && load( albums[ 'Release:' + release.parent_release ] || '' ).title ) || '',
+		state: states[ cid ],
 	} ) ).sort( ( a, b ) => a.album.localeCompare( b.album ) || a.title.localeCompare( b.title ) );
+}
+
+/** The tracks of a list the rabbithole may hand out: those in production. Pure. */
+export function readyTracks( tracks ) {
+	return ( tracks || [] ).filter( ( t ) => t && t.cid && t.state === 'production' );
 }
 
 /** The record a track belongs to: title and running order, from the parent Release. */
@@ -647,6 +707,10 @@ export function metadataYaml( working, song ) {
 		ensemble: working.ensemble || {},
 		...( working.standardSectionLength != null ? { standardSectionLength: working.standardSectionLength } : {} ),
 		...( song && song.title ? { title: song.title } : {} ),
+		// The track's state is not the editor's to change, and not its to
+		// lose: saving a chart used to write these keys and no others, so a
+		// production track would have gone back to alpha at its next edit.
+		...( song && STATES.includes( song._state ) ? { state: song._state } : {} ),
 		// noRefs: never an anchor (&ref_1 / *ref_1). Two markers that happen
 		// to hold the same object are still two markers to everyone who
 		// reads this page -- people, the Lua modules, every other parser.

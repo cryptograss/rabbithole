@@ -138,6 +138,8 @@ export function reach( graph ) {
 export function findTrail( graph, from, to, options = {} ) {
 	const { band, plays } = graph;
 	const avoid = new Set( options.avoid || [] );
+	// Songs the trail may not pass through (it may still end on one).
+	const avoidSongs = new Set( options.avoidSongs || [] );
 	const hubPenalty = options.hubPenalty === undefined ? 2 : options.hubPenalty;
 	const maxHops = options.maxHops || 6;
 
@@ -186,7 +188,7 @@ export function findTrail( graph, from, to, options = {} ) {
 			const cost = current.cost + 1 + hubPenalty * ( ( plays[ person ] || [] ).length - 1 );
 
 			for ( const nextSong of plays[ person ] || [] ) {
-				if ( nextSong === current.song ) {
+				if ( nextSong === current.song || ( nextSong !== to && avoidSongs.has( nextSong ) ) ) {
 					continue;
 				}
 				if ( best[ nextSong ] !== undefined && best[ nextSong ] <= cost ) {

@@ -20,6 +20,41 @@ import { usePlayerStore } from './player.js';
 import { GRAPH_START } from '../shell.js';
 import { useWalkStore } from './walk.js';
 
+/**
+ * A record's running order, as the rabbithole hands it out: the tracks in
+ * production, in order. The track the address names starts it whatever
+ * its state -- somebody named it. And a record with nothing in production
+ * still plays its first track, alone: the record was asked for by name,
+ * and a link to it that played nothing would be a dead link. Pure.
+ *
+ * @param {string[]} order The record's track CIDs, from where it starts.
+ * @param {?string} named The track the address names, if it names one.
+ * @param {string[]} ready The CIDs in production.
+ * @return {string[]}
+ */
+export function handedFrom( order, named, ready ) {
+	const handed = order.filter( ( cid, i ) => ready.includes( cid ) || ( i === 0 && cid === named ) );
+	return handed.length ? handed : order.slice( 0, 1 );
+}
+
+/**
+ * A record's tracks as the header's selector lists them: those in
+ * production, in running order, and the one that stands now whatever its
+ * state, so the selector shows what is playing. The list is an offer, and
+ * the rabbithole offers only what is ready (Justin, 20 Nov 2026: "which
+ * songs appear as rabbithole candidates and which don't"). Pure.
+ *
+ * @param {Array<{cid: string, track_number?: number}>} tracks The record's.
+ * @param {string[]} ready The CIDs in production.
+ * @param {?string} standing The track loaded now.
+ * @return {Array}
+ */
+export function listedOf( tracks, ready, standing = null ) {
+	return ( tracks || [] )
+		.filter( ( t ) => t && t.cid && ( ready.includes( t.cid ) || t.cid === standing ) )
+		.sort( ( a, b ) => ( a.track_number || 0 ) - ( b.track_number || 0 ) );
+}
+
 export const useSongStore = defineStore( 'song', () => {
 	const player = usePlayerStore();
 
@@ -34,7 +69,8 @@ export const useSongStore = defineStore( 'song', () => {
 	const loading = ref( true );
 	const loadError = ref( null );
 	/**
-	 * Every track with a chart on the wiki: the song selector's list, and
+	 * Every track with a chart on the wiki, each with its state; the part
+	 * of it in production (`ready`, below) is the song selector's list, and
 	 * what the rabbithole falls back to when a chase and a quest have both
 	 * run out (Justin's item 28). It used to be fetched only when the
 	 * address named no track, since only the selector wanted it; on a
@@ -58,6 +94,24 @@ export const useSongStore = defineStore( 'song', () => {
 		}
 		return chartedPromise;
 	}
+	/**
+	 * What the rabbithole may hand a listener: the charted tracks in
+	 * production (wiki/api.js, STATES). The song selector's list, the
+	 * floor's, and the gate a chase, a quest, a trail and a record's
+	 * running order all ask at (Justin, 16 and 20 Nov 2026).
+	 */
+	const ready = computed( () => wiki.readyTracks( charted.value ) );
+
+	/** The ready list, when it arrives. */
+	function readyList() {
+		return chartedList().then( ( list ) => wiki.readyTracks( list ) );
+	}
+
+	/** May the rabbithole hand this recording out? A track nobody can vouch for, it may not. */
+	async function isReady( cid ) {
+		return !! cid && ( await readyList() ).some( ( t ) => t.cid === cid );
+	}
+
 	/** Locked to one track by ?track=, or one record by ?record=: the song selector stays hidden. */
 	const lockedToTrack = computed( () => !! trackParam || !! recordParam );
 
@@ -157,7 +211,7 @@ export const useSongStore = defineStore( 'song', () => {
 			throw new Error( 'Record Release page not found, or it lists no tracks: ' + recordParam );
 		}
 		const from = trackParam ? ( await wiki.resolveTrack( trackParam ) ).cid : null;
-		const order = runningOrderFrom( record.tracks, from );
+		const order = handedFrom( runningOrderFrom( record.tracks, from ), from, ( await readyList() ).map( ( t ) => t.cid ) );
 		for ( let i = 0; i < order.length; i++ ) {
 			try {
 				const song = await fetchTrack( order[ i ] );
@@ -287,8 +341,8 @@ export const useSongStore = defineStore( 'song', () => {
 	}, { immediate: true } );
 
 	return {
-		initial, loading, loadError, charted, lockedToTrack, current,
+		initial, loading, loadError, charted, ready, lockedToTrack, current,
 		album, recordPage, artUrl, artFailed, notice, metadataParts, queuedCids, recordRest,
-		boot, pickTrack, fetchTrack, playCid, queueCid, queueRecordRest, goToTrack, chartedList,
+		boot, pickTrack, fetchTrack, playCid, queueCid, queueRecordRest, goToTrack, chartedList, readyList, isReady,
 	};
 } );

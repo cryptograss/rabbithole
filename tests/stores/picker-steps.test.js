@@ -49,6 +49,7 @@ function world( { band = {}, plays = {}, charted = [] } = {} ) {
 	const song = ref( null );
 	const cards = ref( [] );
 	globalThis.__graph = { band, plays, records: {} };
+	globalThis.__unready = null;
 	globalThis.__cids = { 'Song:Cicada Song': CICADA, 'Song:Silver 44': SILVER, 'Song:August': AUGUST, 'Song:Proximity': PROX };
 	// The walk, as its store really behaves: a mark with a step moves where
 	// you stand, anything else adds a hop at the end (stores/walk.js).
@@ -111,6 +112,9 @@ function world( { band = {}, plays = {}, charted = [] } = {} ) {
 		queuedCids: [],
 		recordRest: [],
 		chartedList: async () => charted,
+		// What the rabbithole may hand out (wiki/api.js, STATES): the floor's list, and the gate a chase and a quest ask at.
+		readyList: async () => charted,
+		isReady: async ( cid ) => ! ( globalThis.__unready || [] ).includes( cid ),
 		queueCid: vi.fn( async ( cid ) => {
 			globalThis.__songs.queuedCids.push( cid );
 			return true;
@@ -319,5 +323,72 @@ describe( 'back and forward along the walk', () => {
 		expect( await picker.playHop( 'QmSomewhereElse' ) ).toBe( true );
 		// Nothing claimed it was a step of this walk.
 		expect( globalThis.__walk.mark ).toHaveBeenCalledWith( 'QmSomewhereElse', null );
+	} );
+} );
+
+/*
+ * A track's state (wiki/api.js, STATES; Justin, 16 and 20 Nov 2026): the
+ * rabbithole hands out only what is in production, on every path that
+ * names a song by itself -- the quest, the chase, the floor, next.
+ */
+describe( 'only what is in production is handed out', () => {
+	beforeEach( () => setActivePinia( createPinia() ) );
+
+	const kyle = {
+		band: { 'Song:August': { 'Kyle Tuttle': [ 'banjo' ] } },
+		plays: { 'Kyle Tuttle': [ 'Song:August', 'Song:Cicada Song', 'Song:Silver 44' ] },
+	};
+
+	it( 'a quest passes over a picker\'s song that is not ready, for their next that is', async () => {
+		const w = world( kyle );
+		globalThis.__unready = [ CICADA ];
+		usePickerStore();
+		await w.plays( AUGUST, [ 'Kyle Tuttle' ] );
+		expect( globalThis.__songs.queuedCids ).toEqual( [ SILVER ] );
+	} );
+
+	it( 'a chase does too, and says so in its offer', async () => {
+		const w = world( kyle );
+		globalThis.__unready = [ CICADA ];
+		const picker = usePickerStore();
+		await w.plays( AUGUST, [] );
+		await picker.chase( 'Kyle Tuttle' );
+		expect( picker.next ).toEqual( { song: 'Song:Silver 44', cid: SILVER } );
+		expect( globalThis.__songs.queuedCids ).toEqual( [ SILVER ] );
+	} );
+
+	it( 'a chase of a picker with nothing ready leaves the floor under the song, not silence', async () => {
+		const w = world( { ...kyle, charted: [ { cid: AUGUST }, { cid: PROX } ] } );
+		globalThis.__unready = [ CICADA, SILVER ];
+		const picker = usePickerStore();
+		await w.plays( AUGUST, [] );
+		globalThis.__songs.queuedCids.length = 0;
+		await picker.chase( 'Kyle Tuttle' );
+		expect( picker.next ).toBe( null );
+		expect( globalThis.__songs.queuedCids ).toEqual( [ PROX ] );
+		expect( wordFor( PROX ) ).toBe( 'wander' );
+	} );
+
+	it( 'with nothing in production at all, nothing is lined up and next does nothing', async () => {
+		const w = world( { ...kyle, charted: [] } );
+		globalThis.__unready = [ AUGUST, CICADA, SILVER, PROX ];
+		// Charted, and not in production: the floor may not reach for it either.
+		globalThis.__songs.chartedList = async () => [ { cid: PROX, state: 'beta' } ];
+		const picker = usePickerStore();
+		await w.plays( AUGUST, [ 'Kyle Tuttle' ] );
+		expect( globalThis.__songs.queuedCids ).toEqual( [] );
+		expect( await picker.forward() ).toBe( false );
+		expect( w.song.value._trackCid ).toBe( AUGUST );
+		expect( globalThis.__songs.queueCid ).not.toHaveBeenCalled();
+	} );
+
+	it( 'a step back along your own walk plays whatever its state', async () => {
+		const w = world( kyle );
+		const picker = usePickerStore();
+		await w.plays( CICADA, [] );
+		await w.plays( AUGUST, [] );
+		globalThis.__unready = [ CICADA ];
+		expect( await picker.back() ).toBe( true );
+		expect( w.song.value._trackCid ).toBe( CICADA );
 	} );
 } );
