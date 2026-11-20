@@ -25,10 +25,10 @@ const OLD_PAGES = [ '/assets/connectome/', '/assets/connectome/index.html' ];
 /** A bacon graph kept as shared, /bacon/ and its ID (pickipedia:blu/bacon-keep): the same page, drawing what was kept. */
 const KEPT_PATH = /^\/bacon\/[cfmr][0-9a-hjkmnp-tv-z]{10}\/?$/;
 
-/** Is this path the graph's page, at either address, or a kept graph's? */
 /** A challenge, /bacon/challenge and whom to find: the same page, which reads the name from the address. */
 const CHALLENGE_PATH = /^\/bacon\/challenge(\/[^/]+)?\/?$/;
 
+/** Is this path the graph's page, at either address, a kept graph's, or a challenge's? */
 function isGraphPath( path ) {
 	return path === GRAPH_PATH || path === GRAPH_PATH + '/' || OLD_PAGES.includes( path ) || KEPT_PATH.test( path ) ||
 		CHALLENGE_PATH.test( path );
