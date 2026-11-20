@@ -62,15 +62,24 @@ export const usePaneStore = defineStore( 'pane', () => {
 		return ( song && ( song._alias || song._trackCid ) ) || new URLSearchParams( window.location.search ).get( 'track' );
 	}
 
-	async function open( title, { push = true, force = false } = {} ) {
+	/**
+	 * @param {string} title The page.
+	 * @param {Object} [options]
+	 * @param {boolean} [options.push] An entry of its own in the history, else the entry in sight rewritten.
+	 * @param {boolean} [options.force] Ask the wiki again, though it is the page in hand.
+	 * @param {boolean} [options.music] Traverse mode opened it, not the reader: the entry says so (`music`), and
+	 *   Back onto it is coming back to where the music had the pane (traverse.js, comesBackToTheMusic).
+	 */
+	async function open( title, { push = true, force = false, music = false } = {} ) {
 		if ( ! title ) {
 			return;
 		}
 		const path = appAddress( title );
+		const entry = music ? { wikiTitle: title, music: true } : { wikiTitle: title };
 
 		if ( ! force && wanted.value === title ) {
 			if ( push ) {
-				history.pushState( { wikiTitle: title }, '', path );
+				history.pushState( entry, '', path );
 			}
 			return;
 		}
@@ -101,9 +110,9 @@ export const usePaneStore = defineStore( 'pane', () => {
 			shown.value = title;
 			loading.value = false;
 			if ( push ) {
-				history.pushState( { wikiTitle: title }, '', path );
+				history.pushState( entry, '', path );
 			} else {
-				history.replaceState( { wikiTitle: title }, '', path );
+				history.replaceState( entry, '', path );
 			}
 		} catch ( err ) {
 			// Superseded (aborted, or finished second): the newer request
@@ -128,9 +137,14 @@ export const usePaneStore = defineStore( 'pane', () => {
 	 * came is still what a reload opens (Justin, #rabbithole, 15 Nov 2026).
 	 *
 	 * @param {string} src The frame's src, from graphSrcFor().
-	 * @param {Object} [traverse] Traverse mode's own: { traverse: true, to, card, cid } (see bacon()).
+	 * @param {Object} [traverse] Traverse mode's own: { traverse: true, to, card, cid } (see bacon()). Its entry
+	 *   in the history is the music's, and says so (`music`).
+	 * @param {Object} [options]
+	 * @param {boolean} [options.step] A step of the reader's: an entry of its own.
+	 * @param {boolean} [options.write] Whether the history is written at all.
+	 * @param {boolean} [options.inPlace] The entry in sight is rewritten whatever it holds: Back came onto it.
 	 */
-	function openGraph( src, traverse = {}, { step = false, write = true } = {} ) {
+	function openGraph( src, traverse = {}, { step = false, write = true, inPlace = false } = {} ) {
 		const at = src ? graphAt( src, window.location.origin ) : null;
 		if ( ! at ) {
 			return;
@@ -149,7 +163,7 @@ export const usePaneStore = defineStore( 'pane', () => {
 		// over from an article: an entry of its own in the history, so Back
 		// comes back to what was there. Otherwise this entry is the graph's.
 		const from = window.history.state;
-		const push = step || !! ( from && from.wikiTitle );
+		const push = ! inPlace && ( step || !! ( from && from.wikiTitle ) );
 		let to = null;
 		if ( graphSrc.value && movesByWord( graphNow || graphSrc.value, at ) ) {
 			to = at.slice( at.indexOf( '?' ) );
@@ -161,7 +175,17 @@ export const usePaneStore = defineStore( 'pane', () => {
 		// step before keeps its drawing.
 		view.value = Object.assign( { kind: 'graph', src: graphSrc.value, to, fresh: push && !! to }, traverse );
 		if ( write ) {
-			window.history[ push ? 'pushState' : 'replaceState' ]( { graph: at }, '', shellAddress( at, trackInAddress() ) );
+			const entry = { graph: at };
+			if ( ! push && from && from.n !== undefined && ( inPlace || from.graph === at ) ) {
+				// The same entry, come back to (the frame was just sent to its number, and draws what comes
+				// next under it), or the same place in it: the frame's own number for the entry stands.
+				entry.n = from.n;
+				entry.s = from.s;
+			}
+			if ( traverse.traverse ) {
+				entry.music = true;
+			}
+			window.history[ push ? 'pushState' : 'replaceState' ]( entry, '', shellAddress( at, trackInAddress() ) );
 		}
 	}
 
@@ -170,6 +194,11 @@ export const usePaneStore = defineStore( 'pane', () => {
 	 * history (shell.js). A step the reader took is an entry; anything else
 	 * (the music moved it, the frame's first view) rewrites the entry in
 	 * sight. Heard only while the pane holds the graph.
+	 *
+	 * An entry rewritten while traverse mode is on is the music's (`music`):
+	 * the music moved the frame there, or the frame said again where the
+	 * music has it. A step is the reader's, and never is; nor is anything
+	 * heard once the reader has steered and traverse mode is off.
 	 *
 	 * @param {Object} d { at, step, n, s }: where, whether a step, and the frame's own number for it.
 	 * @return {boolean} Whether it was taken.
@@ -180,7 +209,11 @@ export const usePaneStore = defineStore( 'pane', () => {
 			return false;
 		}
 		graphNow = at;
-		window.history[ d.step ? 'pushState' : 'replaceState' ]( { graph: at, n: d.n, s: d.s }, '', shellAddress( at, trackInAddress() ) );
+		const entry = { graph: at, n: d.n, s: d.s };
+		if ( ! d.step && useLayoutStore().traverse !== 'off' ) {
+			entry.music = true;
+		}
+		window.history[ d.step ? 'pushState' : 'replaceState' ]( entry, '', shellAddress( at, trackInAddress() ) );
 		return true;
 	}
 
@@ -230,17 +263,19 @@ export const usePaneStore = defineStore( 'pane', () => {
 	const unheld = ref( null );
 
 	/** The bacon graph for the song on now, or its soloist; false where the graph has no such song. */
-	function bacon( song, solo = null ) {
+	function bacon( song, solo = null, { inPlace = false } = {} ) {
 		const cid = song && song._trackCid;
 		const to = baconAddress( cid, solo );
 		if ( ! to || unheld.value === cid ) {
 			return false;
 		}
 		const card = solo || null;
-		if ( view.value.kind === 'graph' && view.value.traverse ) {
+		if ( view.value.kind === 'graph' && view.value.traverse && ! inPlace ) {
 			view.value = Object.assign( {}, view.value, { to, card, cid, fresh: false } );
 		} else {
-			openGraph( GRAPH_PATH + to, { traverse: true, to, card, cid } );
+			// Back came onto the music's entry (inPlace): the entry is written here, whatever it held, rather
+			// than left for the frame to say where it went.
+			openGraph( GRAPH_PATH + to, { traverse: true, to, card, cid }, { inPlace } );
 		}
 		// The soloist by their page's own name, once the wiki has said it: a chart's "Justin Holmes" is the
 		// graph's "Justin Myles Holmes". Until then the graph keeps the song, if it doesn't know the name.
@@ -285,13 +320,13 @@ export const usePaneStore = defineStore( 'pane', () => {
 	 * (Skyler). The song's title in the dock is a link here, the way back
 	 * once the pane has followed the pickers off the song (Justin, 11 Nov 2026).
 	 */
-	async function openSong( song, { push = true } = {} ) {
+	async function openSong( song, { push = true, music = false } = {} ) {
 		const fallback = song._metadataTitle;
 		try {
-			open( ( await wiki.songPageOf( song._trackCid, song.title ) ) || fallback, { push } );
+			open( ( await wiki.songPageOf( song._trackCid, song.title ) ) || fallback, { push, music } );
 		} catch ( err ) {
 			console.warn( 'Could not look for a song page:', err );
-			open( fallback, { push } );
+			open( fallback, { push, music } );
 		}
 	}
 

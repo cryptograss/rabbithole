@@ -48,11 +48,12 @@ describe( 'the graph\'s addresses', () => {
 } );
 
 describe( 'the one history, kept by the shell', () => {
-	let pane, push, replace;
+	let pane, layout, push, replace;
 	beforeEach( async () => {
 		setActivePinia( createPinia() );
 		window.history.replaceState( null, '', '/rabbithole/?track=QmX' );
 		( { usePaneStore: pane } = await import( '../../src/stores/pane.js' ) );
+		( { useLayoutStore: layout } = await import( '../../src/stores/layout.js' ) );
 		pane = pane();
 		push = vi.spyOn( window.history, 'pushState' );
 		replace = vi.spyOn( window.history, 'replaceState' );
@@ -67,6 +68,8 @@ describe( 'the one history, kept by the shell', () => {
 		pane.openGraph( '/bacon?cut=QmX' );
 		expect( pane.heardGraphAt( { at: '/bacon?p=Cory+Walker', step: true, n: 2, s: 'abc' } ) ).toBe( true );
 		expect( push ).toHaveBeenLastCalledWith( { graph: '/bacon?p=Cory+Walker', n: 2, s: 'abc' }, '', '/bacon?p=Cory+Walker&track=QmX' );
+		// The reader moved the graph, so traverse mode is off (WikiPane, at the frame's `moved`): the entry is theirs.
+		layout().stopTraversing();
 		pane.heardGraphAt( { at: '/bacon?p=Cory+Walker&turn=1', step: false, n: 2, s: 'abc' } );
 		expect( push ).toHaveBeenCalledTimes( 1 );
 		expect( replace ).toHaveBeenLastCalledWith( { graph: '/bacon?p=Cory+Walker&turn=1', n: 2, s: 'abc' }, '', '/bacon?p=Cory+Walker&turn=1&track=QmX' );

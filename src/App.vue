@@ -11,7 +11,7 @@
 import { computed, watch, watchEffect, onMounted, onBeforeUnmount } from 'vue';
 
 import { INITIAL_PARAMS, cameToListen } from './initial-params.js';
-import { traverseTo } from './traverse.js';
+import { traverseTo, comesBackToTheMusic } from './traverse.js';
 import { GRAPH_START, startAt, startsOnSong, graphStartPlays } from './shell.js';
 import { useLayoutStore } from './stores/layout.js';
 import { useSongStore } from './stores/song.js';
@@ -85,17 +85,19 @@ watch( () => [ player.song && player.song._trackCid, player.currentSolo ], ( [ c
  * song beside them; in pages, the song's page or the soloist's. A song the
  * graph does not hold gets the pages, in either.
  */
-function traverse( solo ) {
+function traverse( solo, { inPlace = false } = {} ) {
 	if ( ! player.song ) {
 		return;
 	}
-	if ( layout.traverse === 'bacon' && pane.bacon( player.song, solo ) ) {
+	if ( layout.traverse === 'bacon' && pane.bacon( player.song, solo, { inPlace } ) ) {
 		return;
 	}
+	// The music's entries in the history say so: Back onto one is coming back to it (comesBackToTheMusic).
+	const how = { push: ! inPlace, music: true };
 	if ( solo ) {
-		pane.open( solo );
+		pane.open( solo, how );
 	} else {
-		pane.openSong( player.song );
+		pane.openSong( player.song, how );
 	}
 }
 
@@ -142,19 +144,34 @@ watch( () => layout.isBar && layout.collapsed, ( shaded ) => {
 
 // Back and forward move the pane. Steering it yourself stops the follow.
 function onPopState( e ) {
+	// Back to where the music had the pane, having gone off reading: traverse mode comes back on as it was, and
+	// the pane goes where the music is now -- the soloist taking it, or the song -- in the entry come back to,
+	// since the music played on meanwhile (Justin, #connectome, 20 Nov 2026).
+	const back = comesBackToTheMusic( e.state, { traverse: layout.traverse, resume: layout.resume, standing: !! player.song } );
+	const nowSolo = () => ( player.playing ? player.currentSolo : null );
 	if ( e.state && e.state.graph ) {
 		// An entry of the graph's (shell.js): the pane holds the graph again, at that step as it was drawn.
-		// Going there is the reader steering, unless it is the song on now's own graph.
+		// Going there is the reader steering, unless it is the song on now's own graph, or the music's entry.
 		const cut = new URLSearchParams( String( e.state.graph ).split( '?' )[ 1 ] || '' );
-		if ( player.song && cut.get( 'cut' ) === player.song._trackCid && ! cut.get( 'p' ) ) {
+		if ( back || ( player.song && cut.get( 'cut' ) === player.song._trackCid && ! cut.get( 'p' ) ) ) {
 			layout.resumeTraversing();
 		} else {
 			layout.stopTraversing();
 		}
+		// The frame is sent to the step first, so its own number for the entry is this entry's again; then on to
+		// where the music is, which it says back, and the entry is rewritten in place.
 		pane.showGraph( e.state );
+		if ( back ) {
+			traverse( nowSolo(), { inPlace: true } );
+		}
 		return;
 	}
 	const title = e.state && e.state.wikiTitle;
+	if ( title && back ) {
+		layout.resumeTraversing();
+		traverse( nowSolo(), { inPlace: true } );
+		return;
+	}
 	if ( title ) {
 		// Back to the song's page is back to traverse mode as it was; anywhere else, off (Justin, 18 Nov 2026).
 		if ( pane.isSongPage( title, player.song ) ) {
