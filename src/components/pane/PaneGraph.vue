@@ -12,14 +12,13 @@
  * that says what is playing and one that hears the graph back.
  *
  * In traverse mode's bacon graphs, the picker taking a solo has their card
- * (Justin, #connectome, 18 Nov 2026): a band under the frame, which gives it
- * the room, so the card covers nothing of the graph (20 Nov 2026; pane.css).
+ * (Justin, #connectome, 18 Nov 2026). The graph draws it itself, in its upper
+ * right corner, where its ring leaves a place empty for it (20 Nov 2026,
+ * 14:16Z: one bar less over the graph and no band under it). It was a band
+ * under the frame here, and before that a card over the frame's corner.
  */
-import PaneCard from './PaneCard.vue';
-
 defineProps( {
 	src: { type: String, required: true },
-	card: { type: String, default: null },
 	// Behind whatever else the pane shows: out of sight, at the size it had, so nothing in it is laid out again
 	// and coming back to it is coming back to the same drawing (shell.js).
 	away: { type: Boolean, default: false },
@@ -34,6 +33,5 @@ defineProps( {
 			title="The connectome"
 			loading="eager"
 		></iframe>
-		<PaneCard v-if="card" :name="card" />
 	</div>
 </template>

@@ -346,7 +346,6 @@ watch( () => pane.shown, ( title ) => picker.look( title ), { immediate: true } 
 			:away="view.kind !== 'graph'"
 			:key="pane.graphSrc"
 			:src="pane.graphSrc"
-			:card="view.kind === 'graph' ? view.card || null : null"
 		/>
 		<PaneSearch
 			v-if="view.kind === 'search'"

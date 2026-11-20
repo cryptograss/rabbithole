@@ -192,20 +192,12 @@ table {
 	background: #fcfcfb;
 }
 
-/* Traverse mode's bacon graph and, while somebody takes a solo, their card
-   (Justin, #connectome, 18 Nov 2026; trimmed 19 Nov 2026, 03:15Z): their
-   name, which is the link to their page, a small picture, and the first
-   three things their {{MusicianInfo}} says they do.
-
-   The card is a band under the graph, and the graph's frame gives it the
-   room: it lay over the frame's corner, on the list's head or on pickers'
-   names, and "the cards need to do a better job of staying out of the way
-   (or the graph slightly resizing)" (Justin, #connectome, 20 Nov 2026).
-   The band is one height whoever is on it and whatever the wiki says of
-   them, so the graph is laid out again when a solo starts and when it ends,
-   and not between two soloists or when the card's words arrive. What does
-   not fit is cut at the line's end, and shows in full while the card is
-   pointed at, touched, or tabbed into: then, and only then, over the graph. */
+/* The graph in the pane: a frame the pane's own size. The soloist's card is the
+   graph's own now, in its upper right corner where its ring leaves a place
+   empty (pickipedia's explorer; Justin, #connectome, 20 Nov 2026, 14:16Z: the
+   bar over the graph and the band under it "need to be merged so as to take up
+   less space"). The band that was here under the frame is gone, and the frame
+   has its height. */
 .pane-graph-wrap {
 	position: relative;
 	display: flex;
@@ -221,142 +213,6 @@ table {
 	height: auto;
 }
 
-.pane-card {
-	--band: 66px;
-	position: relative;
-	flex: 0 0 var(--band);
-	height: var(--band);
-	font-size: 12px;
-	line-height: 1.35;
-}
-
-.pane-card-in {
-	position: absolute;
-	right: 0;
-	bottom: 0;
-	left: 0;
-	box-sizing: border-box;
-	min-height: 100%;
-	max-height: 100%;
-	overflow: hidden;
-	display: grid;
-	grid-template-columns: minmax(0, 190px) minmax(0, 1fr);
-	column-gap: 14px;
-	align-items: start;
-	padding: 7px 12px;
-	border-top: 1px solid #d8d4cc;
-	background: #fff;
-}
-
-.pane-card:hover .pane-card-in,
-.pane-card:focus-within .pane-card-in {
-	max-height: 60vh;
-	overflow: auto;
-	box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.18);
-}
-
-/* The picture beside the name; what they do beside both, a column each. */
-.pane-card-who {
-	display: flex;
-	align-items: center;
-	gap: 9px;
-	min-height: 50px;
-}
-
-.pane-card-pic {
-	display: block;
-	flex: none;
-	width: auto;
-	height: auto;
-	max-width: 50px;
-	max-height: 50px;
-	border-radius: 5px;
-}
-
-.pane-card-name {
-	color: #2d5016;
-	font-size: 15px;
-	font-weight: bold;
-	text-decoration: underline;
-	text-decoration-thickness: 1px;
-	text-underline-offset: 2px;
-}
-
-.pane-card-does {
-	display: grid;
-	grid-auto-flow: column;
-	grid-auto-columns: minmax(0, 1fr);
-	column-gap: 14px;
-	margin: 0;
-	padding: 0;
-	list-style: none;
-	font-style: italic;
-}
-
-.pane-card-does li {
-	display: -webkit-box;
-	-webkit-box-orient: vertical;
-	-webkit-line-clamp: 3;
-	line-clamp: 3;
-	overflow: hidden;
-	margin: 0;
-}
-
-.pane-card:hover .pane-card-does li,
-.pane-card:focus-within .pane-card-does li {
-	-webkit-line-clamp: none;
-	line-clamp: none;
-}
-
-.pane-card-does a {
-	color: #2d5016;
-}
-
-/* A pane too narrow for three columns of words (a phone; a small window with
-   the timeline open): the name over them, and each thing they do is a line. */
-@container ( max-width: 640px ) {
-	.pane-card {
-		--band: 76px;
-		font-size: 11px;
-	}
-
-	.pane-card-in {
-		grid-template-columns: minmax(0, 1fr);
-		padding: 5px 8px 6px;
-	}
-
-	.pane-card-who {
-		min-height: 0;
-		gap: 6px;
-	}
-
-	.pane-card-pic {
-		max-width: 18px;
-		max-height: 18px;
-		border-radius: 3px;
-	}
-
-	.pane-card-name {
-		font-size: 12.5px;
-	}
-
-	.pane-card-does {
-		display: block;
-		margin-top: 2px;
-	}
-
-	.pane-card-does li {
-		display: block;
-		overflow: hidden;
-		white-space: nowrap;
-		text-overflow: ellipsis;
-	}
-
-	.pane-card:hover .pane-card-does li,
-	.pane-card:focus-within .pane-card-does li {
-		white-space: normal;
-	}
-}
 
 /* The graph's frame, kept behind an article (PaneGraph's `away`; src/shell.js): out of sight and out of reach, at the
    pane's own size, so the drawing in it stands as it was. Against the host, which is the pane's box. */
