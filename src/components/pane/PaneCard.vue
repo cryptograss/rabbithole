@@ -1,6 +1,6 @@
 <script setup>
 /*
- * A picker's card over traverse mode's bacon graph, while they take a solo
+ * A picker's card under traverse mode's bacon graph, while they take a solo
  * (Justin, #connectome, 18 Nov 2026), as he trimmed it on 19 Nov 2026,
  * 03:15Z: their name, which is the way to their page; their picture, small;
  * and the first three things their {{MusicianInfo}} says they do. No
@@ -36,13 +36,18 @@ watch( () => props.name, async ( name ) => {
 </script>
 
 <template>
-	<aside class="pane-card" :class="{ 'with-pic': picture }" :aria-label="'About ' + title">
-		<img v-if="picture" class="pane-card-pic" :src="picture.src" :srcset="picture.srcset || null"
-			:alt="picture.caption" :title="picture.caption || null">
-		<a class="pane-card-name" :href="wikiPath( title )">{{ title }}</a>
-		<!-- The wiki's own words for each, links and all, as the pane shows any article's. -->
-		<ul v-if="does.length" class="pane-card-does">
-			<li v-for="( line, i ) in does" :key="i" v-html="line"></li>
-		</ul>
+	<!-- tabindex: a touch or a Tab lands on the card itself, which is what opens it in full (pane.css). -->
+	<aside class="pane-card" :class="{ 'with-pic': picture }" :aria-label="'About ' + title" tabindex="0">
+		<div class="pane-card-in">
+			<div class="pane-card-who">
+				<img v-if="picture" class="pane-card-pic" :src="picture.src" :srcset="picture.srcset || null"
+					:alt="picture.caption" :title="picture.caption || null">
+				<a class="pane-card-name" :href="wikiPath( title )">{{ title }}</a>
+			</div>
+			<!-- The wiki's own words for each, links and all, as the pane shows any article's. -->
+			<ul v-if="does.length" class="pane-card-does">
+				<li v-for="( line, i ) in does" :key="i" v-html="line"></li>
+			</ul>
+		</div>
 	</aside>
 </template>

@@ -12,7 +12,8 @@
  * that says what is playing and one that hears the graph back.
  *
  * In traverse mode's bacon graphs, the picker taking a solo has their card
- * over the graph's corner (Justin, #connectome, 18 Nov 2026).
+ * (Justin, #connectome, 18 Nov 2026): a band under the frame, which gives it
+ * the room, so the card covers nothing of the graph (20 Nov 2026; pane.css).
  */
 import PaneCard from './PaneCard.vue';
 
