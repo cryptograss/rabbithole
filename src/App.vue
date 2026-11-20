@@ -12,7 +12,7 @@ import { computed, watch, watchEffect, onMounted, onBeforeUnmount } from 'vue';
 
 import { INITIAL_PARAMS, cameToListen } from './initial-params.js';
 import { traverseTo } from './traverse.js';
-import { GRAPH_START, startAt, graphStartPlays } from './shell.js';
+import { GRAPH_START, startAt, startsOnSong, graphStartPlays } from './shell.js';
 import { useLayoutStore } from './stores/layout.js';
 import { useSongStore } from './stores/song.js';
 import { usePaneStore } from './stores/pane.js';
@@ -175,7 +175,9 @@ function openPaneForStart() {
 	const song = songs.initial;
 	if ( GRAPH_START ) {
 		// Come by /bacon: the graph the address names, whatever else it names (shell.js).
-		pane.openGraph( startAt() );
+		// At the song's own graph, traverse mode's from the start: the soloists' graphs move this frame by word.
+		pane.openGraph( startAt(), startsOnSong() && layout.traverse === 'bacon'
+			? { traverse: true, to: null, card: null, cid: INITIAL_PARAMS.get( 'track' ) } : {} );
 	} else if ( page ) {
 		pane.open( page, { push: false } );
 	} else if ( song && layout.traverse === 'bacon' && pane.bacon( song ) ) {

@@ -10,8 +10,7 @@
  *
  * So /bacon is this app too (the server sends the same index.html for it;
  * maybelle-config, pickipedia-vps's Caddy). Come by /bacon, the pane opens
- * on the graph the address names, the reader steers (traverse mode off),
- * and nothing is loaded to play: no track stands, so the player's own
+ * on the graph the address names, and nothing is loaded to play: no track stands, so the player's own
  * chrome -- its bar across the top, its side -- is put away, and the graph
  * has the window. The first play loads the track and the player comes out
  * of the left side (along the bottom on a phone). From there it is the app
@@ -100,6 +99,31 @@ export function movesByWord( from, to ) {
 /** The place in the graph this visit came for, when it came by /bacon. */
 export function startAt() {
 	return GRAPH_START ? graphAt( window.location.href, window.location.origin ) : null;
+}
+
+/**
+ * Is this place the song's own bacon graph: the graph of the track that
+ * stands (?cut=<track>), at nobody? There, traverse mode starts on bacon
+ * graphs, as it does in Rabbithole (Justin, #connectome, 20 Nov 2026: "I
+ * want it to be bacon graphs by default"). Anywhere else the reader came
+ * to a place of their own choosing, and steers: off, to come back on as
+ * bacon graphs at the song. Pure.
+ *
+ * @param {?string} at Like "/bacon?cut=Qm...&s=Paint+Exchange" (graphAt's).
+ * @param {?string} track The track in the address, if one is.
+ * @return {boolean}
+ */
+export function isSongsOwnGraph( at, track ) {
+	if ( ! at || ! track ) {
+		return false;
+	}
+	const url = new URL( at, 'https://pickipedia.xyz' );
+	return url.pathname === '/bacon' && url.searchParams.get( 'cut' ) === track && ! url.searchParams.get( 'p' );
+}
+
+/** Came by /bacon to the song's own graph (isSongsOwnGraph). */
+export function startsOnSong() {
+	return GRAPH_START && isSongsOwnGraph( startAt(), INITIAL_PARAMS.get( 'track' ) );
 }
 
 /** A Listen link's play=1, which at /bacon is the only thing that starts a song on arrival: a reload opens quiet. */

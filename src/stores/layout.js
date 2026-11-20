@@ -25,7 +25,7 @@ import { ref, computed, watch } from 'vue';
 import { INITIAL_PARAMS, cameToEdit } from '../initial-params.js';
 import { useMediaQuery } from '../composables/media-query.js';
 import { TRAVERSE_MODES } from '../traverse.js';
-import { GRAPH_START } from '../shell.js';
+import { GRAPH_START, startsOnSong } from '../shell.js';
 
 export const AUTO_AT = 700;
 /*
@@ -138,10 +138,12 @@ export const useLayoutStore = defineStore( 'layout', () => {
 	 * It was "Follow the solo", which named one of the things it does and
 	 * read as a social-media follow besides (Justin's item 16, 15 Nov 2026).
 	 */
-	// Come by /bacon (shell.js), the reader is steering the graph from the start: off, to come back on as bacon
-	// graphs when they come to the song on now.
-	const traverse = ref( GRAPH_START ? 'off' : 'bacon' );
-	const resume = ref( GRAPH_START ? 'bacon' : null );
+	// Come by /bacon (shell.js) to the song's own graph, bacon graphs, as in Rabbithole (Justin, 20 Nov 2026).
+	// Come anywhere else in the graph, the reader is steering: off, to come back on as bacon graphs when they come
+	// to the song on now.
+	const steeringFirst = GRAPH_START && ! startsOnSong();
+	const traverse = ref( steeringFirst ? 'off' : 'bacon' );
+	const resume = ref( steeringFirst ? 'bacon' : null );
 	const chosen = ref( 0 );
 
 	/*
@@ -226,7 +228,10 @@ export const useLayoutStore = defineStore( 'layout', () => {
 	 * the pane is part of what you are listening to.
 	 */
 	function startTraversing() {
-		traverse.value = true;
+		if ( traverse.value === 'off' ) {
+			traverse.value = resume.value || 'bacon';
+		}
+		resume.value = null;
 	}
 
 	return {
