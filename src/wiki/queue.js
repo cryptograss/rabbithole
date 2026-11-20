@@ -179,6 +179,40 @@ export async function queueTrack( cid, button ) {
 }
 
 /**
+ * A trail whose songs along the way the rabbithole may hand out. The song
+ * it ends on was asked for by name, so it plays whatever its state; a song
+ * passed through on the way was not, so it has to be in production
+ * (wiki/api.js, STATES). Found by asking again without each song that is
+ * not: the graph is small, and only the songs a trail would use are asked
+ * about.
+ *
+ * @param {Object} graph The performer graph.
+ * @param {string} from The song page it starts on.
+ * @param {string} to The song page asked for.
+ * @param {Function} ready Async: may this song page's recording be handed out?
+ * @return {Promise<?Array>} The hops, or null when there is no such way.
+ */
+export async function readyTrail( graph, from, to, ready ) {
+	const avoidSongs = [];
+	for ( ;; ) {
+		const hops = findTrail( graph, from, to, { avoidSongs } );
+		if ( ! hops ) {
+			return null;
+		}
+		let clear = true;
+		for ( const hop of hops ) {
+			if ( hop.to !== to && ! await ready( hop.to ) ) {
+				avoidSongs.push( hop.to );
+				clear = false;
+			}
+		}
+		if ( clear ) {
+			return hops;
+		}
+	}
+}
+
+/**
  * Find me a rabbithole from what is playing to a song, through the people
  * who played on both, and queue the songs along the way.
  *
@@ -203,7 +237,7 @@ export async function queueTrail( target, say = () => {} ) {
 
 	say( 'looking…' );
 	const graph = await performerGraph();
-	const hops = findTrail( graph, from, target );
+	const hops = await readyTrail( graph, from, target, async ( song ) => songs.isReady( await songCid( song ) ) );
 	if ( ! hops ) {
 		say( 'no way there from here' );
 		return null;

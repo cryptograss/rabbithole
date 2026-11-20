@@ -42,6 +42,7 @@ function world( { band = {}, plays = {}, charted = [] } = {} ) {
 	const song = ref( null );
 	const cards = ref( [] );
 	globalThis.__graph = { band, plays, records: {} };
+	globalThis.__unready = null;
 	globalThis.__cids = { 'Song:Cicada Song': CICADA, 'Song:Silver 44': SILVER, 'Song:August': AUGUST };
 	globalThis.__walk = { hops: [], mark: vi.fn() };
 	globalThis.__player = {
@@ -69,6 +70,9 @@ function world( { band = {}, plays = {}, charted = [] } = {} ) {
 		recordRest: [],
 		charted,
 		chartedList: async () => charted,
+		// What the rabbithole may hand out (wiki/api.js, STATES): the floor's list, and the gate a chase and a quest ask at.
+		readyList: async () => charted,
+		isReady: async ( cid ) => ! ( globalThis.__unready || [] ).includes( cid ),
 		queueCid: vi.fn( async ( cid ) => {
 			globalThis.__songs.queuedCids.push( cid );
 			return true;
