@@ -8,10 +8,11 @@
  * (`bottom-bar`, `bar-collapsed`) and on `.layout` (`minimized`,
  * `with-editor`), as it always has; this is the one place they are set.
  */
-import { watch, watchEffect, onMounted, onBeforeUnmount } from 'vue';
+import { computed, watch, watchEffect, onMounted, onBeforeUnmount } from 'vue';
 
 import { INITIAL_PARAMS, cameToListen } from './initial-params.js';
 import { traverseTo } from './traverse.js';
+import { GRAPH_START, startAt, graphStartPlays } from './shell.js';
 import { useLayoutStore } from './stores/layout.js';
 import { useSongStore } from './stores/song.js';
 import { usePaneStore } from './stores/pane.js';
@@ -35,9 +36,17 @@ const songs = useSongStore();
 const pane = usePaneStore();
 const player = usePlayerStore();
 
+/*
+ * Come by /bacon, with nothing asked for yet (shell.js): no track stands,
+ * so the player's own chrome is put away and the graph has the window. The
+ * first play brings it out of the left side, or along a phone's bottom.
+ */
+const bare = computed( () => GRAPH_START && ! songs.current );
+
 watchEffect( () => {
 	document.body.classList.toggle( 'bottom-bar', layout.isBar );
 	document.body.classList.toggle( 'bar-collapsed', layout.isBar && layout.collapsed );
+	document.body.classList.toggle( 'bare', bare.value );
 } );
 
 /*
@@ -133,6 +142,18 @@ watch( () => layout.isBar && layout.collapsed, ( shaded ) => {
 
 // Back and forward move the pane. Steering it yourself stops the follow.
 function onPopState( e ) {
+	if ( e.state && e.state.graph ) {
+		// An entry of the graph's (shell.js): the pane holds the graph again, at that step as it was drawn.
+		// Going there is the reader steering, unless it is the song on now's own graph.
+		const cut = new URLSearchParams( String( e.state.graph ).split( '?' )[ 1 ] || '' );
+		if ( player.song && cut.get( 'cut' ) === player.song._trackCid && ! cut.get( 'p' ) ) {
+			layout.resumeTraversing();
+		} else {
+			layout.stopTraversing();
+		}
+		pane.showGraph( e.state );
+		return;
+	}
 	const title = e.state && e.state.wikiTitle;
 	if ( title ) {
 		// Back to the song's page is back to traverse mode as it was; anywhere else, off (Justin, 18 Nov 2026).
@@ -152,7 +173,10 @@ function onPopState( e ) {
 function openPaneForStart() {
 	const page = INITIAL_PARAMS.get( 'page' );
 	const song = songs.initial;
-	if ( page ) {
+	if ( GRAPH_START ) {
+		// Come by /bacon: the graph the address names, whatever else it names (shell.js).
+		pane.openGraph( startAt() );
+	} else if ( page ) {
 		pane.open( page, { push: false } );
 	} else if ( song && layout.traverse === 'bacon' && pane.bacon( song ) ) {
 		// Traverse mode's bacon graphs: the song starts in its own graph (Justin, #connectome, 18 Nov 2026).
@@ -165,7 +189,7 @@ function openPaneForStart() {
 
 // A Listen button brought them here: the song plays as soon as the player
 // stands (cameToListen says which addresses are a button's).
-if ( cameToListen( INITIAL_PARAMS ) ) {
+if ( GRAPH_START ? graphStartPlays() : cameToListen( INITIAL_PARAMS ) ) {
 	const stop = watch( () => player.ready, ( ready ) => {
 		if ( ready ) {
 			player.model.play();
@@ -199,7 +223,7 @@ onBeforeUnmount( () => {
 
 <template>
 	<div class="layout" :class="{ minimized: !layout.isBar && layout.minimized, 'with-editor': layout.editorOpen,
-		'with-timeline': layout.showTimeline && layout.timelineView, 'with-timeline-tab': layout.showTimeline && !layout.timelineView }">
+		'with-timeline': !bare && layout.showTimeline && layout.timelineView, 'with-timeline-tab': !bare && layout.showTimeline && !layout.timelineView }">
 		<!-- One bar, all the way across the top of both columns: who we are,
 		     traverse mode, and what is playing (Justin's item 17, 15 Nov
 		     2026). It was two bars, one over each column. -->
@@ -249,7 +273,7 @@ onBeforeUnmount( () => {
 		</div>
 
 		<EditorPanel v-if="layout.editorOpen" />
-		<TimelineView v-else-if="layout.showTimeline" />
+		<TimelineView v-else-if="!bare && layout.showTimeline" />
 
 		<!-- Asked for a track while another one is playing (item 15). -->
 		<ListenChoice />

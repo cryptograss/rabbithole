@@ -23,6 +23,8 @@ import { usePickerStore } from '../stores/picker.js';
 import { useListenStore } from '../stores/listen.js';
 import { usePlayerStore } from '../stores/player.js';
 import { useWalkStore, drawerDoes } from '../stores/walk.js';
+import { useSongStore } from '../stores/song.js';
+import { wikiPath } from '../wiki/urls.js';
 import { adoptPaneStyles } from '../wiki/pane-styles.js';
 import { night } from '../night.js';
 import { askOrPlay, listenRequest, openTrack, playTrackInDock, queueTrack, trailToHere } from '../wiki/queue.js';
@@ -43,6 +45,7 @@ const picker = usePickerStore();
 const listen = useListenStore();
 const player = usePlayerStore();
 const walk = useWalkStore();
+const songs = useSongStore();
 const host = ref( null );
 /* Where Vue renders: a div of our own inside the shadow root, made once. */
 const inside = ref( null );
@@ -121,10 +124,12 @@ function tellGraphs() {
 		mode: 'full',
 		night: night.value,
 		at: walk.at,
+		steering: layout.traverse === 'off',
 	} );
-	// Traverse mode's bacon graph: where it goes now, the song or its soloist (pickipedia:blu/bacon-traverse).
-	// Said again with everything else, and when the frame has loaded, so an ask made while it loads still lands.
-	const go = view.value.kind === 'graph' && view.value.traverse && view.value.to ? { rabbithole: 'go', to: view.value.to } : null;
+	// Where the pane's graph goes now: traverse mode's song or its soloist (pickipedia:blu/bacon-traverse), or a
+	// graph the reader opened from a page. Said again with everything else, and when the frame has loaded, so an
+	// ask made while it loads still lands; the frame, already there, does nothing.
+	const go = view.value.kind === 'graph' && view.value.to ? { rabbithole: 'go', to: view.value.to, fresh: !! view.value.fresh } : null;
 	for ( const frame of graphFrames() ) {
 		if ( frame.contentWindow ) {
 			frame.contentWindow.postMessage( message, window.location.origin );
@@ -142,13 +147,16 @@ function tellGraphs() {
  * now, which turns it back on.
  */
 function heardFromTraverse( d ) {
-	if ( view.value.kind !== 'graph' || ! view.value.traverse ) {
+	if ( view.value.kind !== 'graph' ) {
 		return;
 	}
 	if ( d.missing ) {
-		pane.markUnheld( view.value.cid );
+		if ( view.value.traverse ) {
+			pane.markUnheld( view.value.cid );
+		}
 		return;
 	}
+	// One graph, however the reader came to it (shell.js): moving it is steering, wherever it was opened from.
 	const now = player.song && player.song._trackCid;
 	if ( d.cut && d.cut === now ) {
 		pane.letGraphBe();
@@ -165,6 +173,14 @@ function onGraphMessage( e ) {
 		return;
 	}
 	if ( ! graphFrames().some( ( frame ) => frame.contentWindow === e.source ) ) {
+		return;
+	}
+	if ( e.data && e.data.connectome === true && typeof e.data.at === 'string' ) {
+		// Where the pane's own graph is now: the shell's history and address follow it (shell.js).
+		const own = paneFrame();
+		if ( own && own.contentWindow === e.source && pane.heardGraphAt( e.data ) && ! songs.current && e.data.title ) {
+			document.title = String( e.data.title );                 // with nothing playing, the tab is the graph's
+		}
 		return;
 	}
 	if ( e.data && e.data.connectome === true && ( e.data.missing || e.data.moved ) ) {
@@ -188,10 +204,29 @@ function onGraphMessage( e ) {
 		}
 	}
 	if ( does.page ) {
+		if ( ! songs.current ) {
+			// Nothing stands to keep playing: the wiki itself, as the graph's page always went.
+			window.location.assign( wikiPath( does.page ) );
+			return;
+		}
 		layout.stopTraversing();
 		pane.open( does.page );
 	}
 }
+
+/** The pane's own graph frame (shell.js): one, kept behind whatever else the pane shows. */
+function paneFrame() {
+	const shadow = host.value && host.value.shadowRoot;
+	return shadow ? shadow.querySelector( 'iframe.pane-graph' ) : null;
+}
+
+// Back or Forward came to a step of the graph's: the frame is sent there.
+watch( () => pane.stepWord, ( word ) => {
+	const own = paneFrame();
+	if ( word && own && own.contentWindow ) {
+		own.contentWindow.postMessage( Object.assign( {}, word ), window.location.origin );
+	}
+} );
 
 async function onClick( e ) {
 	const link = linkIn( e.composedPath() );
@@ -302,6 +337,17 @@ watch( () => pane.shown, ( title ) => picker.look( title ), { immediate: true } 
 		:class="{ 'pane-holds-graph': view.kind === 'graph' }"
 	></div>
 	<Teleport v-if="inside" :to="inside">
+		<!-- The graph's frame, one for as long as the app is open: behind an
+		     article it waits as it was, so coming back to it is coming back
+		     to the same drawing (shell.js). A new src is a new frame, so
+		     loading one adds nothing to the browser's history. -->
+		<PaneGraph
+			v-if="pane.graphSrc"
+			:away="view.kind !== 'graph'"
+			:key="pane.graphSrc"
+			:src="pane.graphSrc"
+			:card="view.kind === 'graph' ? view.card || null : null"
+		/>
 		<PaneSearch
 			v-if="view.kind === 'search'"
 			:text="view.text"
@@ -313,7 +359,6 @@ watch( () => pane.shown, ( title ) => picker.look( title ), { immediate: true } 
 			:kind="view.kind"
 			:title="view.title"
 		/>
-		<PaneGraph v-else-if="view.kind === 'graph'" :src="view.src" :card="view.card || null" />
 		<PaneArticle
 			v-else-if="view.kind === 'article'"
 			:title="view.title"

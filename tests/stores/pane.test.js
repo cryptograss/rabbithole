@@ -101,7 +101,9 @@ describe( 'the connectome in the pane', () => {
 		expect( pane.view.kind ).toBe( 'article' );
 
 		pane.openGraph( '/bacon?cut=Qa&host=rabbithole' );
-		expect( pane.view ).toEqual( { kind: 'graph', src: '/bacon?cut=Qa&host=rabbithole' } );
+		// In the shell's one frame (shell.js): hosted, the shell keeping the history; traverse mode is on, so not steering.
+		expect( pane.view ).toEqual( { kind: 'graph', src: '/bacon?cut=Qa&host=rabbithole&shell=1', to: null, fresh: false } );
+		expect( pane.graphSrc ).toBe( '/bacon?cut=Qa&host=rabbithole&shell=1' );
 		expect( pane.shown ).toBe( null );
 		expect( pane.wanted ).toBe( null );
 
