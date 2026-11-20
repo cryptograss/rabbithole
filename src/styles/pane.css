@@ -193,46 +193,83 @@ table {
 }
 
 /* Traverse mode's bacon graph and, while somebody takes a solo, their card
-   over its top right corner (Justin, #connectome, 18 Nov 2026; trimmed 19 Nov
-   2026, 03:15Z): their name, which is the link to their page, a small
-   picture, and the first three things their {{MusicianInfo}} says they do. */
+   (Justin, #connectome, 18 Nov 2026; trimmed 19 Nov 2026, 03:15Z): their
+   name, which is the link to their page, a small picture, and the first
+   three things their {{MusicianInfo}} says they do.
+
+   The card is a band under the graph, and the graph's frame gives it the
+   room: it lay over the frame's corner, on the list's head or on pickers'
+   names, and "the cards need to do a better job of staying out of the way
+   (or the graph slightly resizing)" (Justin, #connectome, 20 Nov 2026).
+   The band is one height whoever is on it and whatever the wiki says of
+   them, so the graph is laid out again when a solo starts and when it ends,
+   and not between two soloists or when the card's words arrive. What does
+   not fit is cut at the line's end, and shows in full while the card is
+   pointed at, touched, or tabbed into: then, and only then, over the graph. */
 .pane-graph-wrap {
 	position: relative;
+	display: flex;
+	flex-direction: column;
 	width: 100%;
 	height: 100%;
+	container-type: inline-size;
+}
+
+.pane-graph-wrap .pane-graph {
+	flex: 1 1 0;
+	min-height: 0;
+	height: auto;
 }
 
 .pane-card {
-	position: absolute;
-	top: 10px;
-	right: 10px;
-	width: 230px;
-	max-height: calc(100% - 20px);
-	overflow: auto;
-	display: grid;
-	grid-template-columns: minmax(0, 1fr);
-	column-gap: 9px;
-	align-items: center;
-	padding: 8px 10px 9px;
-	border: 1px solid #d8d4cc;
-	border-radius: 8px;
-	background: rgba(255, 255, 255, 0.96);
-	box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
-	font-size: 12.5px;
+	--band: 66px;
+	position: relative;
+	flex: 0 0 var(--band);
+	height: var(--band);
+	font-size: 12px;
 	line-height: 1.35;
 }
 
-/* The picture beside the name, the lines under both. */
-.pane-card.with-pic {
-	grid-template-columns: auto minmax(0, 1fr);
+.pane-card-in {
+	position: absolute;
+	right: 0;
+	bottom: 0;
+	left: 0;
+	box-sizing: border-box;
+	min-height: 100%;
+	max-height: 100%;
+	overflow: hidden;
+	display: grid;
+	grid-template-columns: minmax(0, 190px) minmax(0, 1fr);
+	column-gap: 14px;
+	align-items: start;
+	padding: 7px 12px;
+	border-top: 1px solid #d8d4cc;
+	background: #fff;
+}
+
+.pane-card:hover .pane-card-in,
+.pane-card:focus-within .pane-card-in {
+	max-height: 60vh;
+	overflow: auto;
+	box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.18);
+}
+
+/* The picture beside the name; what they do beside both, a column each. */
+.pane-card-who {
+	display: flex;
+	align-items: center;
+	gap: 9px;
+	min-height: 50px;
 }
 
 .pane-card-pic {
 	display: block;
+	flex: none;
 	width: auto;
 	height: auto;
-	max-width: 64px;
-	max-height: 64px;
+	max-width: 50px;
+	max-height: 50px;
 	border-radius: 5px;
 }
 
@@ -246,52 +283,78 @@ table {
 }
 
 .pane-card-does {
-	grid-column: 1 / -1;
-	margin: 7px 0 0;
-	padding-left: 15px;
+	display: grid;
+	grid-auto-flow: column;
+	grid-auto-columns: minmax(0, 1fr);
+	column-gap: 14px;
+	margin: 0;
+	padding: 0;
+	list-style: none;
 	font-style: italic;
 }
 
 .pane-card-does li {
-	margin: 2px 0 0;
+	display: -webkit-box;
+	-webkit-box-orient: vertical;
+	-webkit-line-clamp: 3;
+	line-clamp: 3;
+	overflow: hidden;
+	margin: 0;
+}
+
+.pane-card:hover .pane-card-does li,
+.pane-card:focus-within .pane-card-does li {
+	-webkit-line-clamp: none;
+	line-clamp: none;
 }
 
 .pane-card-does a {
 	color: #2d5016;
 }
 
-/* On a phone the card is small and low, so the song at the top of the ring
-   stays in sight: in the bottom left corner, the picture a thumbnail. */
-@media ( max-width: 600px ) {
+/* A pane too narrow for three columns of words (a phone; a small window with
+   the timeline open): the name over them, and each thing they do is a line. */
+@container ( max-width: 640px ) {
 	.pane-card {
-		top: auto;
-		right: 128px;
-		bottom: 8px;
-		left: 6px;
-		width: auto;
-		max-height: 30%;
-		column-gap: 6px;
-		padding: 5px 7px 6px;
-		font-size: 10.5px;
+		--band: 76px;
+		font-size: 11px;
+	}
+
+	.pane-card-in {
+		grid-template-columns: minmax(0, 1fr);
+		padding: 5px 8px 6px;
+	}
+
+	.pane-card-who {
+		min-height: 0;
+		gap: 6px;
 	}
 
 	.pane-card-pic {
-		max-width: 36px;
-		max-height: 36px;
-		border-radius: 4px;
+		max-width: 18px;
+		max-height: 18px;
+		border-radius: 3px;
 	}
 
 	.pane-card-name {
-		font-size: 12px;
+		font-size: 12.5px;
 	}
 
 	.pane-card-does {
-		margin-top: 3px;
-		padding-left: 12px;
+		display: block;
+		margin-top: 2px;
 	}
 
 	.pane-card-does li {
-		margin-top: 1px;
+		display: block;
+		overflow: hidden;
+		white-space: nowrap;
+		text-overflow: ellipsis;
+	}
+
+	.pane-card:hover .pane-card-does li,
+	.pane-card:focus-within .pane-card-does li {
+		white-space: normal;
 	}
 }
 
