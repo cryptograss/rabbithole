@@ -117,3 +117,48 @@ export function walkMessage( { hops = [], chasing = null, chaseMode = null, now 
 		steering: !! steering,
 	};
 }
+
+/**
+ * What the ensemble list is showing, for a graph to show too (Justin,
+ * #connectome, 20 Nov 2026, 14:16Z: "The effects in the ensemble chart are
+ * looking great. I want to also see them in some form in the bacon graph. If
+ * a picker is visible and they get a flourish, show the flourish in the
+ * graph as well as the ensemble list. Same for solos, etc.").
+ *
+ * One entry for each card of the band (not the engineer, who was not
+ * playing): the name the chart gives them and their page's own, which is the
+ * graph's; the scene the card wears (lead, pickup, ...); whether somebody is
+ * coming in; and the one light the card shows, chosen as the card chooses it
+ * (MusicianCard.vue: a spotlight over a flourish over the band's flash), in
+ * the colour and at the beat the card has it.
+ *
+ * Pure. `color` turns a chart's colour name into one a stylesheet takes
+ * (player/glow.js fxColor).
+ *
+ * @return {Object} The message.
+ */
+export function fxMessage( { cards = [], effects = [], playing = false, titles = {}, color = ( c ) => c } = {} ) {
+	const band = effects.find( ( e ) => e.kind === 'bandFlash' ) || null;
+	const say = ( e ) => ( {
+		kind: e.kind,
+		color: color( e.color ),
+		level: Math.max( 0.35, Math.min( 1.3, Number( e.intensity ) || 0.7 ) ),
+		pulse: Math.max( 0.5, Math.min( 6, Number( e.pulse ) || 1.2 ) ),
+	} );
+	return {
+		rabbithole: 'fx',
+		playing: !! playing,
+		band: cards.filter( ( c ) => c && ! c.engineer ).map( ( c ) => {
+			const mine = effects.filter( ( e ) => e.target === c.name );
+			const light = mine.find( ( e ) => e.kind === 'spotlight' ) || mine.find( ( e ) => e.kind === 'flourish' ) || band;
+			return {
+				name: c.name,
+				title: titles[ c.name ] || null,
+				scene: c.scene || null,
+				singing: !! c.singing,
+				enter: mine.some( ( e ) => e.kind === 'enter' ),
+				light: light ? say( light ) : null,
+			};
+		} ),
+	};
+}

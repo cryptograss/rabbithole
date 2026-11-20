@@ -30,7 +30,10 @@ import { night } from '../night.js';
 import { askOrPlay, listenRequest, openTrack, playTrackInDock, queueTrack, trailToHere } from '../wiki/queue.js';
 import { linkIn, titleFromHref, leavesTheApp } from '../wiki/pane-links.js';
 import { markChased } from '../wiki/pane-ensemble.js';
-import { graphSrcFor, isGraphFrame, walkMessage } from '../wiki/graph-frame.js';
+import { graphSrcFor, isGraphFrame, walkMessage, fxMessage } from '../wiki/graph-frame.js';
+import { cardOf } from '../wiki/infobox.js';
+import { fxColor } from '../player/glow.js';
+import * as wikiApi from '../wiki/api.js';
 import PaneArticle from './pane/PaneArticle.vue';
 import PaneChaseOffer from './pane/PaneChaseOffer.vue';
 import PaneChasePill from './pane/PaneChasePill.vue';
@@ -130,9 +133,11 @@ function tellGraphs() {
 	// graph the reader opened from a page. Said again with everything else, and when the frame has loaded, so an
 	// ask made while it loads still lands; the frame, already there, does nothing.
 	const go = view.value.kind === 'graph' && view.value.to ? { rabbithole: 'go', to: view.value.to, fresh: !! view.value.fresh } : null;
+	const lights = JSON.parse( JSON.stringify( fxNow.value ) );
 	for ( const frame of graphFrames() ) {
 		if ( frame.contentWindow ) {
 			frame.contentWindow.postMessage( message, window.location.origin );
+			frame.contentWindow.postMessage( lights, window.location.origin );      // a frame just arrived learns the lights too
 			if ( go ) {
 				frame.contentWindow.postMessage( go, window.location.origin );
 			}
@@ -299,6 +304,36 @@ onMounted( () => {
 
 onBeforeUnmount( () => window.removeEventListener( 'message', onGraphMessage ) );
 
+/*
+ * The ensemble list's lights, said to the graphs (graph-frame.js fxMessage):
+ * a flourish, a solo, the band's flash show on whoever of the band is in
+ * sight there, as they show on the list (Justin, #connectome, 20 Nov 2026).
+ * The graph knows a picker by their page's own name, so each card's name is
+ * asked of the wiki once (a chart's "Justin Holmes" is "Justin Myles
+ * Holmes"); until it answers, the chart's name is tried as it is.
+ */
+const fxTitles = ref( {} );
+watch( () => player.cards.map( ( c ) => c.name ).join( '|' ), () => {
+	for ( const c of player.cards ) {
+		if ( c.name && ! ( c.name in fxTitles.value ) ) {
+			fxTitles.value = { ...fxTitles.value, [ c.name ]: null };
+			cardOf( c.name, wikiApi.parsePage ).then( ( { title } ) => {
+				fxTitles.value = { ...fxTitles.value, [ c.name ]: title || null };
+			} );
+		}
+	}
+}, { immediate: true } );
+const fxNow = computed( () => fxMessage( { cards: player.cards, effects: player.effects, playing: player.playing, titles: fxTitles.value, color: fxColor } ) );
+function tellFx() {
+	for ( const frame of graphFrames() ) {
+		if ( frame.contentWindow ) {
+			frame.contentWindow.postMessage( JSON.parse( JSON.stringify( fxNow.value ) ), window.location.origin );
+		}
+	}
+}
+// Only when what is said changes: the player's clock ticks many times a second, the lights change a few times a song.
+watch( () => JSON.stringify( fxNow.value ), () => nextTick( tellFx ) );
+
 // A graph hears the player when it arrives, and whenever any of it changes.
 watch(
 	() => [ view.value, walk.hops, picker.following, picker.mode,
@@ -346,7 +381,6 @@ watch( () => pane.shown, ( title ) => picker.look( title ), { immediate: true } 
 			:away="view.kind !== 'graph'"
 			:key="pane.graphSrc"
 			:src="pane.graphSrc"
-			:card="view.kind === 'graph' ? view.card || null : null"
 		/>
 		<PaneSearch
 			v-if="view.kind === 'search'"
