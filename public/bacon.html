@@ -1,0 +1,75 @@
+{{- /*
+  The card a shared bacon graph's link shows (Justin, #connectome, 20 Nov 2026: "we need better social cards for
+  bacon. A preview image, and the title needs to reflect whether it's a challenge or not"), his titles word for
+  word:
+
+      /bacon                      The Oracle of Bluegrass Bacon
+      /bacon/challenge[/<name>]   The Six Degrees of Bluegrass Bacon
+      /bacon?a=<a>&b=<b>          Bluegrass Bacon from <a> to <b>
+
+  and, mine: ?p= a picker, ?s= a song and ?page= a page are "Bluegrass Bacon: <which>", and a kept graph
+  (/bacon/<id>) says that it is one. The graph's own page gives its tab the same names once it runs
+  (pickipedia: assets/connectome/connectome-core.js, pageTitle).
+
+  Telegram, Signal, Mastodon and the rest read a page's head as served and run no script, and /bacon is this
+  app, one index.html for every address: so the web server writes the head. This file is a Caddy template
+  (pickipedia-vps's Caddy serves it for /bacon, with `templates` on): it reads the built index.html beside it
+  and puts a head for this address where the app's own title and description stand. Those two lines of
+  index.html are found by their exact text (tests/shell/bacon-card.test.js holds them to it); where they are not
+  found, the app is served as it is.
+
+  Every word that comes from the address is cut to a length and escaped (html) before it is written.
+*/ -}}
+{{- $path := .OriginalReq.URL.Path -}}
+{{- $q := .OriginalReq.URL.Query -}}
+{{- $a := $q.Get "a" | default ($q.Get "from") | trunc 80 -}}
+{{- $b := $q.Get "b" | default ($q.Get "to") | trunc 80 -}}
+{{- $p := $q.Get "p" | trunc 80 -}}
+{{- $s := $q.Get "s" | trunc 80 -}}
+{{- $pg := $q.Get "page" | trunc 80 -}}
+{{- $title := "The Oracle of Bluegrass Bacon" -}}
+{{- $say := "Any two pickers, and all the music between them: the records, the shows, and the folks who played with both. On PickiPedia." -}}
+{{- $pic := "oracle" -}}
+{{- $alt := "A bacon graph: two pickers, and a strand between them for every record, show and picker they share." -}}
+{{- if or (eq $path "/bacon/challenge") (hasPrefix "/bacon/challenge/" $path) -}}
+	{{- $goal := trimPrefix "/bacon/challenge" $path | trimPrefix "/" | replace "_" " " | trunc 80 -}}
+	{{- $title = "The Six Degrees of Bluegrass Bacon" -}}
+	{{- $say = printf "Find %s in six jumps or less and you win. Fail, and you'll have to play the banjo. In an otherwise decent and upstanding band. Forever." ($goal | default "your picker") -}}
+	{{- $pic = "six-degrees" -}}
+	{{- $alt = "A bacon graph: two pickers who never played together, and the ways from one to the other by those who did." -}}
+{{- else if and $a $b -}}
+	{{- $title = printf "Bluegrass Bacon from %s to %s" $a $b -}}
+	{{- $say = printf "Every way from %s to %s: the music they share, and the pickers who played with both." $a $b -}}
+{{- else if or $a $p -}}
+	{{- $who := $p | default $a -}}
+	{{- $title = printf "Bluegrass Bacon: %s" $who -}}
+	{{- $say = printf "Who %s has played with, on which records and at which shows." $who -}}
+{{- else if $s -}}
+	{{- $title = printf "Bluegrass Bacon: %s" $s -}}
+	{{- $say = printf "Who played on %s, and who they have played with." $s -}}
+{{- else if $pg -}}
+	{{- $title = printf "Bluegrass Bacon: %s" $pg -}}
+	{{- $say = printf "The pickers of %s, and who they have played with." $pg -}}
+{{- else if and (hasPrefix "/bacon/" $path) (ne $path "/bacon/") -}}
+	{{- $title = "Bluegrass Bacon: a graph kept as it was drawn" -}}
+	{{- $say = "Who played with whom, on which records and at which shows, with its sources as they stood the day it was kept." -}}
+{{- end -}}
+{{- $site := printf "%s://%s" (placeholder "http.request.scheme") (placeholder "http.request.hostport") -}}
+{{- $here := printf "%s%s" $site .OriginalReq.URL.RequestURI -}}
+{{- $img := printf "%s/rabbithole/cards/%s.png" $site $pic -}}
+{{- $head := printf `<title>%s</title>
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="PickiPedia">
+    <meta property="og:title" content="%s">
+    <meta property="og:description" content="%s">
+    <meta property="og:url" content="%s">
+    <meta property="og:image" content="%s">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:image:alt" content="%s">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="%s">
+    <meta name="twitter:description" content="%s">
+    <meta name="twitter:image" content="%s">` (html $title) (html $title) (html $say) (html $here) (html $img) (html $alt) (html $title) (html $say) (html $img) -}}
+{{- $desc := printf `<meta name="description" content="%s">` (html $say) -}}
+{{- readFile "index.html" | replace "<title>Rabbithole</title>" $head | replace `<meta name="description" content="Discover music by connections, not algorithms.">` $desc -}}
