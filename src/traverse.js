@@ -53,3 +53,31 @@ export function baconAddress( cid, solo = null ) {
 	}
 	return '?' + new URLSearchParams( solo ? { p: solo, playing: cid } : { cut: cid } );
 }
+
+/**
+ * Is Back or Forward onto this entry of the history coming back to where
+ * the music had the pane?
+ *
+ * Justin, #connectome, 20 Nov 2026: "If someone turns traverse off by
+ * navigating, but then uses 'back' to get all the way back to where they
+ * were when traverse was on, it needs to turn back on, whether they're
+ * going all the way back to the song node, or if they departed traverse on
+ * a picker."
+ *
+ * An entry written while traverse mode was on is the music's, and says so
+ * (`music`, written by the pane store). Coming onto one with traverse mode
+ * off because the reader went somewhere (`resume` holds what it was) is
+ * coming back: it turns on again as it was, and the pane goes where the
+ * music is now. Set off on the rocker, there is nothing to resume, and it
+ * stays off; already on, Back is the reader steering, as it was. Pure.
+ *
+ * @param {?Object} state The entry's state.
+ * @param {Object} now
+ * @param {string} now.traverse Traverse mode now.
+ * @param {?string} now.resume What it was before the reader went somewhere, if they did.
+ * @param {boolean} now.standing Whether a song stands for the pane to travel with.
+ * @return {boolean}
+ */
+export function comesBackToTheMusic( state, { traverse, resume, standing } ) {
+	return !! ( state && state.music ) && traverse === 'off' && TRAVERSE_MODES.includes( resume ) && resume !== 'off' && !! standing;
+}
