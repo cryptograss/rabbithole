@@ -133,6 +133,23 @@ export function startsOnSong() {
 	return GRAPH_START && isSongsOwnGraph( startAt(), INITIAL_PARAMS.get( 'track' ) );
 }
 
+/**
+ * Does the drawer start folded? Come by /bacon to explore, it does: the
+ * graph has the room, and the drawer opens of itself once a song is on. It
+ * starts open only where the address brings a song, a track or a record,
+ * ready to play (Justin, #connectome, 21 Nov 2026, 22:14Z: "let's have the
+ * left pane (rabbithole) collapsed by default for bacon exploring - have it
+ * only be expanded by default if a song is loaded and ready to play").
+ * Rabbithole's own address keeps its drawer open, as it always has. Pure.
+ *
+ * @param {boolean} graphStart Came by /bacon (GRAPH_START).
+ * @param {URLSearchParams} params The address's query.
+ * @return {boolean}
+ */
+export function startsFolded( graphStart, params ) {
+	return !! graphStart && ! params.get( 'track' ) && ! params.get( 'record' );
+}
+
 /** A Listen link's play=1, which at /bacon is the only thing that starts a song on arrival: a reload opens quiet. */
 export function graphStartPlays() {
 	const asked = INITIAL_PARAMS.get( 'play' );

@@ -12,7 +12,7 @@ import { computed, watch, watchEffect, onMounted, onBeforeUnmount } from 'vue';
 
 import { INITIAL_PARAMS, cameToListen } from './initial-params.js';
 import { traverseTo, comesBackToTheMusic, aSongStarts } from './traverse.js';
-import { GRAPH_START, startAt, startsOnSong, graphStartPlays } from './shell.js';
+import { GRAPH_START, startAt, startsOnSong, graphStartPlays, startsFolded } from './shell.js';
 import { useLayoutStore } from './stores/layout.js';
 import { useSongStore } from './stores/song.js';
 import { usePaneStore } from './stores/pane.js';
@@ -48,9 +48,21 @@ const player = usePlayerStore();
  * ready to play (DrawerStart.vue) where Webamp and the band will be, and the
  * timeline's column stands empty, so the page beside them is as wide before
  * the first play as after it. It was all put away until the first play
- * (`body.bare`, 19 Nov).
+ * (`body.bare`, 19 Nov). The drawer itself starts folded there, as of 21 Nov,
+ * 22:14Z (startsFolded): the bar stays, the drawer opens when a song does.
  */
 const quiet = computed( () => GRAPH_START && ! songs.current );
+
+// Come by /bacon to explore, the drawer starts folded, and opens when a song comes on (startsFolded).
+if ( startsFolded( GRAPH_START, INITIAL_PARAMS ) ) {
+	layout.foldDock();
+	const stop = watch( () => !! songs.current, ( on ) => {
+		if ( on ) {
+			stop();
+			layout.openDock();
+		}
+	} );
+}
 
 watchEffect( () => {
 	document.body.classList.toggle( 'bottom-bar', layout.isBar );

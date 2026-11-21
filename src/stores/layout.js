@@ -205,6 +205,15 @@ export const useLayoutStore = defineStore( 'layout', () => {
 		}
 	}
 
+	/** Fold the drawer away: to its strip beside the page, or the bar to its rail. */
+	function foldDock() {
+		if ( isBar.value ) {
+			collapsed.value = true;
+		} else {
+			minimized.value = true;
+		}
+	}
+
 	function setTraverse( mode ) {
 		if ( ! TRAVERSE_MODES.includes( mode ) ) {
 			return;
@@ -249,6 +258,6 @@ export const useLayoutStore = defineStore( 'layout', () => {
 	return {
 		layout, isBar, narrow, phone, auto, pinned, saved,
 		minimized, collapsed, editorOpen, traverse, resume, chosen, timelineView, showTimeline, timelineLabels, barAsk,
-		setLayout, toggleDock, openDock, setTraverse, stopTraversing, resumeTraversing, startTraversing, askBar,
+		setLayout, toggleDock, openDock, foldDock, setTraverse, stopTraversing, resumeTraversing, startTraversing, askBar,
 	};
 } );
