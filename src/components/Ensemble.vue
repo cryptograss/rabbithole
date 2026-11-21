@@ -19,6 +19,7 @@ import { useLayoutStore } from '../stores/layout.js';
 import { usePickerStore } from '../stores/picker.js';
 import MusicianCard from './MusicianCard.vue';
 import SpotlightStage from './SpotlightStage.vue';
+import RabbitMoved from './RabbitMoved.vue';
 
 const player = usePlayerStore();
 const pane = usePaneStore();
@@ -87,10 +88,12 @@ function select( name ) {
 			:ref="( c ) => keep( name, c )"
 			:name="name"
 			:rank="i"
-			:chased="picker.following === name"
+			:chased="picker.following === name || picker.rabbitCard === name"
 			:away="!! spot && spot.target === name"
 			@select="select( name )"
 		/>
 	</TransitionGroup>
+	<!-- The rabbit went from one card to another, or had nowhere to go: said under the cards (RabbitMoved.vue). -->
+	<RabbitMoved />
 	<SpotlightStage :effect="spot" :where-is="whereIs" />
 </template>

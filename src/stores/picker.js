@@ -31,7 +31,8 @@ import { defineStore } from 'pinia';
 import { computed, ref, watch } from 'vue';
 
 import { recordsOn } from '../trail.js';
-import { recordsOf } from '../wiki/api.js';
+import { recordsOf, parsePage } from '../wiki/api.js';
+import { cardOf } from '../wiki/infobox.js';
 import { performerGraph, songCid } from '../wiki/queue.js';
 import { useLayoutStore } from './layout.js';
 import { usePlayerStore } from './player.js';
@@ -140,6 +141,34 @@ export function questPick( names, { last = null, unplayed = () => true, choose =
 }
 
 /**
+ * Where the rabbit goes when the picker it was chasing has no song left
+ * that the rabbithole may hand out and has not played: to another of the
+ * band of the song on now who has one.
+ *
+ * Justin, #connectome, 21 Nov 2026, 01:56Z: "I just heard August and then
+ * Paint Exchange, and the rabbit was on Harry. Then new next song. I'm
+ * guessing that's because there isn't another Harry song? In that event,
+ * the rabbit needs to change to another picker for whom a next song is
+ * available."
+ *
+ * Which of them, when several have one: any, as a quest chooses (a quest is
+ * not a running order, and nor is this). Nobody but one with a song: where
+ * none of the band has one the rabbit stays where it is, and the floor
+ * (lineUpSomething) names the next song. Pure.
+ *
+ * @param {string[]} names The band of the song on now.
+ * @param {Object} [options]
+ * @param {?string} [options.from] Who the rabbit was on.
+ * @param {Function} [options.hasNext] Has this picker a song to play next?
+ * @param {Function} [options.choose] Which of the candidates; random by default.
+ * @return {?string} The picker, or null when nobody else on the song has one.
+ */
+export function rabbitMovesTo( names, { from = null, hasNext = () => false, choose = anyOf } = {} ) {
+	const able = ( names || [] ).filter( ( name ) => name !== from && hasNext( name ) );
+	return able.length ? choose( able ) : null;
+}
+
+/**
  * Something to play after this one when nothing else can name it: a
  * track in production this rabbithole has not heard, else any other one
  * in production. The floor under item 28 -- "if you're listening to a song in
@@ -187,6 +216,25 @@ export const usePickerStore = defineStore( 'picker', () => {
 	 * {name, next: {song, cid} | null}, or null when the page is not a picker's.
 	 */
 	const offer = ref( null );
+	/**
+	 * The rabbit moved, or had nowhere to: the picker it was chasing has no
+	 * song left, so it is on another of the band now, and the reader is told
+	 * (RabbitMoved.vue): { from, to, song, cid }. With nobody on the song to
+	 * go to, `to` is null, and `song` is what the rabbithole reached for
+	 * itself, or null when nothing at all may be handed out. In a quest
+	 * nobody ran out, the whole band did: `from` is null too.
+	 */
+	const moved = ref( null );
+	/**
+	 * The card the rabbit moved to, where the chart calls them something
+	 * other than their page does: { page, card }. A chart's "Justin Holmes"
+	 * is the graph's "Justin Myles Holmes", and the chase is of the page's
+	 * name, so the card has to be told it is theirs (Ensemble.vue).
+	 */
+	const onCard = ref( null );
+	const rabbitCard = computed( () => ( onCard.value && onCard.value.page === following.value ? onCard.value.card : null ) );
+	/** The recording a move was said for as the next button was pressed: it starts at once, and the word stays through it. */
+	let saidAtNext = null;
 
 	/**
 	 * Every recording this rabbithole has played, by CID. The walk is the
@@ -268,6 +316,108 @@ export const usePickerStore = defineStore( 'picker', () => {
 		}
 		if ( offer.value && offer.value.name === following.value ) {
 			offer.value = { name: following.value, next: next.value };
+		}
+	}
+
+	/**
+	 * The chased picker has nothing left: the rabbit goes to another of the
+	 * band of the song on now who has a song to play, and the chase is of
+	 * them from here (rabbitMovesTo). Their next song is lined up, and the
+	 * walk will say it came by chasing them.
+	 *
+	 * @return {Promise<boolean>} Whether the rabbit moved.
+	 */
+	/**
+	 * The band of the song on now as the graph knows them, each with the
+	 * card that is theirs: a card's name where the graph has it, else the
+	 * name of the page that name comes to (the wiki follows the redirect;
+	 * the cards' pages are in hand already, asked for the graph's lights).
+	 * Only a picker the graph knows has anywhere to lead.
+	 *
+	 * Found on the live data, 21 Nov 2026: with Drowsy Maggie ready too,
+	 * Harry Clark ran out on Paint Exchange and the rabbit did not go to
+	 * Justin, who has it; his card there says "Justin Holmes".
+	 */
+	async function bandByPage( graph ) {
+		const known = ( name ) => !! name && ( graph.plays[ name ] || [] ).length > 0;
+		const band = new Map();
+		for ( const card of player.cards ) {
+			let page = card.name;
+			if ( ! known( page ) ) {
+				try {
+					page = ( await cardOf( card.name, parsePage ) ).title;
+				} catch ( err ) {
+					page = null;
+				}
+			}
+			if ( known( page ) && ! band.has( page ) ) {
+				band.set( page, card.name );
+			}
+		}
+		return band;
+	}
+
+	async function moveOn() {
+		const from = following.value;
+		const graph = await performerGraph();
+		const cardFor = await bandByPage( graph );
+		const band = [ ...cardFor.keys() ];
+		const nexts = new Map();
+		for ( const name of band ) {
+			if ( name !== from ) {
+				nexts.set( name, await nextFor( name ) );
+			}
+		}
+		// Where things stand can move while the wiki is asked: the chase stopped, another picker chosen, a song
+		// queued by hand, a step back along the walk. Then this is nobody's to decide any more.
+		const still = () => mode.value === 'chase' && following.value === from && ! standingBack();
+		if ( ! still() || songs.queuedCids.length ) {
+			return false;
+		}
+		const to = rabbitMovesTo( band, { from, hasNext: ( name ) => !! nexts.get( name ) } );
+		if ( ! to ) {
+			return false;
+		}
+		const theirs = nexts.get( to );
+		walk.mark( theirs.cid, viaPicker( graph, theirs.song, to, 'chase' ) );
+		if ( ! await queueOurs( theirs.cid, still ) ) {
+			return false;
+		}
+		following.value = to;
+		next.value = theirs;
+		onCard.value = { page: to, card: cardFor.get( to ) };
+		moved.value = { from, to, song: theirs.song, cid: theirs.cid };
+		// The page on screen, if it is either's: the one says it is chased now, the other stops saying so.
+		if ( offer.value && offer.value.name === to ) {
+			offer.value = { name: to, next: theirs };
+		} else if ( offer.value && offer.value.name === from ) {
+			offer.value = { name: from, next: null };
+		}
+		return true;
+	}
+
+	/**
+	 * The chase's next song: the chased picker's; and when they have none,
+	 * the rabbit moves to one of this song's band who has (moveOn). When
+	 * nobody on the song has one either, the floor names it, as it did:
+	 * the song that ends still goes to the next song (item 28), the rabbit
+	 * stays where it was, and the reader is told what was reached for.
+	 */
+	async function chaseOn() {
+		const from = following.value;
+		await queueNext();
+		if ( next.value || mode.value !== 'chase' || following.value !== from ) {
+			return;
+		}
+		if ( await moveOn() ) {
+			return;
+		}
+		if ( mode.value !== 'chase' || following.value !== from || songs.queuedCids.length || songs.recordRest.length || standingBack() ) {
+			return;                                                  // something else is the answer to what comes next
+		}
+		const track = await lineUpSomething();
+		if ( mode.value === 'chase' && following.value === from ) {
+			moved.value = { from, to: null, song: track ? ( track.title || null ) : null, cid: track ? track.cid : null };
 		}
 	}
 
@@ -389,7 +539,7 @@ export const usePickerStore = defineStore( 'picker', () => {
 	 */
 	async function lineUpSomething() {
 		if ( songs.queuedCids.length || songs.recordRest.length || standingBack() ) {
-			return;
+			return null;
 		}
 		// Only what is in production: the floor is the one that reaches for a
 		// song nobody on this one led to, so it is the last that may reach
@@ -407,8 +557,11 @@ export const usePickerStore = defineStore( 'picker', () => {
 			// 2026: "I just clicked 'next' on Cicada Song and it started a
 			// new rabbithole instead of questing through a picker").
 			walk.mark( track.cid, { why: 'wander' } );
-			await queueOurs( track.cid, () => ! standingBack() );
+			if ( await queueOurs( track.cid, () => ! standingBack() ) ) {
+				return track;
+			}
 		}
+		return null;
 	}
 
 	/**
@@ -470,7 +623,7 @@ export const usePickerStore = defineStore( 'picker', () => {
 		// an empty queue needs anything worked out.
 		if ( ! songs.queuedCids.length && ! await queueTheWalk() ) {
 			if ( mode.value === 'chase' && following.value ) {
-				await queueNext();
+				await chaseOn();
 			} else {
 				await quest();
 			}
@@ -481,6 +634,7 @@ export const usePickerStore = defineStore( 'picker', () => {
 		}
 		// Stepping on is listening (Justin's item 32).
 		useLayoutStore().startTraversing();
+		saidAtNext = moved.value ? moved.value.cid : null;
 		return player.model.playNext();
 	}
 
@@ -513,6 +667,7 @@ export const usePickerStore = defineStore( 'picker', () => {
 		giveWay();
 		mode.value = 'chase';
 		following.value = name;
+		moved.value = null;
 		await queueNext();
 		if ( next.value && player.status === 'STOPPED' ) {
 			player.model.playNext();
@@ -522,7 +677,11 @@ export const usePickerStore = defineStore( 'picker', () => {
 		// song, or it ends in silence. Rare once; with three songs in
 		// production it is most pickers (20 Nov 2026).
 		if ( ! next.value ) {
-			await lineUpSomething();
+			const track = await lineUpSomething();
+			// The reader chose them a moment ago, so the rabbit stays on them; what follows is said.
+			if ( mode.value === 'chase' && following.value === name && ! next.value ) {
+				moved.value = { from: name, to: null, song: track ? ( track.title || null ) : null, cid: track ? track.cid : null };
+			}
 		}
 	}
 
@@ -531,6 +690,7 @@ export const usePickerStore = defineStore( 'picker', () => {
 		giveWay();
 		mode.value = 'quest';
 		following.value = null;
+		moved.value = null;
 		return quest().then( lineUpSomething );
 	}
 
@@ -547,6 +707,12 @@ export const usePickerStore = defineStore( 'picker', () => {
 		if ( cid === ours.value ) {
 			ours.value = null;
 		}
+		// What was said of the song before is said: the word goes when the next song comes on, unless it was
+		// said for this very one as the next button was pressed.
+		if ( moved.value && saidAtNext !== cid ) {
+			moved.value = null;
+		}
+		saidAtNext = null;
 		if ( await queueTheWalk() ) {
 			return;
 		}
@@ -556,13 +722,25 @@ export const usePickerStore = defineStore( 'picker', () => {
 			// where a Play next left it, having asked the chase to stand
 			// aside.
 			if ( following.value && ( ! next.value || cid === next.value.cid ) ) {
-				await queueNext();
+				await chaseOn();
 			}
 		} else {
 			await quest();
 		}
-		await lineUpSomething();
+		const reached = await lineUpSomething();
+		// A quest whose whole band has nowhere left to lead: what follows is the rabbithole's own pick, or
+		// nothing, and either is said. It ended in silence with the rabbit on a picker, which read as that
+		// picker having run out (Justin, #connectome, 21 Nov 2026, 01:56Z).
+		if ( mode.value === 'quest' && ! next.value && cid === currentCid() && ! songs.recordRest.length && ! standingBack() &&
+			( reached || ! songs.queuedCids.length ) ) {
+			moved.value = { from: null, to: null, song: reached ? ( reached.title || null ) : null, cid: reached ? reached.cid : null };
+		}
 	}, { immediate: true } );
 
-	return { mode, following, next, ours, offer, look, chase, stop, giveWay, forward, back, playHop };
+	/** The reader has read it. */
+	function heardMoved() {
+		moved.value = null;
+	}
+
+	return { mode, following, next, ours, offer, moved, rabbitCard, look, chase, stop, giveWay, forward, back, playHop, heardMoved };
 } );
