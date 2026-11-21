@@ -233,6 +233,14 @@ export const usePaneStore = defineStore( 'pane', () => {
 			openGraph( at, {}, { write: false } );                   // no frame yet (a reload since): it loads there
 			return;
 		}
+		// The frame has gone to another page of the graph's since (a new song took it from a kept graph or a
+		// challenge to the song's own, which is /bacon and a query): a step cannot be sent across pages, since
+		// those are read from the path. The frame loads the entry's page, laid out afresh.
+		const door = ( where ) => new URL( where, window.location.origin ).pathname.replace( /(.)\/$/, '$1' );
+		if ( door( graphNow || graphSrc.value ) !== door( at ) ) {
+			openGraph( at, {}, { write: false } );
+			return;
+		}
 		if ( request ) {
 			request.abort();
 		}
@@ -270,12 +278,18 @@ export const usePaneStore = defineStore( 'pane', () => {
 			return false;
 		}
 		const card = solo || null;
-		if ( view.value.kind === 'graph' && view.value.traverse && ! inPlace ) {
+		// The entry in sight is the reader's own: they steered there, and traverse mode has come back on (a new
+		// song started; they pressed the song's name; the rocker). The music takes an entry of its own, so Back
+		// is back to what they were looking at, drawn as it was (Justin, #connectome, 21 Nov 2026, 01:56Z: "if
+		// the user wants to keep doing what they were doing, they can just click "back""). It was rewritten.
+		const from = window.history.state;
+		const readers = ! inPlace && !! from && ! from.music && !! ( from.graph || from.wikiTitle );
+		if ( view.value.kind === 'graph' && view.value.traverse && ! inPlace && ! readers ) {
 			view.value = Object.assign( {}, view.value, { to, card, cid, fresh: false } );
 		} else {
 			// Back came onto the music's entry (inPlace): the entry is written here, whatever it held, rather
 			// than left for the frame to say where it went.
-			openGraph( GRAPH_PATH + to, { traverse: true, to, card, cid }, { inPlace } );
+			openGraph( GRAPH_PATH + to, { traverse: true, to, card, cid }, { inPlace, step: readers } );
 		}
 		// The soloist by their page's own name, once the wiki has said it: a chart's "Justin Holmes" is the
 		// graph's "Justin Myles Holmes". Until then the graph keeps the song, if it doesn't know the name.

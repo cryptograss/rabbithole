@@ -36,6 +36,35 @@ export function traverseTo( { trackChanged = false, playing = false, solo = null
 	return lastSolo ? 'song' : null;
 }
 
+/**
+ * Has a new song started: a different recording than the one that stood,
+ * and not the one this visit opened with?
+ *
+ * Justin, #connectome, 21 Nov 2026, 01:56Z: "When exploring, if I click the
+ * rabbithole play button, it starts the track which is good, but it still
+ * doesn't kick it into bacon graph traverse. It seems to me that any time a
+ * new song starts, it needs to go back to bacon traverse mode. And if the
+ * user wants to keep doing what they were doing, they can just click
+ * "back", right?"
+ *
+ * So whatever brought the song -- a play button on a graph, the list, a
+ * chase, a quest, the end of the one before -- traverse mode comes on and
+ * the pane goes to it, in an entry of its own (stores/pane.js, bacon), and
+ * Back is back to what the reader was looking at. The song a visit opens
+ * with is not a start: the address named it, or it is the default, and the
+ * pane opens where the address says (App.vue, openPaneForStart). Nor is
+ * the same recording paused and played again, or loaded again. Pure.
+ *
+ * @param {Object} now
+ * @param {?string} now.cid The recording that stands now.
+ * @param {?string} now.oldCid The one that stood a moment ago.
+ * @param {?string} now.booted The one this visit loaded for itself on arriving, if it loaded one.
+ * @return {boolean}
+ */
+export function aSongStarts( { cid = null, oldCid = null, booted = null } = {} ) {
+	return !! cid && cid !== oldCid && ( !! oldCid || cid !== booted );
+}
+
 /** Traverse mode's rocker, left to right (Justin, #connectome, 18 Nov 2026): bacon graphs, off, PickiPedia pages. */
 export const TRAVERSE_MODES = [ 'bacon', 'off', 'pages' ];
 

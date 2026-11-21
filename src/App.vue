@@ -11,7 +11,7 @@
 import { computed, watch, watchEffect, onMounted, onBeforeUnmount } from 'vue';
 
 import { INITIAL_PARAMS, cameToListen } from './initial-params.js';
-import { traverseTo, comesBackToTheMusic } from './traverse.js';
+import { traverseTo, comesBackToTheMusic, aSongStarts } from './traverse.js';
 import { GRAPH_START, startAt, startsOnSong, graphStartPlays } from './shell.js';
 import { useLayoutStore } from './stores/layout.js';
 import { useSongStore } from './stores/song.js';
@@ -64,13 +64,20 @@ watchEffect( () => {
  * All of it waits on traverse mode; a person reading something keeps reading.
  */
 watch( () => [ player.song && player.song._trackCid, player.currentSolo ], ( [ cid, solo ], [ oldCid, oldSolo ] ) => {
+	// A new song brings traverse mode back on, whatever the reader was at, and Back is back to that (Justin,
+	// #connectome, 21 Nov 2026; traverse.js, aSongStarts).
+	const started = aSongStarts( { cid, oldCid, booted: songs.booted } );
+	if ( started ) {
+		layout.startTraversing();
+	}
 	if ( layout.traverse === 'off' ) {
 		return;
 	}
-	// The first song is openPaneForStart's; a change of track from here on
-	// is this watcher's.
+	// The song the visit opened with is openPaneForStart's; a change of
+	// track from here on is this watcher's, and so is the first song asked
+	// for where none stood (come by /bacon).
 	const trackChanged = cid !== oldCid;
-	if ( trackChanged && ! oldCid ) {
+	if ( trackChanged && ! oldCid && ! started ) {
 		return;
 	}
 	const where = traverseTo( { trackChanged, playing: player.playing, solo, lastSolo: oldSolo } );

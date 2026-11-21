@@ -66,6 +66,12 @@ export const useSongStore = defineStore( 'song', () => {
 	const forcedEncoding = INITIAL_PARAMS.get( 'enc' );
 
 	const initial = ref( null );
+	/**
+	 * The recording this visit loaded for itself on arriving: the one the
+	 * address names, or the default. Any other that comes to stand was
+	 * asked for, and is a new song starting (traverse.js, aSongStarts).
+	 */
+	const booted = ref( null );
 	const loading = ref( true );
 	const loadError = ref( null );
 	/**
@@ -195,6 +201,7 @@ export const useSongStore = defineStore( 'song', () => {
 			if ( import.meta.env.DEV && INITIAL_PARAMS.has( 'soundcheck' ) && initial.value ) {
 				soundcheck( initial.value );
 			}
+			booted.value = ( initial.value && initial.value._trackCid ) || null;
 			loading.value = false;
 		}
 	}
@@ -341,7 +348,7 @@ export const useSongStore = defineStore( 'song', () => {
 	}, { immediate: true } );
 
 	return {
-		initial, loading, loadError, charted, ready, lockedToTrack, current,
+		initial, booted, loading, loadError, charted, ready, lockedToTrack, current,
 		album, recordPage, artUrl, artFailed, notice, metadataParts, queuedCids, recordRest,
 		boot, pickTrack, fetchTrack, playCid, queueCid, queueRecordRest, goToTrack, chartedList, readyList, isReady,
 	};
