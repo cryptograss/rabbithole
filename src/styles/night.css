@@ -76,6 +76,29 @@
 	}
 	.timeline-view-tab:hover { background-color: var(--night-press); }
 	#rabbithole-sidebar { background-color: var(--night-panel); }
+	.drawer-grip {
+		background-color: var(--night-panel);
+		color: var(--night-green-pale);
+	}
+	.drawer-grip:hover,
+	.drawer-grip:focus-visible { background-color: var(--night-press); }
+	body.bottom-bar .drawer-grip,
+	body.bottom-bar .drawer-grip:hover,
+	body.bottom-bar .drawer-grip:focus-visible { background: none; }
+	body.quiet .timeline-view-body::before { color: var(--night-soft); }
+	.drawer-start { color: var(--night-soft); }
+	.drawer-start-head { color: var(--night-green-pale); }
+	.drawer-start-song {
+		border-color: var(--night-line);
+		background-color: var(--night-paper);
+		color: var(--night-ink);
+	}
+	.drawer-start-song:hover,
+	.drawer-start-song:focus-visible {
+		border-color: var(--night-green);
+		background-color: var(--night-press);
+	}
+	.drawer-start-album { color: var(--night-soft); }
 	.rh-account { color: white; }
 	.rh-account.signed-out {
 		background-color: var(--night-warn);

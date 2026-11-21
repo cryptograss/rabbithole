@@ -26,6 +26,8 @@ import WebampDock from './components/WebampDock.vue';
 import Ensemble from './components/Ensemble.vue';
 import SongParts from './components/SongParts.vue';
 import LayoutSwitch from './components/LayoutSwitch.vue';
+import DrawerStart from './components/DrawerStart.vue';
+import DrawerGrip from './components/DrawerGrip.vue';
 import WalkTrail from './components/WalkTrail.vue';
 import WikiPane from './components/WikiPane.vue';
 import EditorPanel from './components/EditorPanel.vue';
@@ -37,16 +39,23 @@ const pane = usePaneStore();
 const player = usePlayerStore();
 
 /*
- * Come by /bacon, with nothing asked for yet (shell.js): no track stands,
- * so the player's own chrome is put away and the graph has the window. The
- * first play brings it out of the left side, or along a phone's bottom.
+ * Come by /bacon, with nothing asked for yet (shell.js): no track stands.
+ * The bar and the drawer are there all the same, as they are once a song is
+ * on (Justin, #connectome, 21 Nov 2026, 01:56Z: "There's still a bit of UI
+ * friction between 'rabbithole' mode and 'not rabbithole mode'. It needs to
+ * feel identical. To that end, I think it makes sense to start with
+ * rabbithole as a drawer on the left"). Until then the drawer holds the songs
+ * ready to play (DrawerStart.vue) where Webamp and the band will be, and the
+ * timeline's column stands empty, so the page beside them is as wide before
+ * the first play as after it. It was all put away until the first play
+ * (`body.bare`, 19 Nov).
  */
-const bare = computed( () => GRAPH_START && ! songs.current );
+const quiet = computed( () => GRAPH_START && ! songs.current );
 
 watchEffect( () => {
 	document.body.classList.toggle( 'bottom-bar', layout.isBar );
 	document.body.classList.toggle( 'bar-collapsed', layout.isBar && layout.collapsed );
-	document.body.classList.toggle( 'bare', bare.value );
+	document.body.classList.toggle( 'quiet', quiet.value );
 } );
 
 /*
@@ -242,7 +251,7 @@ onBeforeUnmount( () => {
 
 <template>
 	<div class="layout" :class="{ minimized: !layout.isBar && layout.minimized, 'with-editor': layout.editorOpen,
-		'with-timeline': !bare && layout.showTimeline && layout.timelineView, 'with-timeline-tab': !bare && layout.showTimeline && !layout.timelineView }">
+		'with-timeline': layout.showTimeline && layout.timelineView, 'with-timeline-tab': layout.showTimeline && !layout.timelineView }">
 		<!-- One bar, all the way across the top of both columns: who we are,
 		     traverse mode, and what is playing (Justin's item 17, 15 Nov
 		     2026). It was two bars, one over each column. -->
@@ -252,6 +261,10 @@ onBeforeUnmount( () => {
 			<MiniPlayer v-if="!layout.isBar" />
 
 			<div class="player-container">
+				<!-- Before a song is on: the songs ready to play, where
+				     Webamp and the band will be. -->
+				<DrawerStart v-if="quiet && !songs.loading" />
+
 				<!-- Webamp at the very top of the player pane: the bar above
 				     holds what used to stand between them. -->
 				<WebampDock />
@@ -287,12 +300,17 @@ onBeforeUnmount( () => {
 			</div>
 		</div>
 
+		<!-- The grip that folds the drawer and opens it, on the drawer's own edge. -->
+		<DrawerGrip />
+
 		<div class="pane-column">
 			<WikiPane />
 		</div>
 
 		<EditorPanel v-if="layout.editorOpen" />
-		<TimelineView v-else-if="!bare && layout.showTimeline" />
+		<!-- There before a song is on, too, and empty: the page beside it keeps the width it will have
+		     once one plays, so the first play moves nothing (Justin, 21 Nov 2026: "It needs to feel identical"). -->
+		<TimelineView v-else-if="layout.showTimeline" />
 
 		<!-- Asked for a track while another one is playing (item 15). -->
 		<ListenChoice />

@@ -38,6 +38,13 @@ body {
     --rh-brown: #6b4f3a;
     --rh-brown-soft: #cbbba9;
     --rh-carrot: #e8730c;
+    /* The bar's own green: deep enough that white words on it read at 4.5 to 1
+       and better (Justin, #connectome, 21 Nov 2026, 01:56Z: "Some of the text
+       on the top bar, particularly white on the greens, is tough to read.
+       Let's find some better contrast."). It was #9db89a to #87a96b, where
+       white was 1.8 to 2.5 to 1. */
+    --rh-bar-green: #457556;
+    --rh-bar-green-deep: #3a6548;
     --rh-side-width: 277px;
     /* The one bar across the top (Justin's item 17). Written here because
        everything under it is sized against it: the dock, the page, the
@@ -110,7 +117,9 @@ body {
     align-items: center;
     gap: 6px;
     padding: 6px 8px;
-    background: linear-gradient(135deg, #9db89a 0%, #87a96b 100%);
+    /* The bar's own green, for the same reason (21 Nov 2026): white on the
+       paler green was 2.2 to 1, and this header stands beside the bar. */
+    background: linear-gradient(135deg, var(--rh-bar-green) 0%, var(--rh-bar-green-deep) 100%);
     flex: 0 0 auto;
 }
 
@@ -124,7 +133,7 @@ body {
 .timeline-view-edit,
 .timeline-view-close {
     border: 1px solid rgba(255, 255, 255, 0.6);
-    background: rgba(255, 255, 255, 0.2);
+    background: rgba(0, 0, 0, 0.25);
     color: #fff;
     border-radius: 4px;
     font-size: 11px;
@@ -135,7 +144,7 @@ body {
 
 .timeline-view-edit:hover,
 .timeline-view-close:hover {
-    background: rgba(255, 255, 255, 0.4);
+    background: rgba(0, 0, 0, 0.4);
 }
 
 .timeline-view-labels {
@@ -212,7 +221,7 @@ body {
    The middle column is `auto` between two equal `1fr`s, so the switch sits
    at the middle of the bar however long the song's title is. */
 .rabbithole-header {
-    background: linear-gradient(135deg, #9db89a 0%, #87a96b 100%);
+    background: linear-gradient(135deg, var(--rh-bar-green) 0%, var(--rh-bar-green-deep) 100%);
     /* A walnut line under the green, the width of the window: it puts an
        edge on the bar and is the first of the two colours item 26 asks
        for. */
@@ -264,11 +273,13 @@ body {
 }
 
 .rabbithole-header .alpha {
-    background: rgba(255,255,255,0.2);
+    /* A dark chip, not a pale one: white on a paler green was 1.8 to 1. */
+    background: rgba(0,0,0,0.25);
     color: white;
     font-size: 10px;
     padding: 2px 6px;
     border-radius: 3px;
+    white-space: nowrap;
 }
 
 /* Who is signed in, in the corner (Skyler, 13 Nov 2026). The name links
@@ -302,57 +313,69 @@ body {
     padding: 1px 7px;
     border-radius: 3px;
 }
-.rh-account + .minimize-btn { margin-left: 0; flex: none; }
-/* The chip and the fold arrow are one box only where the header is a
-   column; elsewhere they are two items of the header's own row. */
-.rh-header-foot { display: contents; }
 /* Room for a name: the header's items sit a little closer than they did. */
-body:not(.bottom-bar) .layout:not(.minimized) .rabbithole-header { gap: 6px; padding-left: 10px; padding-right: 8px; }
-.layout.minimized .rh-account { display: none; }
+body:not(.bottom-bar) .rabbithole-header { gap: 6px; padding-left: 10px; padding-right: 8px; }
 body.bottom-bar .rh-account { margin-left: 0; max-width: 100%; font-size: 10px; }
 
-.minimize-btn {
-    margin-left: auto;
-    background: rgba(255,255,255,0.2);
-    border: none;
-    color: white;
-    width: 24px;
-    height: 24px;
-    border-radius: 4px;
-    cursor: pointer;
+/* The graph's three controls, at the bar's far end: the link to this graph,
+   the FAQ, and PickiPedia's mark, which goes home to the wiki (Justin,
+   #connectome, 21 Nov 2026, 01:56Z: "Let's get all that stuff on one unified
+   top bar"). Dark chips with white words, as the rest of the bar's are. */
+.rh-bar-graph {
     display: flex;
     align-items: center;
-    justify-content: center;
-    font-size: 14px;
-    transition: background 0.2s;
+    gap: 6px;
+    flex: none;
 }
 
-.minimize-btn:hover {
-    background: rgba(255,255,255,0.3);
-}
-
-.layout.minimized .rabbithole-header {
-    padding: 10px;
+.rh-bar-btn {
+    display: inline-flex;
+    align-items: center;
     justify-content: center;
+    min-width: 26px;
+    height: 24px;
+    padding: 0 7px;
+    border: 1px solid rgba(255,255,255,0.5);
+    border-radius: 4px;
+    background: rgba(0,0,0,0.25);
+    color: #fff;
+    font: inherit;
+    font-size: 11.5px;
+    font-weight: 600;
+    line-height: 1;
     cursor: pointer;
-    flex-direction: column;
-    gap: 8px;
 }
 
-.layout.minimized .rabbithole-header img {
-    width: 32px;
-    height: 32px;
+.rh-bar-btn:hover { background: rgba(0,0,0,0.4); }
+
+.rh-bar-btn:focus-visible,
+.rh-bar-home:focus-visible { outline: 2px solid #fff; outline-offset: 1px; }
+
+.rh-bar-home {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    color: #fff;
+    font-family: Georgia, 'Times New Roman', serif;
+    font-size: 14px;
+    text-decoration: none;
+    white-space: nowrap;
 }
 
-.layout.minimized .rabbithole-header h1,
-.layout.minimized .rabbithole-header .alpha {
-    display: none;
+.rh-bar-home:hover span { text-decoration: underline; }
+
+/* The mark is drawn for paper: it keeps a disc of it on the green. */
+.rabbithole-header .rh-bar-home img {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: #fff;
+    cursor: pointer;
 }
 
-.layout.minimized .minimize-btn {
-    margin-left: 0;
-    width: 28px;
-    height: 28px;
+/* Where the bar is short of room the mark says PickiPedia by itself. */
+@media ( max-width: 1100px ) {
+    .rh-bar-home span { display: none; }
 }
 
 .layout.minimized .player-container {
@@ -772,44 +795,13 @@ body.bottom-bar .pane-column {
     text-overflow: ellipsis;
 }
 
-.rabbithole-header .record-line {
-    order: 4;
-    /* The record's name is six characters: clipping it saves nothing and
-       costs the arrow that says it opens (item 34). */
-    flex: 0 0 auto;
-    min-width: 0;
-    margin: 0;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-/* The track selector is the first thing to give way (item 34): it is the
-   widest thing in the bar and the least read, and its options are
-   readable when it is open whatever width it sits at. The row is the flex
-   item here, so the shrink has to be on it and not only on the select
-   inside it. */
-.rabbithole-header .album-row {
-    order: 5;
-    flex: 0 6 auto;
-    min-width: 0;
-    margin: 0;
-}
-
-.rabbithole-header .album-row .song-select,
-.rabbithole-header .album-track-select {
-    flex: 0 6 auto;
-    width: 170px;
-    min-width: 72px;
-    max-width: 100%;
-    padding: 1px 4px;
-    font-size: 11px;
-    height: 22px;
-}
-
-/* White on green, like everything else in the bar. */
-.rabbithole-header .song-title-link,
-.rabbithole-header .record-link {
+/* White on green, like everything else in the bar: by the bar's own name,
+   so night's answers to the sidebar's song line (night.css) do not reach
+   in and put a pale green or a link's blue on the green. The arrow back
+   was the bar's old green on the bar, 1.06 to 1. */
+#rabbithole-header .song-title-display,
+#rabbithole-header .song-title-link,
+#rabbithole-header .song-title-back {
     color: #fff;
 }
 
@@ -817,18 +809,9 @@ body.bottom-bar .pane-column {
     font-size: 14px;
 }
 
-.rabbithole-header .record-line {
-    font-size: 11px;
-}
-
-.rabbithole-header .album-art {
-    width: 24px;
-    height: 24px;
-}
-
-.rabbithole-header .up-next {
+#rabbithole-header .up-next {
     color: #fff;
-    background: rgba(255, 255, 255, 0.18);
+    background: rgba(0, 0, 0, 0.25);
     border-color: rgba(255, 255, 255, 0.5);
     font-size: 10.5px;
 }
@@ -948,8 +931,10 @@ body.bottom-bar .pane-column {
     opacity: 1;
 }
 
+/* Off, when that is where it stands: walnut. It was a pale wash, and white
+   words on it were 3 to 1 (Justin, 21 Nov 2026: "better contrast"). */
 .traverse-pos.traverse-off.on {
-    background: rgba(255, 255, 255, 0.28);
+    background: var(--rh-brown);
 }
 
 .traverse-pos:focus-within {
@@ -1255,7 +1240,9 @@ body.bottom-bar {
     );
     /* What stands above the strip: a 2px top border and the 116px skin. */
     --rh-dock-body: 118px;
-    --rh-dock: calc(var(--rh-dock-body) + var(--rh-strip));
+    /* The grip's rail, over the player on the dock's top edge (DrawerGrip.vue). */
+    --rh-grip: 14px;
+    --rh-dock: calc(var(--rh-grip) + var(--rh-dock-body) + var(--rh-strip));
 }
 
 body.bottom-bar #rabbithole-sidebar {
@@ -1286,6 +1273,8 @@ body.bottom-bar #rabbithole-sidebar {
     z-index: 50;
     background: white;
     gap: 8px;
+    /* The rail the grip sits in. */
+    padding-top: var(--rh-grip);
 }
 
 body.bottom-bar .layout.with-editor #rabbithole-sidebar {
@@ -1648,6 +1637,17 @@ body.bottom-bar:has(.parts-chart.two-rows) {
     .rabbithole-header {
         padding: 0 4px;
         gap: 4px;
+        /* The rocker beside the rabbit, not in the middle of the bar: kept in the
+           middle, the far end had a third of 390px for who you are and the
+           graph's three controls, and the bar ran 30px past the screen. */
+        grid-template-columns: auto auto minmax(0, 1fr);
+    }
+    .rh-bar-graph {
+        gap: 4px;
+    }
+    .rh-bar-btn {
+        min-width: 24px;
+        padding: 0 5px;
     }
 
     .rabbithole-header h1,
@@ -1808,10 +1808,6 @@ body:not(.bottom-bar) #webamp div:has(> #main-window) {
     border-color: #3c6749;
 }
 
-.demo-select-row {
-    display: contents;
-}
-
 .inline-flash-note {
     margin-left: 6px;
     font-size: 11px;
@@ -1909,30 +1905,263 @@ body:not(.bottom-bar) #webamp div:has(> #main-window) {
     cursor: pointer;
 }
 
-/* === Come by /bacon, with nothing playing yet (body.bare; src/shell.js) ===
+/* === Come by /bacon, with nothing playing yet (body.quiet; App.vue) ===
 
-   No track stands, so the player's chrome is put away: no bar across the
-   top, no side, and the graph in the pane has the window. The first play
-   takes the class off, and the side comes out of the left (the grid's
-   column grows, as it does unfolding), or the bar up from the bottom. */
-body.bare .layout,
-body.bare .layout.minimized {
-    grid-template-rows: 0 minmax(0, 1fr);
+   No track stands. The bar and the drawer are there all the same (Justin,
+   #connectome, 21 Nov 2026, 01:56Z: "It needs to feel identical. To that
+   end, I think it makes sense to start with rabbithole as a drawer on the
+   left"), and the drawer holds the songs ready to play (DrawerStart.vue)
+   where Webamp, the band and the song's parts will be. Webamp's box keeps
+   its width and gives up its height: the player is made in it when the
+   first song is asked for. Until 21 Nov the bar and the drawer were both
+   put away till then (body.bare). */
+body.quiet .webamp-wrapper {
+    height: 0;
+    min-height: 0;
+    margin: 0;
+    overflow: hidden;
 }
-body.bare:not(.bottom-bar) .layout,
-body.bare:not(.bottom-bar) .layout.minimized {
-    grid-template-columns: 0 minmax(0, 1fr);
-}
-body.bare .rabbithole-header {
+body.quiet #ensemble-display,
+body.quiet .walk-trail,
+body.quiet .data-section,
+body.quiet .mini-player {
     display: none;
 }
-body.bare #rabbithole-sidebar {
+
+/* The timeline's column, before there is a song to run down it: it says what
+   will, and offers no pencil for a chart that is not there. */
+body.quiet .timeline-view-edit,
+body.quiet .timeline-view-labels {
+    display: none;
+}
+body.quiet .timeline-view-body::before {
+    content: "The song's parts run down here as it plays.";
+    display: block;
+    padding: 12px 10px;
+    color: #6b7566;
+    font-size: 12px;
+    line-height: 1.45;
+}
+
+.visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+}
+
+.drawer-start {
+    padding: 14px 12px;
+    color: #3d463c;
+}
+.layout.minimized .drawer-start {
+    display: none;
+}
+.drawer-start-head {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--rh-green-deep);
+}
+.drawer-start-say {
+    margin-top: 6px;
+    font-size: 12.5px;
+    line-height: 1.45;
+}
+.drawer-start-songs {
+    list-style: none;
+    margin-top: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+.drawer-start-song {
+    display: flex;
+    align-items: baseline;
+    gap: 7px;
+    width: 100%;
+    padding: 7px 9px;
+    border: 1px solid var(--rh-brown-soft);
+    border-radius: 6px;
+    background: #fff;
+    color: #24301f;
+    font: inherit;
+    font-size: 13.5px;
+    text-align: left;
+    cursor: pointer;
+}
+.drawer-start-song:hover,
+.drawer-start-song:focus-visible {
+    border-color: var(--rh-green);
+    background: #f1f6ee;
+    outline: none;
+}
+.drawer-start-tri {
+    flex: none;
+    color: var(--rh-carrot);
+    font-size: 11px;
+}
+.drawer-start-title {
+    font-weight: 600;
+}
+.drawer-start-album {
+    margin-left: auto;
+    padding-left: 8px;
+    color: var(--rh-brown);
+    font-size: 11px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Along the bottom, the quiet drawer is one row: the songs side by side,
+   under the grip's rail. */
+body.quiet.bottom-bar {
+    --rh-dock: calc(var(--rh-grip) + 2px + 46px);
+}
+body.quiet.bottom-bar #rabbithole-sidebar {
+    padding-bottom: 0;
+}
+/* Webamp's box is 290px of the row, with or without a player in it: out of
+   the row until there is one, and still a box to make the player in. */
+body.quiet.bottom-bar .webamp-wrapper {
+    position: absolute;
+    left: 0;
+    bottom: 0;
     visibility: hidden;
-    border-width: 0;
+    pointer-events: none;
 }
-body.bare.bottom-bar #rabbithole-sidebar {
-    transform: translateY(100%);
+body.bottom-bar .drawer-start {
+    order: 1;
+    flex: 1 1 auto;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 0 8px;
+    overflow-x: auto;
 }
-body.bare.bottom-bar .pickipedia-frame {
-    height: 100vh;
+body.bottom-bar .drawer-start-head {
+    flex: none;
+    font-size: 12.5px;
+}
+body.bottom-bar .drawer-start-say,
+body.bottom-bar .drawer-start-album,
+body.bottom-bar .drawer-start.none-ready .drawer-start-head {
+    display: none;
+}
+/* With no song to offer, the row says where one is started. */
+body.bottom-bar .drawer-start.none-ready .drawer-start-say {
+    display: block;
+    margin: 0;
+    font-size: 12px;
+}
+body.bottom-bar .drawer-start-songs {
+    flex-direction: row;
+    margin-top: 0;
+}
+body.bottom-bar .drawer-start-song {
+    width: auto;
+    padding: 5px 9px;
+    white-space: nowrap;
+}
+body.bottom-bar.bar-collapsed .drawer-start {
+    display: none;
+}
+
+/* === The drawer's grip (DrawerGrip.vue) ===
+
+   Justin, #connectome, 21 Nov 2026, 01:56Z: "Give it a nice grip in the
+   middle of the drawer." Beside the page: a tab on the drawer's right
+   edge, halfway down, which stays on that edge when the drawer is folded.
+   It is fixed to the window, because the drawer scrolls and the grip must
+   not go with what is in it. */
+.drawer-grip {
+    position: fixed;
+    z-index: 60;
+    left: var(--rh-side-width);
+    top: calc(var(--rh-bar) + (100vh - var(--rh-bar)) / 2);
+    transform: translateY(-50%);
+    width: 14px;
+    height: 58px;
+    padding: 0;
+    border: 2px solid var(--rh-green);
+    border-left: 0;
+    border-radius: 0 9px 9px 0;
+    background: #fff;
+    color: var(--rh-green-deep);
+    font-size: 15px;
+    font-weight: 700;
+    line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    box-shadow: 2px 0 6px rgba(0,0,0,0.12);
+    transition: left 0.3s ease, background 0.15s;
+}
+/* More to land on than can be seen: a finger gets 30 by 74. */
+.drawer-grip::before {
+    content: "";
+    position: absolute;
+    inset: -8px -10px -8px -6px;
+}
+.drawer-grip:hover,
+.drawer-grip:focus-visible {
+    background: #e3eadf;
+}
+.drawer-grip:focus-visible {
+    outline: 2px solid var(--rh-blue);
+    outline-offset: 2px;
+}
+.layout.minimized .drawer-grip {
+    left: 56px;
+}
+@media (max-width: 700px) {
+    body:not(.bottom-bar) .layout.minimized .drawer-grip {
+        left: 44px;
+    }
+}
+
+/* Along the bottom: a handle in a rail of its own on the drawer's top edge,
+   in the middle of it. The rail is the drawer's, so nothing of the page or
+   of Webamp is under the handle. */
+body.bottom-bar .drawer-grip {
+    left: 50%;
+    top: auto;
+    bottom: calc(var(--rh-dock) - 2px - var(--rh-grip));
+    transform: translateX(-50%);
+    width: 72px;
+    height: var(--rh-grip);
+    border: 0;
+    border-radius: 0;
+    background: none;
+    box-shadow: none;
+    z-index: 61;
+    transition: none;
+}
+body.bottom-bar .drawer-grip::before {
+    inset: -12px -14px -6px;
+}
+body.bottom-bar .drawer-grip::after {
+    content: "";
+    width: 46px;
+    height: 5px;
+    border-radius: 3px;
+    background: var(--rh-green);
+}
+body.bottom-bar .drawer-grip:hover::after,
+body.bottom-bar .drawer-grip:focus-visible::after {
+    background: var(--rh-green-deep);
+}
+body.bottom-bar .drawer-grip:hover,
+body.bottom-bar .drawer-grip:focus-visible {
+    background: none;
+}
+body.bottom-bar.bar-collapsed .drawer-grip {
+    bottom: calc(40px - 2px - var(--rh-grip));
+}
+body.bottom-bar .layout.with-editor .drawer-grip {
+    left: calc((100vw - 470px) / 2);
 }

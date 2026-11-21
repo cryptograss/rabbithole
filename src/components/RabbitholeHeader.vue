@@ -10,12 +10,29 @@
  * the player pane."
  *
  * Three zones: who we are, what the pane is doing (traverse mode), and what
- * is playing -- with the account chip and the fold arrow at the far end. The
+ * is playing -- with the account chip and the graph's three controls at the
+ * far end. The
  * carrot that played sat beside traverse mode until Justin, #connectome, 19
  * Nov 2026, 03:15Z: "The carrot in the top bar has outlived its usefulness,
  * IMO. Nix it." Webamp's own buttons play. The song's line is the
  * sidebar's; in the bottom bar Webamp's own title says which song it is, so
  * it goes (item 29).
+ *
+ * One bar for the graph too (Justin, #connectome, 21 Nov 2026, 01:56Z:
+ * "integrate the top bar of rabbithole with the top bar of /bacon/ (on
+ * which, once we move the two text boxes, we'll only have the link button,
+ * the FAQ, and the link to pickipedia). Let's get all that stuff on one
+ * unified top bar."). The link and the FAQ are the graph's own, so they are
+ * here while the graph is what the pane shows, and they ask the graph
+ * (layout.askBar; PaneGraph says it to the frame, graph-frame.js
+ * barMessage), which shows the answer inside itself. PickiPedia's mark is a
+ * plain link to the wiki's front page.
+ *
+ * The fold arrow was at this bar's far end until the same message: "The
+ * left hand drawer for rabbithole is currently only collapsible but a
+ * button way over on the right side of the top bar - that's very counter
+ * intuitive. Give it a nice grip in the middle of the drawer." The grip is
+ * DrawerGrip.vue, on the drawer's own edge.
  */
 import { computed, onMounted } from 'vue';
 import { useLayoutStore } from '../stores/layout.js';
@@ -41,13 +58,13 @@ const loginUrl = computed( () => loginHref( {
 	edit: layout.editorOpen,
 } ) );
 
-// ◀/▶ fold the sidebar; ▼/▲ collapse the bar.
-const icon = computed( () => {
-	if ( layout.isBar ) {
-		return layout.collapsed ? '▲' : '▼';
-	}
-	return layout.minimized ? '▶' : '◀';
-} );
+// The graph's own controls, while the graph is what the pane shows.
+const graphFront = computed( () => !! pane.graphSrc && !! pane.view && pane.view.kind === 'graph' );
+/** The explorer's mark, from where the explorer keeps it: one file, the same on both bars. */
+const MARK = '/assets/connectome/pickipedia-mark.png';
+function onMarkError( e ) {
+	e.target.style.display = 'none';
+}
 
 function onLogo() {
 	if ( ! layout.isBar && layout.minimized ) {
@@ -61,33 +78,32 @@ function onLogo() {
 		<span class="rh-brand">
 			<img :src="rabbit" alt="Rabbithole" @click="onLogo">
 			<h1>rabbithole</h1>
-			<span class="alpha">BETA</span>
+			<span class="alpha">BETA 2</span>
 		</span>
 		<!-- The middle of the bar: whether the pane travels with the track. -->
 		<div class="rh-bar-mid">
 			<TraverseSwitch />
 		</div>
-		<!-- Who you are and the way to fold the dock, together. In the
-		     bar the header was a column 116px tall, and these two on
-		     lines of their own left nothing for the account chip: it
-		     was flattened to 2px between BETA and the fold arrow
-		     (Skyler, 14 Nov 2026, on a desktop). Side by side they
-		     fit. display:contents everywhere else, so the sidebar's
-		     header is the one row it has always been. -->
+		<!-- What is playing, who you are, and the graph's three controls. -->
 		<div class="rh-bar-end">
 			<SongInfo v-if="!layout.isBar" />
-			<div class="rh-header-foot">
-				<a v-if="account.name" class="rh-account" :href="userHref" target="_blank" rel="noopener"
-					:title="'Signed in to PickiPedia as ' + account.name + '. Saves go in under this name.'">
-					<span class="rh-account-dot" aria-hidden="true"></span>{{ account.name }}
-				</a>
-				<a v-else-if="account.name === null" class="rh-account signed-out"
-					:href="loginUrl"
-					title="Not signed in to PickiPedia: sign in to save charts and return right here.">Log in</a>
-				<button class="minimize-btn" title="Minimize/Maximize" @click="layout.toggleDock()">
-					<span id="minimize-icon">{{ icon }}</span>
-				</button>
-			</div>
+			<a v-if="account.name" class="rh-account" :href="userHref" target="_blank" rel="noopener"
+				:title="'Signed in to PickiPedia as ' + account.name + '. Saves go in under this name.'">
+				<span class="rh-account-dot" aria-hidden="true"></span>{{ account.name }}
+			</a>
+			<a v-else-if="account.name === null" class="rh-account signed-out"
+				:href="loginUrl"
+				title="Not signed in to PickiPedia: sign in to save charts and return right here.">Log in</a>
+			<!-- The graph's three: the link to this very graph, the FAQ, and the way home to the wiki. -->
+			<span class="rh-bar-graph">
+				<button v-if="graphFront" id="rh-bar-share" type="button" class="rh-bar-btn" title="A link to this graph, to keep or to share"
+					aria-label="A link to this graph" @click="layout.askBar( 'share' )"><span aria-hidden="true">🔗</span></button>
+				<button v-if="graphFront" id="rh-bar-faq" type="button" class="rh-bar-btn" title="Bacon graphs: questions and answers"
+					@click="layout.askBar( 'faq' )">FAQ</button>
+				<!-- A tab of its own, so the music plays on (Justin, #connectome, 21 Nov 2026, 18:01Z: "new tab makes sense") -->
+				<a id="rh-bar-home" class="rh-bar-home" href="/wiki/Main_Page" target="_blank" rel="noopener" title="PickiPedia: the front page, in a new tab"><img
+					:src="MARK" alt="" width="24" height="24" @error="onMarkError"><span>PickiPedia</span></a>
+			</span>
 		</div>
 	</div>
 </template>

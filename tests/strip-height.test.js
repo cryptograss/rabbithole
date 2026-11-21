@@ -52,7 +52,8 @@ describe( 'the song strip', () => {
 		expect( css ).toMatch( /--rh-strip:\s*calc\(/ );
 		expect( css ).toMatch( /padding-bottom:\s*var\(--rh-strip\)/ );
 		expect( css ).toMatch( /height:\s*var\(--rh-strip\)/ );
-		expect( css ).toMatch( /--rh-dock:\s*calc\(\s*var\(--rh-dock-body\)\s*\+\s*var\(--rh-strip\)\s*\)/ );
+		// the grip's rail on the dock's top edge, the player, and the strip (21 Nov 2026: the grip)
+		expect( css ).toMatch( /--rh-dock:\s*calc\(\s*var\(--rh-grip\)\s*\+\s*var\(--rh-dock-body\)\s*\+\s*var\(--rh-strip\)\s*\)/ );
 	} );
 
 	it( 'grows by a row when the chart lays out two', () => {

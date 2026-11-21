@@ -144,11 +144,14 @@ async function run() {
 	let seen = await until( page, ( s ) => s.pane === `Song:${ song }`, 15 );
 	check( 'a song opens on its own Song: page', seen.pane === `Song:${ song }`, `${ song }; pane: ${ seen.pane }` );
 
-	const select = page.locator( '#song-selector:visible' ).first();
-	const songs = await select.locator( 'option' ).allTextContents();
-	check( 'the dropdown lists the songs charted on the wiki', songs.length > 1 && songs.includes( song ),
-		`${ songs.length }: ${ songs.join( ', ' ) }` );
-	const cid = await select.inputValue();
+	// The songs the rabbithole hands out, and the one loaded, from the app's own stores: the dropdown that listed
+	// them left the bar on 21 Nov 2026 (Justin, #connectome, 01:56Z: "let's remove the album name, album cover, and
+	// dropdown menu from the top bar").
+	const stores = () => document.querySelector( '#app' ).__vue_app__.config.globalProperties.$pinia._s;
+	const ready = await page.evaluate( `(${ stores })().get( 'song' ).ready.map( ( t ) => ( { cid: t.cid, title: t.title } ) )` );
+	const songs = ready.map( ( t ) => t.title );
+	check( 'the rabbithole has songs ready to hand out', songs.length > 0, `${ songs.length }: ${ songs.join( ', ' ) }` );
+	const cid = await page.evaluate( `(${ stores })().get( 'player' ).song._trackCid` );
 	const { revid, data: chart } = await chartOf( cid );
 	const processed = processTimeline( chart );
 	const partTimes = songPartTimes( processed );
@@ -259,14 +262,13 @@ async function run() {
 	await page.locator( '.traverse-pos.traverse-pages' ).click();   // the rocker; its radios are hidden
 	check( 'and it turns back on', await mode( 'pages' ).isChecked() );
 
-	// Pick another song from the dropdown: it opens on its own page, and the editor would save to it.
-	const others = ( await select.locator( 'option' ).evaluateAll( ( os ) => os.map( ( o ) => ( { cid: o.value, title: o.textContent.trim() } ) ) ) )
-		.filter( ( o ) => o.cid !== cid );
+	// Load another of the ready songs, as the dropdown did: it opens on its own page, and the editor would save to it.
+	const others = ready.filter( ( o ) => o.cid !== cid );
 	const other = others[ others.length - 1 ];
-	await select.selectOption( other.cid );
+	await page.evaluate( `(${ stores })().get( 'song' ).pickTrack( ${ JSON.stringify( other.cid ) } )` );
 	await page.waitForFunction( ( t ) => document.querySelector( '#song-title-display' )?.firstChild.textContent.replace( '↩', '' ).trim() === t, other.title, { timeout: 15000 } ).catch( () => {} );
 	seen = await until( page, ( s ) => s.pane === `Song:${ other.title }`, 15 );
-	check( `picking ${ other.title } from the dropdown opens Song:${ other.title }`, seen.pane === `Song:${ other.title }`, `pane: ${ seen.pane }` );
+	check( `loading ${ other.title } opens Song:${ other.title }`, seen.pane === `Song:${ other.title }`, `pane: ${ seen.pane }` );
 
 	const pencil = page.locator( '#editor-toggle-btn' );
 	check( 'the title carries the ✎ "edit timeline"', ( await pencil.count() ) > 0 && /✎/.test( await pencil.textContent() ) && /edit timeline/i.test( await pencil.textContent() ),
