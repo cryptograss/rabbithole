@@ -160,4 +160,4 @@ the in/out rule and `src/player/timeline.js` for sections.
 
 ## License
 
-MIT
+The Rabbithole Bacon License — see [LICENSE.MD](LICENSE.MD).
