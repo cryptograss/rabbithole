@@ -42,6 +42,7 @@ describe( 'the one bar', () => {
 		const pane = usePaneStore();
 		const w = mount( RabbitholeHeader );
 		expect( w.find( '#rh-bar-home' ).attributes( 'href' ) ).toBe( '/wiki/Main_Page' );
+		expect( w.find( '#rh-bar-home' ).attributes( 'target' ) ).toBe( '_blank' );          // the music plays on
 		expect( w.find( '#rh-bar-share' ).exists() ).toBe( false );
 		expect( w.find( '#rh-bar-faq' ).exists() ).toBe( false );
 		pane.graphSrc = '/bacon?host=rabbithole&shell=1&bar=1';

@@ -100,7 +100,8 @@ function onLogo() {
 					aria-label="A link to this graph" @click="layout.askBar( 'share' )"><span aria-hidden="true">🔗</span></button>
 				<button v-if="graphFront" id="rh-bar-faq" type="button" class="rh-bar-btn" title="Bacon graphs: questions and answers"
 					@click="layout.askBar( 'faq' )">FAQ</button>
-				<a id="rh-bar-home" class="rh-bar-home" href="/wiki/Main_Page" title="PickiPedia: the front page"><img
+				<!-- A tab of its own, so the music plays on (Justin, #connectome, 21 Nov 2026, 18:01Z: "new tab makes sense") -->
+				<a id="rh-bar-home" class="rh-bar-home" href="/wiki/Main_Page" target="_blank" rel="noopener" title="PickiPedia: the front page, in a new tab"><img
 					:src="MARK" alt="" width="24" height="24" @error="onMarkError"><span>PickiPedia</span></a>
 			</span>
 		</div>
