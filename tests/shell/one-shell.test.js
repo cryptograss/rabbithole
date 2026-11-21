@@ -16,16 +16,17 @@ describe( 'the graph\'s addresses', () => {
 	} );
 	it( 'takes the graph\'s part of an address: not the track, the play, or what says a frame is hosted', () => {
 		expect( graphAt( '/bacon?p=Cory+Walker&track=QmX&play=1&layout=bar' ) ).toBe( '/bacon?p=Cory+Walker' );
-		expect( graphAt( '/bacon?cut=QmX&host=rabbithole&shell=1&steer=1' ) ).toBe( '/bacon?cut=QmX' );
+		expect( graphAt( '/bacon?cut=QmX&host=rabbithole&shell=1&bar=1&steer=1' ) ).toBe( '/bacon?cut=QmX' );
+		expect( graphAt( '/bacon?cut=QmX&host=rabbithole&shell=1&bar=1' ) ).toBe( '/bacon?cut=QmX' );
 		expect( graphAt( '/bacon/challenge/Tony_Rice/?p=Kyle+Tuttle&track=QmX' ) ).toBe( '/bacon/challenge/Tony_Rice?p=Kyle+Tuttle' );
 		expect( graphAt( '/bacon/' ) ).toBe( '/bacon' );
 		expect( graphAt( '/bacon?page=69th+Annual+Grammy+Awards' ) ).toBe( '/bacon?page=69th+Annual+Grammy+Awards' );   // a page's own graph: the graph's word here
 		expect( graphAt( '/rabbithole/?track=QmX' ) ).toBe( null );
 	} );
 	it( 'frames a place hosted, in the shell, and says when the reader steers', () => {
-		expect( frameSrc( '/bacon?p=Cory+Walker' ) ).toBe( '/bacon?p=Cory+Walker&host=rabbithole&shell=1' );
-		expect( frameSrc( '/bacon', true ) ).toBe( '/bacon?host=rabbithole&shell=1&steer=1' );
-		expect( frameSrc( '/bacon/challenge/Tony_Rice', true ) ).toBe( '/bacon/challenge/Tony_Rice?host=rabbithole&shell=1&steer=1' );
+		expect( frameSrc( '/bacon?p=Cory+Walker' ) ).toBe( '/bacon?p=Cory+Walker&host=rabbithole&shell=1&bar=1' );
+		expect( frameSrc( '/bacon', true ) ).toBe( '/bacon?host=rabbithole&shell=1&bar=1&steer=1' );
+		expect( frameSrc( '/bacon/challenge/Tony_Rice', true ) ).toBe( '/bacon/challenge/Tony_Rice?host=rabbithole&shell=1&bar=1&steer=1' );
 	} );
 	it( 'writes the shell\'s address: the place, and the track that stands', () => {
 		expect( shellAddress( '/bacon?p=Cory+Walker', 'QmX' ) ).toBe( '/bacon?p=Cory+Walker&track=QmX' );
@@ -92,7 +93,7 @@ describe( 'the one history, kept by the shell', () => {
 	it( 'loads a challenge, which is read from the path', () => {
 		pane.openGraph( '/bacon?cut=QmX' );
 		pane.openGraph( '/bacon/challenge/Tony_Rice', {}, { step: true } );
-		expect( pane.graphSrc ).toBe( '/bacon/challenge/Tony_Rice?host=rabbithole&shell=1' );
+		expect( pane.graphSrc ).toBe( '/bacon/challenge/Tony_Rice?host=rabbithole&shell=1&bar=1' );
 		expect( pane.view.to ).toBe( null );
 	} );
 	it( 'comes back to a step of the graph\'s with a word for the frame, and nothing written', () => {

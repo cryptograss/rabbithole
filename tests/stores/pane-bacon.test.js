@@ -16,7 +16,7 @@ describe( 'the pane\'s bacon graph', () => {
 		const pane = usePaneStore();
 		expect( pane.bacon( SONG ) ).toBe( true );
 		expect( pane.view.kind ).toBe( 'graph' );
-		expect( pane.view.src ).toBe( '/bacon?cut=QmSong&host=rabbithole&shell=1' );
+		expect( pane.view.src ).toBe( '/bacon?cut=QmSong&host=rabbithole&shell=1&bar=1' );
 		expect( pane.view.card ).toBe( null );
 	} );
 
@@ -24,7 +24,7 @@ describe( 'the pane\'s bacon graph', () => {
 		const pane = usePaneStore();
 		pane.bacon( SONG );
 		pane.bacon( SONG, 'Harry Clark' );
-		expect( pane.view.src ).toBe( '/bacon?cut=QmSong&host=rabbithole&shell=1' );   // not loaded again
+		expect( pane.view.src ).toBe( '/bacon?cut=QmSong&host=rabbithole&shell=1&bar=1' );   // not loaded again
 		expect( pane.view.to ).toBe( '?p=Harry+Clark&playing=QmSong' );
 		expect( pane.view.card ).toBe( 'Harry Clark' );
 		pane.bacon( SONG );

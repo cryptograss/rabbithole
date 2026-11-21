@@ -39,7 +39,7 @@ export const GRAPH_START = typeof window !== 'undefined' && isGraphAddress( wind
 /** What in an address is the shell's own, and not the graph's. `page` is the graph's at /bacon: a page's own graph. */
 export const SHELL_KEYS = [ 'track', 'record', 'play', 'layout', 'enc', 'action', 'webaudio', 'rhdiag', 'soundcheck' ];
 /** What the frame's own address carries to say it is hosted: never part of the shell's. */
-const FRAME_KEYS = [ 'host', 'shell', 'steer' ];
+const FRAME_KEYS = [ 'host', 'shell', 'steer', 'bar' ];
 
 /**
  * Where the graph is, out of an address of either kind (the shell's own,
@@ -66,11 +66,18 @@ export function graphAt( href, origin = 'https://pickipedia.xyz' ) {
 	return url.pathname.replace( /(.)\/$/, '$1' ) + ( query ? '?' + query : '' );
 }
 
-/** The frame's src for a place in the graph: hosted, in the shell, and whether the reader is steering. Pure. */
+/**
+ * The frame's src for a place in the graph: hosted, in the shell, and whether the reader is steering. Pure.
+ *
+ * `bar=1`: the shell's one bar carries the graph's link button, its FAQ and the way to PickiPedia (Justin,
+ * #connectome, 21 Nov 2026, 01:56Z: "Let's get all that stuff on one unified top bar"), so the graph puts its own
+ * bar away. A graph that does not know the word keeps its bar, and nothing is lost.
+ */
 export function frameSrc( at, steering = false ) {
 	const url = new URL( at, 'https://pickipedia.xyz' );
 	url.searchParams.set( 'host', 'rabbithole' );
 	url.searchParams.set( 'shell', '1' );
+	url.searchParams.set( 'bar', '1' );
 	if ( steering ) {
 		url.searchParams.set( 'steer', '1' );
 	}

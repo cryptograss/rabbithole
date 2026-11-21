@@ -162,3 +162,21 @@ export function fxMessage( { cards = [], effects = [], playing = false, titles =
 		} ),
 	};
 }
+
+/**
+ * What the one bar asks of the graph in the shell's frame: the graph's link
+ * button and its FAQ are in Rabbithole's bar now (Justin, #connectome, 21
+ * Nov 2026, 01:56Z: "integrate the top bar of rabbithole with the top bar
+ * of /bacon/ ... Let's get all that stuff on one unified top bar"), and the
+ * graph, told `bar=1` in its address (shell.js frameSrc), puts its own bar
+ * away. `share`: the link to this graph, to keep or to share; `faq`: the
+ * questions and answers. The graph shows either inside itself.
+ *
+ * Pure. An ask it does not know is no ask.
+ *
+ * @param {string} act 'share' or 'faq'.
+ * @return {?Object} The message, or null.
+ */
+export function barMessage( act ) {
+	return act === 'share' || act === 'faq' ? { rabbithole: 'bar', act } : null;
+}

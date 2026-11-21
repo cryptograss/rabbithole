@@ -171,6 +171,18 @@ export const useLayoutStore = defineStore( 'layout', () => {
 		}
 	} );
 
+	/*
+	 * What the one bar asks of the graph in the pane: its link button and its
+	 * FAQ are the graph's own (Justin, #connectome, 21 Nov 2026, 01:56Z: "Let's
+	 * get all that stuff on one unified top bar"). The bar says which here, and
+	 * whoever holds the frame says it to the graph (PaneGraph.vue,
+	 * graph-frame.js barMessage). `n` counts, so the same ask twice is two asks.
+	 */
+	const barAsk = ref( { act: null, n: 0 } );
+	function askBar( act ) {
+		barAsk.value = { act, n: barAsk.value.n + 1 };
+	}
+
 	function setLayout( choice ) {
 		saved.value = choice;
 		fromUrl.value = null;
@@ -236,7 +248,7 @@ export const useLayoutStore = defineStore( 'layout', () => {
 
 	return {
 		layout, isBar, narrow, phone, auto, pinned, saved,
-		minimized, collapsed, editorOpen, traverse, resume, chosen, timelineView, showTimeline, timelineLabels,
-		setLayout, toggleDock, openDock, setTraverse, stopTraversing, resumeTraversing, startTraversing,
+		minimized, collapsed, editorOpen, traverse, resume, chosen, timelineView, showTimeline, timelineLabels, barAsk,
+		setLayout, toggleDock, openDock, setTraverse, stopTraversing, resumeTraversing, startTraversing, askBar,
 	};
 } );

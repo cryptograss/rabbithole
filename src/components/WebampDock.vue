@@ -46,6 +46,7 @@ watch( () => songs.initial, build );
 		<div id="webamp-player" ref="box"></div>
 		<p v-if="player.error" class="player-error">Could not start the player: {{ player.error }}</p>
 		<p v-else-if="songs.loadError && !songs.initial" class="player-error">Could not load the track: {{ songs.loadError }}</p>
-		<span v-else-if="!player.ready" class="player-loading">Loading player...</span>
+		<!-- No song asked for yet (come by /bacon): there is no player to wait for, and DrawerStart says so. -->
+		<span v-else-if="!player.ready && ( songs.initial || songs.loading )" class="player-loading">Loading player...</span>
 	</div>
 </template>
