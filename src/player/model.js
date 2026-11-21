@@ -67,6 +67,9 @@ export class WebampPlayer {
 			volume: 75,
 			song: null,
 			upNext: [],
+			// Webamp's main window rolled up to its strip (its own button, or the bar collapsing): the dock's box
+			// shrinks to it, and what stands under Webamp moves up (Justin, #connectome, 21 Nov 2026, 23:27Z).
+			shaded: false,
 			currentSolo: null,
 			ready: false,
 			error: null,
@@ -208,6 +211,8 @@ export class WebampPlayer {
 		}
 		this.state.status = status;
 		this.state.volume = wa.media.volume;
+		const main = wa.windows && wa.windows.genWindows && wa.windows.genWindows.main;
+		this.state.shaded = !! ( main && main.shade );
 
 		this._followTrack( wa );
 

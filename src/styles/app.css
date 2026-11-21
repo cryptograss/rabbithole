@@ -265,10 +265,56 @@ body {
     cursor: pointer;
 }
 
+/* The Oracle's name, in its own small capitals (the explorer's #oracle h1: Georgia, small caps, spaced), smaller,
+   and a way back to the front of /bacon (Justin, #connectome, 21 Nov 2026, 23:27Z). */
+.rh-oracle {
+    color: inherit;
+    text-decoration: none;
+    min-width: 0;
+}
 .rabbithole-header h1 {
     color: white;
-    font-size: 15px;
+    font: 400 19px/1.1 Georgia, "Times New Roman", serif;
+    font-variant: small-caps;
+    letter-spacing: .06em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.rh-oracle:hover h1,
+.rh-oracle:focus-visible h1 {
+    text-decoration: underline;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 3px;
+}
+
+/* Rabbithole's own mark at the top of the drawer, flush on Webamp's skin: the bar's green, edge to edge. */
+body:not(.bottom-bar) .player-container > .drawer-brand {
+    padding: 0 8px;
+}
+.drawer-brand {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    height: 26px;
+    background: linear-gradient(135deg, var(--rh-bar-green) 0%, var(--rh-bar-green-deep) 100%);
+    color: white;
+}
+.drawer-brand img {
+    width: 20px;
+    height: 20px;
+}
+.drawer-brand-name {
+    font-size: 14px;
     font-weight: 600;
+    white-space: nowrap;
+}
+.drawer-brand .alpha {
+    background: rgba(0,0,0,0.25);
+    color: white;
+    font-size: 10px;
+    padding: 2px 6px;
+    border-radius: 3px;
     white-space: nowrap;
 }
 
@@ -950,6 +996,26 @@ body.bottom-bar .pane-column {
     height: 126px;
     margin-bottom: 4px;
     position: relative;
+}
+
+/* Webamp rolled up to its strip (its window-shade button): the box is the strip, and the band and your rabbithole
+   come up under it, so the graph has the room (Justin, #connectome, 21 Nov 2026, 23:27Z). The bar has its own. */
+body:not(.bottom-bar) .webamp-wrapper.shaded {
+    height: 14px;
+}
+
+/* And your rabbithole takes whatever height the drawer has spare, down to the song parts: the room Webamp gives up
+   when it rolls up is the graph's. Never less than it had. */
+body:not(.bottom-bar) .player-container > .walk-trail {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+}
+body:not(.bottom-bar) .player-container > .walk-trail > .walk-frame:not(.open) {
+    flex: 1 1 auto;
+    height: auto;
+    min-height: 172px;
 }
 
 .player-loading,
@@ -1650,9 +1716,9 @@ body.bottom-bar:has(.parts-chart.two-rows) {
         padding: 0 5px;
     }
 
-    .rabbithole-header h1,
-    .rabbithole-header .alpha {
-        display: none;
+    .rabbithole-header h1 {
+        font-size: 14px;
+        letter-spacing: .03em;
     }
 
     .rh-bar-mid .auto-switch-caption {
@@ -1732,7 +1798,7 @@ body.bottom-bar:has(.parts-chart.two-rows) {
     }
 
     body:not(.bottom-bar) .rabbithole-header h1 {
-        font-size: 15px;
+        font-size: 17px;
     }
 }
 
@@ -2164,4 +2230,10 @@ body.bottom-bar.bar-collapsed .drawer-grip {
 }
 body.bottom-bar .layout.with-editor .drawer-grip {
     left: calc((100vw - 470px) / 2);
+}
+
+/* The bar along the bottom (a phone) has no top for Rabbithole's mark to stand on: there it is the bar's corner's
+   Oracle alone. */
+body.bottom-bar .drawer-brand {
+    display: none;
 }

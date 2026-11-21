@@ -42,7 +42,7 @@ watch( () => songs.initial, build );
 </script>
 
 <template>
-	<div class="webamp-wrapper">
+	<div class="webamp-wrapper" :class="{ shaded: player.shaded }">
 		<div id="webamp-player" ref="box"></div>
 		<p v-if="player.error" class="player-error">Could not start the player: {{ player.error }}</p>
 		<p v-else-if="songs.loadError && !songs.initial" class="player-error">Could not load the track: {{ songs.loadError }}</p>
