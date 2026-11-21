@@ -88,7 +88,7 @@ function select( name ) {
 			:ref="( c ) => keep( name, c )"
 			:name="name"
 			:rank="i"
-			:chased="picker.following === name"
+			:chased="picker.following === name || picker.rabbitCard === name"
 			:away="!! spot && spot.target === name"
 			@select="select( name )"
 		/>

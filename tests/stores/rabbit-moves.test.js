@@ -16,7 +16,11 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { ref, nextTick } from 'vue';
 import { setActivePinia, createPinia } from 'pinia';
 
-vi.mock( '../../src/wiki/api.js', () => ( { recordsOf: async () => [] } ) );
+vi.mock( '../../src/wiki/api.js', () => ( {
+	recordsOf: async () => [],
+	// the page a name comes to: the wiki follows a redirect, and says the page's own title
+	parsePage: async ( name ) => ( { title: ( globalThis.__titles || {} )[ name ] || name, text: '' } ),
+} ) );
 vi.mock( '../../src/wiki/queue.js', () => ( {
 	performerGraph: async () => globalThis.__graph,
 	songCid: async ( song ) => globalThis.__cids[ song ] || null,
@@ -33,7 +37,7 @@ const JIG = 'QmJig';
 const REUBEN = 'QmReuben';
 
 async function settle() {
-	for ( let i = 0; i < 24; i++ ) {
+	for ( let i = 0; i < 60; i++ ) {
 		await nextTick();
 	}
 }
@@ -130,6 +134,31 @@ describe( 'a chase whose picker runs out', () => {
 		expect( picker.moved ).toEqual( { from: 'Harry Clark', to: 'Cory Walker', song: "Song:Barlow's Jig", cid: JIG } );
 		// The walk will say the next song came by chasing Cory.
 		expect( globalThis.__walk.mark ).toHaveBeenLastCalledWith( JIG, { name: 'Cory Walker', instrument: null, why: 'chase' } );
+	} );
+
+	it( 'knows a card by its page\'s name: the chart\'s "Justin Holmes" is the graph\'s "Justin Myles Holmes"', async () => {
+		// Seen on the live data, 21 Nov 2026: with Drowsy Maggie ready, the rabbit did not go to Justin from Paint Exchange.
+		globalThis.__titles = { 'Justin Holmes': 'Justin Myles Holmes' };
+		const MAGGIE = 'QmMaggie';
+		const w = world( { ready: [ AUGUST, PAINT, MAGGIE ], plays: {
+			'Harry Clark': [ 'Song:August', 'Song:Paint Exchange' ],
+			'Justin Myles Holmes': [ 'Song:August', 'Song:Paint Exchange', 'Song:Drowsy Maggie' ],
+		} } );
+		globalThis.__cids[ 'Song:Drowsy Maggie' ] = MAGGIE;
+		const picker = usePickerStore();
+		await w.plays( AUGUST, [ 'Harry Clark', 'Justin Holmes' ] );
+		await picker.chase( 'Harry Clark' );
+		await settle();
+		expect( picker.rabbitCard ).toBe( null );
+		await w.plays( PAINT, [ 'Justin Holmes', 'Harry Clark' ] );
+		expect( picker.following ).toBe( 'Justin Myles Holmes' );    // the chase is of the page's name, as a chase from his page is
+		expect( picker.rabbitCard ).toBe( 'Justin Holmes' );         // and the card that is his wears the rabbit
+		expect( w.queue ).toEqual( [ MAGGIE ] );
+		expect( picker.moved ).toEqual( { from: 'Harry Clark', to: 'Justin Myles Holmes', song: 'Song:Drowsy Maggie', cid: MAGGIE } );
+		// chased by hand again, the card is whoever's name it is
+		await picker.chase( 'Harry Clark' );
+		expect( picker.rabbitCard ).toBe( null );
+		globalThis.__titles = {};
 	} );
 
 	it( 'with nobody on the song to go to, stays put, takes the rabbithole\'s own pick, and says so', async () => {

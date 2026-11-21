@@ -31,7 +31,8 @@ import { defineStore } from 'pinia';
 import { computed, ref, watch } from 'vue';
 
 import { recordsOn } from '../trail.js';
-import { recordsOf } from '../wiki/api.js';
+import { recordsOf, parsePage } from '../wiki/api.js';
+import { cardOf } from '../wiki/infobox.js';
 import { performerGraph, songCid } from '../wiki/queue.js';
 import { useLayoutStore } from './layout.js';
 import { usePlayerStore } from './player.js';
@@ -224,6 +225,14 @@ export const usePickerStore = defineStore( 'picker', () => {
 	 * nobody ran out, the whole band did: `from` is null too.
 	 */
 	const moved = ref( null );
+	/**
+	 * The card the rabbit moved to, where the chart calls them something
+	 * other than their page does: { page, card }. A chart's "Justin Holmes"
+	 * is the graph's "Justin Myles Holmes", and the chase is of the page's
+	 * name, so the card has to be told it is theirs (Ensemble.vue).
+	 */
+	const onCard = ref( null );
+	const rabbitCard = computed( () => ( onCard.value && onCard.value.page === following.value ? onCard.value.card : null ) );
 	/** The recording a move was said for as the next button was pressed: it starts at once, and the word stays through it. */
 	let saidAtNext = null;
 
@@ -318,11 +327,41 @@ export const usePickerStore = defineStore( 'picker', () => {
 	 *
 	 * @return {Promise<boolean>} Whether the rabbit moved.
 	 */
+	/**
+	 * The band of the song on now as the graph knows them, each with the
+	 * card that is theirs: a card's name where the graph has it, else the
+	 * name of the page that name comes to (the wiki follows the redirect;
+	 * the cards' pages are in hand already, asked for the graph's lights).
+	 * Only a picker the graph knows has anywhere to lead.
+	 *
+	 * Found on the live data, 21 Nov 2026: with Drowsy Maggie ready too,
+	 * Harry Clark ran out on Paint Exchange and the rabbit did not go to
+	 * Justin, who has it; his card there says "Justin Holmes".
+	 */
+	async function bandByPage( graph ) {
+		const known = ( name ) => !! name && ( graph.plays[ name ] || [] ).length > 0;
+		const band = new Map();
+		for ( const card of player.cards ) {
+			let page = card.name;
+			if ( ! known( page ) ) {
+				try {
+					page = ( await cardOf( card.name, parsePage ) ).title;
+				} catch ( err ) {
+					page = null;
+				}
+			}
+			if ( known( page ) && ! band.has( page ) ) {
+				band.set( page, card.name );
+			}
+		}
+		return band;
+	}
+
 	async function moveOn() {
 		const from = following.value;
 		const graph = await performerGraph();
-		// Only a picker the graph knows has anywhere to lead.
-		const band = player.cards.map( ( card ) => card.name ).filter( ( name ) => ( graph.plays[ name ] || [] ).length );
+		const cardFor = await bandByPage( graph );
+		const band = [ ...cardFor.keys() ];
 		const nexts = new Map();
 		for ( const name of band ) {
 			if ( name !== from ) {
@@ -346,6 +385,7 @@ export const usePickerStore = defineStore( 'picker', () => {
 		}
 		following.value = to;
 		next.value = theirs;
+		onCard.value = { page: to, card: cardFor.get( to ) };
 		moved.value = { from, to, song: theirs.song, cid: theirs.cid };
 		// The page on screen, if it is either's: the one says it is chased now, the other stops saying so.
 		if ( offer.value && offer.value.name === to ) {
@@ -702,5 +742,5 @@ export const usePickerStore = defineStore( 'picker', () => {
 		moved.value = null;
 	}
 
-	return { mode, following, next, ours, offer, moved, look, chase, stop, giveWay, forward, back, playHop, heardMoved };
+	return { mode, following, next, ours, offer, moved, rabbitCard, look, chase, stop, giveWay, forward, back, playHop, heardMoved };
 } );
