@@ -12,11 +12,15 @@
  * It did end in silence, and nothing said why. So when the picker being
  * chased has no song left, the rabbit goes to another of the band who has
  * (stores/picker.js, moveOn), and this says so: who ran out, who it is on
- * now, and the song that follows. With nobody on the song to go to it says
- * that, and what the rabbithole reached for itself; with nothing at all to
- * hand out, that the music stops here. A line, not a card over anything:
- * it goes when read (a click), or when the next song comes on (the store
- * takes it back: no timer here, as nowhere in the shell).
+ * now, and the song that follows. With nothing at all to hand out, that the
+ * music stops here. What the rabbithole reached for itself was said too,
+ * until Justin nixed it (#connectome, 22 Nov 2026: "We see ['Next is the
+ * rabbithole's own pick: <track>'] all the time now. It's not needed; I say
+ * nix it. We don't have enough material yet for there to be a meaningful
+ * way for there to be long sequence of songs. When we do, we'll figure out
+ * how to communicate this."): the song just comes on now. A line, not a
+ * card over anything: it goes when read (a click), or when the next song
+ * comes on (the store takes it back: no timer here, as nowhere in the shell).
  */
 import { computed } from 'vue';
 import { usePickerStore } from '../stores/picker.js';
@@ -31,17 +35,18 @@ const says = computed( () => {
 	if ( ! m ) {
 		return '';
 	}
+	// The rabbithole's own pick is never said: the song just comes on (Justin,
+	// #connectome, 22 Nov 2026: not enough material yet for a sequence's end to
+	// mean anything; when there is, we'll figure out how to say it).
+	if ( ! m.to && m.song ) {
+		return '';
+	}
 	if ( ! m.from ) {
-		// A quest: nobody was being chased, and nobody on the song has anywhere left to lead.
-		return m.song
-			? `Nobody on this song has another to lead to. Next is the rabbithole's own pick: ${ songName( m.song ) }.`
-			: 'Nobody on this song has another to lead to, and nothing else is ready to follow this one.';
+		// A quest: nobody was being chased, and nothing at all is ready to follow.
+		return 'Nobody on this song has another to lead to, and nothing else is ready to follow this one.';
 	}
 	if ( m.to ) {
 		return `${ m.from } has no more songs to play here. The rabbit is on ${ m.to } now, for ${ songName( m.song ) }.`;
-	}
-	if ( m.song ) {
-		return `${ m.from } has no more songs to play here, and nor has anyone else on this one. Next is the rabbithole's own pick: ${ songName( m.song ) }.`;
 	}
 	return `${ m.from } has no more songs to play here, and nothing else is ready to follow this one.`;
 } );
