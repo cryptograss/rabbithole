@@ -440,10 +440,16 @@ export const usePickerStore = defineStore( 'picker', () => {
 		if ( mine !== questing || mode.value !== 'quest' ) {
 			return;
 		}
-		const name = questPick( known, {
+		const picked = questPick( known, {
 			last: following.value,
 			unplayed: ( who ) => !! nexts.get( who ),
 		} );
+		// Nobody on this song has a song to lead to: the rabbit stays where it is. It went to another of the band
+		// all the same, so pressing next moved the rabbit and played nothing (Justin, #connectome, 21 Nov 2026,
+		// 19:35Z: "I played Victory, and then when I pressed "next", the player did not advance to the next
+		// track. The only apparent change is that the rabbit moved to a different picker.").
+		const stays = picked && ! nexts.get( picked ) && following.value && known.includes( following.value );
+		const name = stays ? following.value : picked;
 		following.value = name;
 		next.value = null;
 		const theirs = name ? nexts.get( name ) : null;
@@ -635,7 +641,13 @@ export const usePickerStore = defineStore( 'picker', () => {
 		// Stepping on is listening (Justin's item 32).
 		useLayoutStore().startTraversing();
 		saidAtNext = moved.value ? moved.value.cid : null;
-		return player.model.playNext();
+		if ( player.model.playNext() ) {
+			return true;
+		}
+		// Nothing lined up, and nothing the rabbithole may hand out: next has nowhere to go, and says so rather
+		// than doing nothing in silence (Justin, #connectome, 21 Nov 2026, 19:35Z).
+		moved.value = { from: mode.value === 'chase' ? following.value : null, to: null, song: null, cid: null };
+		return false;
 	}
 
 	/**

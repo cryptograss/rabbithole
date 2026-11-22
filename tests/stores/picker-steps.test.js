@@ -382,6 +382,22 @@ describe( 'only what is in production is handed out', () => {
 		expect( globalThis.__songs.queueCid ).not.toHaveBeenCalled();
 	} );
 
+	it( 'with nothing in production, next says so, and the rabbit stays where it was', async () => {
+		// Justin, #connectome, 21 Nov 2026, 19:35Z: next on Victory played nothing, and the rabbit moved
+		const w = world( { band: { 'Song:August': { 'Kyle Tuttle': [ 'banjo' ], 'Molly Tuttle': [ 'guitar' ] } },
+			plays: { 'Kyle Tuttle': [ 'Song:August', 'Song:Cicada Song' ], 'Molly Tuttle': [ 'Song:August', 'Song:Silver 44' ] }, charted: [] } );
+		globalThis.__unready = [ AUGUST, CICADA, SILVER, PROX ];
+		globalThis.__songs.chartedList = async () => [];
+		const picker = usePickerStore();
+		await w.plays( AUGUST, [ 'Kyle Tuttle', 'Molly Tuttle' ] );
+		const was = picker.following;
+		expect( was ).not.toBe( null );
+		expect( await picker.forward() ).toBe( false );
+		expect( picker.following ).toBe( was );
+		expect( picker.moved ).toEqual( { from: null, to: null, song: null, cid: null } );
+		expect( w.song.value._trackCid ).toBe( AUGUST );
+	} );
+
 	it( 'a step back along your own walk plays whatever its state', async () => {
 		const w = world( kyle );
 		const picker = usePickerStore();
