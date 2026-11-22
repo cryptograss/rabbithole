@@ -137,11 +137,6 @@ body.bottom-bar {
 	transition: color 240ms ease;
 }
 
-/* Mock provenance line: hidden until real ownership data lives there. */
-.chartifact-line {
-	display: none;
-}
-
 /* --- The face: the card's own surface, and the line round it --- */
 .mc-plate {
 	position: absolute;
