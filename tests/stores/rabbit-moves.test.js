@@ -161,7 +161,7 @@ describe( 'a chase whose picker runs out', () => {
 		globalThis.__titles = {};
 	} );
 
-	it( 'with nobody on the song to go to, stays put, takes the rabbithole\'s own pick, and says so', async () => {
+	it( 'with nobody on the song to go to, stays put, takes the rabbithole\'s own pick, and records it', async () => {
 		// The live case once the three are tagged: Reuben's Train is ready and credits nobody.
 		const w = world( { ready: [ AUGUST, PAINT, REUBEN ] } );
 		const picker = usePickerStore();
@@ -286,7 +286,7 @@ describe( 'what the reader is told, and for how long', () => {
 		expect( picker.moved ).toEqual( { from: 'Harry Clark', to: null, song: "Reuben's Train", cid: REUBEN } );
 	} );
 
-	it( 'a quest whose band has nowhere left to lead says what follows: the rabbithole\'s pick, or nothing', async () => {
+	it( 'a quest whose band has nowhere left to lead records what follows: the rabbithole\'s pick, or nothing', async () => {
 		const w = world( { ready: [ AUGUST, REUBEN ], plays: { 'Harry Clark': [ 'Song:August' ] } } );
 		const picker = usePickerStore();
 		await w.plays( AUGUST, [ 'Harry Clark' ] );

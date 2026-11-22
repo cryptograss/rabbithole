@@ -741,8 +741,9 @@ export const usePickerStore = defineStore( 'picker', () => {
 		}
 		const reached = await lineUpSomething();
 		// A quest whose whole band has nowhere left to lead: what follows is the rabbithole's own pick, or
-		// nothing, and either is said. It ended in silence with the rabbit on a picker, which read as that
-		// picker having run out (Justin, #connectome, 21 Nov 2026, 01:56Z).
+		// nothing, and the move is recorded either way. Only the music's end is said of it now -- the pick
+		// itself is not (RabbitMoved, Justin, #connectome, 22 Nov 2026) -- but it ended in silence with the
+		// rabbit on a picker, which read as that picker having run out (Justin, #connectome, 21 Nov 2026, 01:56Z).
 		if ( mode.value === 'quest' && ! next.value && cid === currentCid() && ! songs.recordRest.length && ! standingBack() &&
 			( reached || ! songs.queuedCids.length ) ) {
 			moved.value = { from: null, to: null, song: reached ? ( reached.title || null ) : null, cid: reached ? reached.cid : null };
