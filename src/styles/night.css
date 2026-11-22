@@ -106,7 +106,12 @@
 	}
 	.mini-time { color: var(--night-soft); }
 	.mini-musician { color: var(--night-soft); }
-	.mini-musician.lead { color: var(--night-green); }
+	/* The strip's lights are their own grounds by night as by day: white on the lead's green, dark on the featured
+	   amber; leading in, the night's green ink on its fading green. */
+	.mini-musician.lead { color: #fff; }
+	.mini-musician.pickup { color: var(--night-green); }
+	.mini-musician.featured { color: #4a3500; }
+	.mini-musician.fx { color: #111; }
 	body:not(.bottom-bar) .data-section { background-color: var(--night-panel); }
 	.layout-ab {
 		border-color: var(--night-line);

@@ -88,6 +88,33 @@ export async function playTrackInDock( cid ) {
 }
 
 /**
+ * The carrot pressed with no song on (come by /bacon): one of the songs the
+ * rabbithole may hand out, one this rabbithole hasn't heard where there is
+ * one, chosen at random and played, and traverse mode on bacon graphs, so
+ * the pane goes to the song's graph. Back is back to where the reader was
+ * exploring (Justin, #connectome, 22 Nov 2026, 00:14Z: "if there's no song
+ * playing, let's have the play button on the carrot choose one automatically
+ * and start playing it, and go into bacon traverse mode (of course they can
+ * 'back' if they want to keep exploring from where they were)").
+ *
+ * @param {Function} [choose] One of a list; random by default.
+ * @return {Promise<?string>} The track it played, or null where none is ready.
+ */
+export async function playSomething( choose = ( list ) => list[ Math.floor( Math.random() * list.length ) ] ) {
+	const songs = useSongStore();
+	const ready = ( await songs.readyList() ).filter( ( t ) => t && t.cid );
+	if ( ! ready.length ) {
+		return null;
+	}
+	const heard = new Set( useWalkStore().hops.map( ( hop ) => hop.cid ) );
+	const fresh = ready.filter( ( t ) => ! heard.has( t.cid ) );
+	const track = choose( fresh.length ? fresh : ready );
+	useLayoutStore().setTraverse( 'bacon' );
+	await playTrackInDock( track.cid );
+	return track.cid;
+}
+
+/**
  * A track asked for, from anywhere: the pane's buttons, a connectome in
  * the pane, the walk's own drawer.
  *

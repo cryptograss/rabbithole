@@ -72,8 +72,12 @@ body {
     grid-row: 2;
 }
 
+.layout {
+    --rh-mini: 56px;
+}
+
 .layout.minimized {
-    grid-template-columns: 56px 1fr;
+    grid-template-columns: var(--rh-mini) 1fr;
 }
 
 .layout.with-editor {
@@ -81,7 +85,7 @@ body {
 }
 
 .layout.minimized.with-editor {
-    grid-template-columns: 56px 1fr 470px;
+    grid-template-columns: var(--rh-mini) 1fr 470px;
 }
 
 /* The read-only timeline beside the page (TimelineView.vue), or the tab
@@ -91,7 +95,7 @@ body {
 }
 
 .layout.minimized.with-timeline {
-    grid-template-columns: 56px 1fr 180px;
+    grid-template-columns: var(--rh-mini) 1fr 180px;
 }
 
 .layout.with-timeline-tab {
@@ -99,7 +103,7 @@ body {
 }
 
 .layout.minimized.with-timeline-tab {
-    grid-template-columns: 56px 1fr 24px;
+    grid-template-columns: var(--rh-mini) 1fr 24px;
 }
 
 .timeline-view {
@@ -1756,8 +1760,8 @@ body.bottom-bar:has(.parts-chart.two-rows) {
        width, the hard floor: the Winamp skin is 275px of fixed bitmap
        and does not scale. */
 
-    body:not(.bottom-bar) .layout.minimized {
-        grid-template-columns: 44px 1fr;
+    body:not(.bottom-bar) .layout {
+        --rh-mini: 44px;
     }
 
     /* Two across rather than a stack of six. The column count is
@@ -2182,11 +2186,11 @@ body.bottom-bar.bar-collapsed .drawer-start {
     outline-offset: 2px;
 }
 .layout.minimized .drawer-grip {
-    left: 56px;
+    left: var(--rh-mini);
 }
 @media (max-width: 700px) {
     body:not(.bottom-bar) .layout.minimized .drawer-grip {
-        left: 44px;
+        left: var(--rh-mini);
     }
 }
 
@@ -2236,4 +2240,105 @@ body.bottom-bar .layout.with-editor .drawer-grip {
    Oracle alone. */
 body.bottom-bar .drawer-brand {
     display: none;
+}
+
+
+/* === The folded strip, with nothing on (Justin, #connectome, 22 Nov 2026, 00:14Z) ===
+
+   "when collapsed with nothing playing (ie, the default if you start from bacon), can we get the left rabbithole
+   drawer much narrower? Reduce any padding, reduce the size of the carrot a bit, etc. The width right now is fine
+   for when something is playing." Before a song: 36px, the carrot 32px, no time under it. */
+body.quiet:not(.bottom-bar) .layout {
+    --rh-mini: 36px;
+}
+body.quiet .layout.minimized .mini-player {
+    display: flex;
+    padding: 8px 0 0;
+    gap: 0;
+}
+body.quiet .mini-player .mini-time,
+body.quiet .mini-player .mini-musicians {
+    display: none;
+}
+
+/* The grip stands out over the pane's left edge, so the pane starts that far in: it was over the first letter of
+   the name at a rainbow's left end (Justin, same message). */
+body:not(.bottom-bar) .pane-column {
+    padding-left: 14px;
+    box-sizing: border-box;
+}
+
+/* === The strip's band, as loud as the cards (MiniPlayer.vue) === */
+.mini-musician {
+    position: relative;
+    border: 1px solid transparent;
+}
+.mini-musician.lead {
+    background: #4a7c59;
+    color: #fff;
+    font-weight: 700;
+    box-shadow: 0 0 0 1px #2f5a3d, 0 2px 6px rgba(47, 90, 61, .45);
+}
+.mini-musician.star::after {
+    content: "⭐";
+    position: absolute;
+    right: -3px;
+    top: -6px;
+    font-size: 9px;
+}
+.mini-musician.pickup {
+    border-color: #4a7c59;
+    background: linear-gradient(90deg, rgba(74, 124, 89, .45), rgba(74, 124, 89, .08));
+    color: #2f5a3d;
+    font-weight: 600;
+    animation: mini-pickup 0.9s ease-in-out infinite alternate;
+}
+.mini-musician.featured {
+    background: #f4c95d;
+    color: #4a3500;
+    font-weight: 700;
+    box-shadow: 0 0 0 1px #c99a1e;
+}
+.mini-musician.singing {
+    font-weight: 700;
+}
+.mini-musician.out {
+    opacity: 0.3;
+    text-decoration: line-through;
+}
+/* The chart's lights, each in the colour and the pulse it names: the spotlight, the flourish, the band's flash,
+   coming in. Over whatever the scene is. */
+.mini-musician.fx {
+    background: var(--fx-color);
+    /* Dark ink in a white halo: it reads on a yellow light and on a blue one alike. */
+    color: #111;
+    font-weight: 700;
+    text-shadow: 0 0 2px #fff, 0 0 3px #fff;
+    box-shadow: 0 0 8px 2px var(--fx-color);
+    animation: mini-fx var(--fx-pulse, 1.2s) ease-in-out infinite alternate;
+}
+.mini-musician.fx-bandFlash {
+    animation-duration: 0.35s;
+}
+.mini-musician.fx-enter {
+    animation: mini-enter 0.6s ease-out 1;
+}
+@keyframes mini-fx {
+    from { box-shadow: 0 0 4px 1px var(--fx-color); filter: brightness(1); }
+    to { box-shadow: 0 0 14px 4px var(--fx-color); filter: brightness(1.25); }
+}
+@keyframes mini-pickup {
+    from { background-position: 0 0; box-shadow: none; }
+    to { box-shadow: 0 0 6px rgba(74, 124, 89, .6); }
+}
+@keyframes mini-enter {
+    from { transform: translateX(-8px); opacity: 0.2; }
+    to { transform: none; opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+    .mini-musician.fx,
+    .mini-musician.pickup,
+    .mini-musician.fx-enter {
+        animation: none;
+    }
 }
