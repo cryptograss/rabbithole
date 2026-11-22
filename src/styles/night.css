@@ -127,10 +127,6 @@
 		border-color: var(--night-line);
 		background-color: var(--night-paper);
 	}
-	.song-info-header { border-bottom-color: var(--night-line); }
-	.song-title-back { color: #87a96b; }
-	.song-title-link:hover .song-title-back { color: var(--night-green-pale); }
-	.song-title-display { color: var(--night-green-pale); }
 	.record-link { color: var(--night-link); }
 	.record-link-out { color: #7fa0d4; }
 	.record-link:hover .record-link-out { color: var(--night-link); }
@@ -143,9 +139,6 @@
 		border-color: var(--night-line);
 		background-color: var(--night-panel);
 	}
-	.recording-metadata { color: var(--night-soft); }
-	.recording-metadata span + span::before { color: var(--night-faint); }
-	.up-next { color: var(--night-green); }
 	.song-select { border-color: var(--night-line); }
 	.toggle-slider { background-color: var(--night-knob); }
 	/* The knob is the pale thing on the switch, by night as by day. */

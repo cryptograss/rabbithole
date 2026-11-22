@@ -28,6 +28,11 @@ describe( 'the graph\'s addresses', () => {
 		expect( frameSrc( '/bacon', true ) ).toBe( '/bacon?host=rabbithole&shell=1&bar=1&steer=1' );
 		expect( frameSrc( '/bacon/challenge/Tony_Rice', true ) ).toBe( '/bacon/challenge/Tony_Rice?host=rabbithole&shell=1&bar=1&steer=1' );
 	} );
+	it( 'counts a place asked for afresh, which is the frame\'s own word and no part of the shell\'s address', () => {
+		expect( frameSrc( '/bacon', true, 2 ) ).toBe( '/bacon?host=rabbithole&shell=1&bar=1&steer=1&again=2' );
+		expect( frameSrc( '/bacon', false, 0 ) ).toBe( '/bacon?host=rabbithole&shell=1&bar=1' );
+		expect( graphAt( '/bacon?host=rabbithole&shell=1&bar=1&steer=1&again=2' ) ).toBe( '/bacon' );
+	} );
 	it( 'writes the shell\'s address: the place, and the track that stands', () => {
 		expect( shellAddress( '/bacon?p=Cory+Walker', 'QmX' ) ).toBe( '/bacon?p=Cory+Walker&track=QmX' );
 		expect( shellAddress( '/bacon', null ) ).toBe( '/bacon' );
@@ -89,6 +94,21 @@ describe( 'the one history, kept by the shell', () => {
 		expect( pane.graphSrc ).toBe( src );                                                // the same frame
 		expect( pane.view ).toMatchObject( { kind: 'graph', to: '?p=Cory+Walker', fresh: true } );
 		expect( push ).toHaveBeenLastCalledWith( { graph: '/bacon?p=Cory+Walker' }, '', '/bacon?p=Cory+Walker&track=QmX' );
+	} );
+	it( 'loads the front afresh when asked, wherever the frame had got to by word', () => {
+		// The Oracle's name in the bar (Justin, 22 Nov 2026, 00:55Z: "it needs to always return you to the
+		// beginning of /bacon/"): a word would leave the frame where it is, since the front is the page it holds.
+		pane.openGraph( '/bacon?cut=QmX' );
+		const src = pane.graphSrc;
+		pane.heardGraphAt( { at: '/bacon?p=Cory+Walker', step: true, n: 2, s: 'abc' } );
+		pane.openGraph( '/bacon', {}, { step: true, reload: true } );
+		expect( pane.graphSrc ).not.toBe( src );
+		expect( pane.graphSrc ).toBe( '/bacon?host=rabbithole&shell=1&bar=1&again=1' );
+		expect( pane.view ).toMatchObject( { kind: 'graph', to: null } );
+		expect( push ).toHaveBeenLastCalledWith( { graph: '/bacon' }, '', '/bacon?track=QmX' );
+		// Asked for again from the front: a new frame again, since the one in hand may have been taken anywhere.
+		pane.openGraph( '/bacon', {}, { step: true, reload: true } );
+		expect( pane.graphSrc ).toBe( '/bacon?host=rabbithole&shell=1&bar=1&again=2' );
 	} );
 	it( 'loads a challenge, which is read from the path', () => {
 		pane.openGraph( '/bacon?cut=QmX' );

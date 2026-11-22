@@ -37,8 +37,10 @@ describe( 'the one bar', () => {
 		expect( w.find( '.rh-oracle' ).attributes( 'href' ) ).toBe( '/bacon/' );
 		expect( w.find( '.alpha' ).exists() ).toBe( false );
 		expect( mount( DrawerBrand ).find( '.alpha' ).text() ).toBe( 'BETA 2' );
-		expect( w.find( '#song-title-display' ).text() ).toContain( 'August' );
-		for ( const gone of [ '.minimize-btn', '#record-line', '#album-row', '#album-art', 'select' ] ) {
+		// The song's line is gone from the bar too (Justin, 22 Nov 2026, 00:55Z): Webamp's own title says which
+		// song it is, and is the way back to it (WebampDock.vue).
+		for ( const gone of [ '.minimize-btn', '#song-info-header', '#song-title-display', '#up-next', '#recording-metadata',
+			'#record-line', '#album-row', '#album-art', 'select' ] ) {
 			expect( w.find( gone ).exists(), gone ).toBe( false );
 		}
 	} );
@@ -139,10 +141,22 @@ describe( 'the Oracle in the bar', () => {
 		layout.setTraverse( 'bacon' );
 		const w = mount( RabbitholeHeader );
 		await w.find( '.rh-oracle' ).trigger( 'click', { button: 0 } );
-		expect( opened ).toHaveBeenCalledWith( '/bacon', {}, { step: true } );
+		// Loaded afresh, so the front is the front whatever the frame has been shown since (Justin, 22 Nov 2026,
+		// 00:55Z: "it needs to always return you to the beginning of /bacon/").
+		expect( opened ).toHaveBeenCalledWith( '/bacon', {}, { step: true, reload: true } );
 		expect( layout.traverse ).toBe( 'off' );                            // the reader's step: traverse lets go
 		opened.mockClear();
 		await w.find( '.rh-oracle' ).trigger( 'click', { button: 0, ctrlKey: true } );
 		expect( opened ).not.toHaveBeenCalled();
+	} );
+
+	it( 'folds the drawer away, and leaves the music playing', async () => {
+		const layout = useLayoutStore(), player = usePlayerStore();
+		vi.spyOn( usePaneStore(), 'openGraph' ).mockImplementation( () => {} );
+		player.create( { title: 'August', audioFile: 'august.ogg', _trackCid: 'Qa' } );
+		const w = mount( RabbitholeHeader );
+		await w.find( '.rh-oracle' ).trigger( 'click', { button: 0 } );
+		expect( layout.isBar ? layout.collapsed : layout.minimized ).toBe( true );
+		expect( player.song ).toBeTruthy();                                 // "Don't stop playing, just collapse"
 	} );
 } );

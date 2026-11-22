@@ -614,47 +614,6 @@ body.bottom-bar .layout-ab {
     white-space: pre;
 }
 
-/* Track title + recording info, shown when loaded via ?track=. Tight:
-   every pixel above the cards is a pixel of ensemble lost when the
-   page is zoomed (Justin, 12 Nov 2026). */
-.song-info-header {
-    text-align: center;
-    padding: 2px 4px 1px;
-    margin-bottom: 2px;
-    border-bottom: 1px solid #e5e7e1;
-}
-
-.song-title-link {
-    color: inherit;
-    text-decoration: none;
-}
-
-.song-title-link:hover {
-    text-decoration: underline;
-}
-
-/* The way back, said with a mark: the title always was a link to the
-   song's page, and nothing said so (Skyler, 13 Nov 2026). */
-.song-title-back {
-    font-size: 0.8em;
-    margin-left: 4px;
-    color: #87a96b;
-}
-
-.song-title-link:hover .song-title-back {
-    color: #2d5016;
-}
-
-.song-title-display {
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    font-size: 16px;
-    line-height: 1.1;
-    margin: 0;
-    color: #2d5016;
-    font-weight: 700;
-    letter-spacing: -0.015em;
-}
-
 /* The record the song is on, under the title: its own page's name, bold
    and blue, with the same ↩ the title wears. Blue and not the app's green
    because the pane beside it is the wiki, where that is what a link looks
@@ -722,40 +681,6 @@ body.bottom-bar .layout-ab {
     cursor: pointer;
 }
 
-/* Where and when it was cut, and by whose hand: liner notes, so they are
-   printed in walnut rather than in grey (item 26). */
-.recording-metadata {
-    font-size: 11px;
-    color: var(--rh-brown);
-    font-style: italic;
-}
-
-.recording-metadata span + span::before {
-    content: " · ";
-    color: var(--rh-brown-soft);
-    font-style: normal;
-}
-
-.up-next {
-    display: block;
-    max-width: 100%;
-    padding: 0;
-    border: 0;
-    background: none;
-    font: inherit;
-    font-size: 11px;
-    color: #4a7c59;
-    text-align: left;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    cursor: pointer;
-}
-
-.up-next:hover {
-    text-decoration: underline;
-}
-
 .song-select {
     width: 100%;
     padding: 6px 10px;
@@ -792,78 +717,6 @@ body.bottom-bar .layout-ab {
 
 body.bottom-bar .pane-column {
     display: contents;
-}
-
-/* What is playing, in the bar: no box of its own, since the bar is the
-   box. It was a pale green strip over the page (the second of the two
-   headers Justin's item 17 does away with). */
-.rabbithole-header .song-info-header {
-    flex: 0 1 auto;
-    display: flex;
-    align-items: center;
-    justify-content: flex-end;
-    gap: 2px 10px;
-    min-width: 0;
-    margin: 0;
-    padding: 0;
-    text-align: left;
-    background: none;
-    border: 0;
-}
-
-/* The studio, the date and the engineer are on the song's page, and a bar
-   34px tall has no line to spend saying them twice (Justin's item 3b). */
-.rabbithole-header .recording-metadata {
-    display: none;
-}
-
-.rabbithole-header .up-next {
-    /* After the selector, before the name: what plays next is worth more
-       room than a track list already on the page (item 34). */
-    flex: 0 2 auto;
-    min-width: 0;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    order: 2;
-}
-
-/* The song's name gives way last, and the ones beside it give way first:
-   the name is the one thing in the bar a person is looking for, and at
-   1280px "Swords to Ploughshares" lost its last two letters to a track
-   selector that had 170px to spare (Justin, 15 Nov 2026, item 34). The
-   name does not shrink at all; the line beside it and the selector do,
-   the selector first and furthest, and an ellipsis says so in the rare
-   case where even an empty selector leaves the name no room. */
-.rabbithole-header .song-title-display {
-    order: 3;
-    flex: 0 0 auto;
-    max-width: 100%;
-    min-width: 0;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-/* White on green, like everything else in the bar: by the bar's own name,
-   so night's answers to the sidebar's song line (night.css) do not reach
-   in and put a pale green or a link's blue on the green. The arrow back
-   was the bar's old green on the bar, 1.06 to 1. */
-#rabbithole-header .song-title-display,
-#rabbithole-header .song-title-link,
-#rabbithole-header .song-title-back {
-    color: #fff;
-}
-
-.rabbithole-header .song-title-display {
-    font-size: 14px;
-}
-
-#rabbithole-header .up-next {
-    color: #fff;
-    background: rgba(0, 0, 0, 0.25);
-    border-color: rgba(255, 255, 255, 0.5);
-    font-size: 10.5px;
 }
 
 /* The switch's caption is beside it in the bar, in the bar's own white. */
@@ -1178,6 +1031,12 @@ body {
 #webamp #playlist-button {
     opacity: 0.3;
     pointer-events: none;
+}
+
+/* Webamp's own title is the way back to the track, so it reads as something
+   to press (player/model.js takes the click). */
+#webamp #marquee {
+    cursor: pointer;
 }
 
 /* Editor panel inline styles */

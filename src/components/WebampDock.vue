@@ -12,6 +12,7 @@ import { ref, watch, onMounted } from 'vue';
 import { usePlayerStore } from '../stores/player.js';
 import { useSongStore } from '../stores/song.js';
 import { usePickerStore } from '../stores/picker.js';
+import { useLayoutStore } from '../stores/layout.js';
 
 const player = usePlayerStore();
 const songs = useSongStore();
@@ -34,6 +35,14 @@ async function build() {
 		const step = which === 'next' ? steps.forward() : steps.back();
 		Promise.resolve( step ).catch( ( err ) => console.warn( 'Could not step', which, err ) );
 	};
+	// Webamp's own title is the way back to the track: the bar's song line was,
+	// and it is gone (Justin, #connectome, 22 Nov 2026, 00:55Z: "can we make it
+	// so that clicking the title in webamp does that? Returns us to the track
+	// centered in a bacon graph, and turns traverse bacon graphs back on?").
+	// toTheTrack does both: bacon graphs on, and the pane to the track's own
+	// graph at once (App.vue watches layout.backToTrack) rather than to whoever
+	// is taking a solo. A track the graph does not hold gets the song's page.
+	model.onTitle = () => useLayoutStore().toTheTrack();
 	await model.mount( box.value );
 }
 
