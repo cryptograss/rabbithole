@@ -9,9 +9,13 @@
  * the solo' selector there as well. Then, webamp can sit at the very top of
  * the player pane."
  *
- * Three zones: who we are, what the pane is doing (traverse mode), and what
- * is playing -- with the account chip and the graph's three controls at the
- * far end. The
+ * Three zones: who we are, what the pane is doing (traverse mode), and who
+ * is signed in, with the graph's three controls at the far end. The song's
+ * own line stood at that end -- its title, the recording, and what was up
+ * next -- until Justin, #connectome, 22 Nov 2026, 00:55Z: "the 'up next' and
+ * current song are now too much - let's remove them". The way back to the
+ * track is Webamp's own title now, which says which song it is anyway
+ * (WebampDock.vue). The
  * carrot that played sat beside traverse mode until Justin, #connectome, 19
  * Nov 2026, 03:15Z: "The carrot in the top bar has outlived its usefulness,
  * IMO. Nix it." Webamp's own buttons play. The song's line is the
@@ -48,7 +52,6 @@ import { useSongStore } from '../stores/song.js';
 import { usePaneStore } from '../stores/pane.js';
 import { loginHref } from '../wiki/urls.js';
 import TraverseSwitch from './TraverseSwitch.vue';
-import SongInfo from './SongInfo.vue';
 
 const layout = useLayoutStore();
 const account = useAccountStore();
@@ -72,7 +75,18 @@ function onMarkError( e ) {
 	e.target.style.display = 'none';
 }
 
-/** Back to the front of /bacon, in the pane: a step of the reader's, so traverse mode lets go of the pane. */
+/*
+ * Back to the beginning of /bacon, in the pane: the Oracle, challenge or
+ * explore, whatever the frame has been shown since.
+ *
+ * Justin, #connectome, 22 Nov 2026, 00:55Z: "it needs to always return you to
+ * the beginning of /bacon/ (ie, the "challenge or explore" screen), and always
+ * collapse the rabbithole player on the left. Don't stop playing, just
+ * collapse, go to the front page, and turn traverse off." So: a step of the
+ * reader's, traverse mode lets go of the pane, the drawer folds away, and the
+ * frame loads the front afresh (`reload`) rather than being moved by word,
+ * which would leave it wherever it had got to. The music plays on.
+ */
 function onOracle( e ) {
 	if ( e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey ) {
 		return;
@@ -81,7 +95,8 @@ function onOracle( e ) {
 	if ( layout.traverse !== 'off' ) {
 		layout.stopTraversing();
 	}
-	pane.openGraph( '/bacon', {}, { step: true } );
+	layout.foldDock();
+	pane.openGraph( '/bacon', {}, { step: true, reload: true } );
 }
 </script>
 
@@ -94,9 +109,8 @@ function onOracle( e ) {
 		<div class="rh-bar-mid">
 			<TraverseSwitch />
 		</div>
-		<!-- What is playing, who you are, and the graph's three controls. -->
+		<!-- Who you are, and the graph's three controls. -->
 		<div class="rh-bar-end">
-			<SongInfo v-if="!layout.isBar" />
 			<a v-if="account.name" class="rh-account" :href="userHref" target="_blank" rel="noopener"
 				:title="'Signed in to PickiPedia as ' + account.name + '. Saves go in under this name.'">
 				<span class="rh-account-dot" aria-hidden="true"></span>{{ account.name }}

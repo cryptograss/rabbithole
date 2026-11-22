@@ -241,6 +241,21 @@ export const useLayoutStore = defineStore( 'layout', () => {
 	}
 
 	/*
+	 * Webamp's own title, pressed: back to the track itself (Justin, #connectome, 22 Nov 2026, 00:55Z:
+	 * "Returns us to the track centered in a bacon graph, and turns traverse bacon graphs back on"). So: bacon
+	 * graphs, whatever the rocker was last set to and whatever traverse mode was going to resume to; and the
+	 * pane goes to the track's own graph, not to whoever is taking a solo -- which is where `chosen` would send
+	 * it, that being where the music is. Counted on its own, so the app acts on one press at a time, and the
+	 * next solo carries on from there.
+	 */
+	const backToTrack = ref( 0 );
+	function toTheTrack() {
+		traverse.value = 'bacon';
+		resume.value = null;
+		backToTrack.value++;
+	}
+
+	/*
 	 * Travel with the track again. Asked for where the rabbithole takes a
 	 * step of its own rather than where a person goes somewhere to read: a
 	 * new rabbithole, and Webamp's next (Justin, #rabbithole, 15 Nov 2026:
@@ -257,7 +272,7 @@ export const useLayoutStore = defineStore( 'layout', () => {
 
 	return {
 		layout, isBar, narrow, phone, auto, pinned, saved,
-		minimized, collapsed, editorOpen, traverse, resume, chosen, timelineView, showTimeline, timelineLabels, barAsk,
-		setLayout, toggleDock, openDock, foldDock, setTraverse, stopTraversing, resumeTraversing, startTraversing, askBar,
+		minimized, collapsed, editorOpen, traverse, resume, chosen, backToTrack, timelineView, showTimeline, timelineLabels, barAsk,
+		setLayout, toggleDock, openDock, foldDock, setTraverse, stopTraversing, resumeTraversing, startTraversing, toTheTrack, askBar,
 	};
 } );

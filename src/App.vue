@@ -137,6 +137,9 @@ watch( () => layout.chosen, () => {
 	}
 } );
 
+// Webamp's own title, pressed: the track itself, in its own graph, and bacon graphs from there on (layout.toTheTrack).
+watch( () => layout.backToTrack, () => traverse( null ) );
+
 // The graph holds no such song: the pages, for this track.
 watch( () => pane.unheld, ( cid ) => {
 	if ( cid && layout.traverse === 'bacon' && player.song && player.song._trackCid === cid ) {

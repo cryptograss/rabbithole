@@ -34,6 +34,41 @@ import { followVolume } from './ios-web-audio.js';
 import * as timeline from './timeline.js';
 
 /**
+ * Webamp's own title is the way back to the track.
+ *
+ * The bar said which song was on and was the way back to it; Justin,
+ * #connectome, 22 Nov 2026, 00:55Z: "the 'up next' and current song are now
+ * too much - let's remove them. That leaves us with no way to click back to
+ * the track we're on - can we make it so that clicking the title in webamp
+ * does that?" Webamp's title is the one that is left, so it carries the way
+ * back, and whoever hands this the hook says where that is -- the dock, which
+ * turns traverse mode back on (WebampDock.vue).
+ *
+ * The click is taken on the way down, as next and previous are: it is Webamp's
+ * own DOM, and the marquee is a span per character, so what the pointer is
+ * over is whichever letter.
+ *
+ * @param {HTMLElement} container The box Webamp renders into.
+ * @param {Function} hook Called with nothing when the title is clicked.
+ */
+export function titleGoesBack( container, hook ) {
+	container.addEventListener( 'click', ( e ) => {
+		const title = e.target && e.target.closest && e.target.closest( '#marquee' );
+		if ( ! title ) {
+			return;
+		}
+		e.preventDefault();
+		e.stopPropagation();
+		hook();
+	}, { capture: true } );
+	const marquee = container.querySelector( '#marquee' );
+	if ( marquee ) {
+		// Webamp's own "Song Title" says what it is; this says what it does.
+		marquee.title = 'Back to this song, in a bacon graph';
+	}
+}
+
+/**
  * Two songs are the same recording when they share a track CID, or, with
  * no CID, the same audio URL. The URL alone isn't enough: the same CID can
  * resolve to another encoding's file.
@@ -58,6 +93,12 @@ export class WebampPlayer {
 		 * in which case the buttons do what Webamp does with them.
 		 */
 		this.onStep = null;
+		/**
+		 * What to do when Webamp's own title is clicked: the way back to the
+		 * track (WebampDock.vue). Null until something sets it, in which
+		 * case the title does what Webamp does with it, which is nothing.
+		 */
+		this.onTitle = null;
 		this.songsByUrl = new Map();
 
 		this.state = reactive( {
@@ -176,6 +217,9 @@ export class WebampPlayer {
 				}
 			}, { capture: true } );
 		}
+
+		// Webamp's own title is the way back to the track (titleGoesBack).
+		titleGoesBack( container, () => this.onTitle && this.onTitle() );
 
 		// With the Web Audio graph bypassed the volume slider drives a gain
 		// node downstream of nothing; point it at the element instead.

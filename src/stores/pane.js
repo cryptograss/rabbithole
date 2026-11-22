@@ -53,6 +53,8 @@ export const usePaneStore = defineStore( 'pane', () => {
 	const graphSrc = ref( null );
 	/** Where that frame is, as last asked or heard: "/bacon?p=Cory+Walker". */
 	let graphNow = null;
+	/** How many times a place has been asked for afresh: the count that makes the frame's src a new one (shell.js frameSrc). */
+	let reloads = 0;
 	/** Back or Forward came to a step of the graph's: the word for the frame (WikiPane passes it on). */
 	const stepWord = ref( null );
 
@@ -143,8 +145,10 @@ export const usePaneStore = defineStore( 'pane', () => {
 	 * @param {boolean} [options.step] A step of the reader's: an entry of its own.
 	 * @param {boolean} [options.write] Whether the history is written at all.
 	 * @param {boolean} [options.inPlace] The entry in sight is rewritten whatever it holds: Back came onto it.
+	 * @param {boolean} [options.reload] This place, loaded afresh: the frame goes there even if it is the page it
+	 *   already holds and has been taken elsewhere by word since (the Oracle's name in the bar).
 	 */
-	function openGraph( src, traverse = {}, { step = false, write = true, inPlace = false } = {} ) {
+	function openGraph( src, traverse = {}, { step = false, write = true, inPlace = false, reload = false } = {} ) {
 		const at = src ? graphAt( src, window.location.origin ) : null;
 		if ( ! at ) {
 			return;
@@ -165,10 +169,10 @@ export const usePaneStore = defineStore( 'pane', () => {
 		const from = window.history.state;
 		const push = ! inPlace && ( step || !! ( from && from.wikiTitle ) );
 		let to = null;
-		if ( graphSrc.value && movesByWord( graphNow || graphSrc.value, at ) ) {
+		if ( ! reload && graphSrc.value && movesByWord( graphNow || graphSrc.value, at ) ) {
 			to = at.slice( at.indexOf( '?' ) );
 		} else {
-			graphSrc.value = frameSrc( at, useLayoutStore().traverse === 'off' );
+			graphSrc.value = frameSrc( at, useLayoutStore().traverse === 'off', reload ? ++reloads : 0 );
 		}
 		graphNow = at;
 		// `fresh`: moved by word into an entry of its own, the frame gives the view a number of its own, and the

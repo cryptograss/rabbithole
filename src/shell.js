@@ -39,7 +39,7 @@ export const GRAPH_START = typeof window !== 'undefined' && isGraphAddress( wind
 /** What in an address is the shell's own, and not the graph's. `page` is the graph's at /bacon: a page's own graph. */
 export const SHELL_KEYS = [ 'track', 'record', 'play', 'layout', 'enc', 'action', 'webaudio', 'rhdiag', 'soundcheck' ];
 /** What the frame's own address carries to say it is hosted: never part of the shell's. */
-const FRAME_KEYS = [ 'host', 'shell', 'steer', 'bar' ];
+const FRAME_KEYS = [ 'host', 'shell', 'steer', 'bar', 'again' ];
 
 /**
  * Where the graph is, out of an address of either kind (the shell's own,
@@ -72,14 +72,23 @@ export function graphAt( href, origin = 'https://pickipedia.xyz' ) {
  * `bar=1`: the shell's one bar carries the graph's link button, its FAQ and the way to PickiPedia (Justin,
  * #connectome, 21 Nov 2026, 01:56Z: "Let's get all that stuff on one unified top bar"), so the graph puts its own
  * bar away. A graph that does not know the word keeps its bar, and nothing is lost.
+ *
+ * `again=<n>`: this place, loaded afresh. The frame is keyed on its src, so the same src is the same frame,
+ * wherever the reader has since taken it by word; a count that nothing reads makes the src a new one, and the
+ * frame loads the place again (Justin, #connectome, 22 Nov 2026, 00:55Z: the Oracle's name in the bar "needs to
+ * always return you to the beginning of /bacon/"). It is the frame's own word, so it is no part of the shell's
+ * address (graphAt strips it).
  */
-export function frameSrc( at, steering = false ) {
+export function frameSrc( at, steering = false, again = 0 ) {
 	const url = new URL( at, 'https://pickipedia.xyz' );
 	url.searchParams.set( 'host', 'rabbithole' );
 	url.searchParams.set( 'shell', '1' );
 	url.searchParams.set( 'bar', '1' );
 	if ( steering ) {
 		url.searchParams.set( 'steer', '1' );
+	}
+	if ( again > 0 ) {
+		url.searchParams.set( 'again', String( again ) );
 	}
 	return url.pathname + url.search;
 }
