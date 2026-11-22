@@ -20,6 +20,7 @@ import { useLayoutStore } from '../../src/stores/layout.js';
 import { barMessage } from '../../src/wiki/graph-frame.js';
 import RabbitholeHeader from '../../src/components/RabbitholeHeader.vue';
 import DrawerGrip from '../../src/components/DrawerGrip.vue';
+import DrawerBrand from '../../src/components/DrawerBrand.vue';
 import PaneGraph from '../../src/components/pane/PaneGraph.vue';
 
 describe( 'the one bar', () => {
@@ -28,10 +29,14 @@ describe( 'the one bar', () => {
 		globalThis.fetch = vi.fn( async () => ( { ok: true, json: async () => ( { query: { userinfo: { id: 0, name: '203.0.113.9', anon: '' } } } ) } ) );
 	} );
 
-	it( 'says BETA 2, and has no fold arrow, record, cover or selector', () => {
+	it( 'names the Oracle, a way back to /bacon, and has no fold arrow, record, cover or selector', () => {
+		// Justin, #connectome, 21 Nov 2026, 23:27Z: the bar's corner is the Oracle's now; BETA 2 went to the drawer.
 		usePlayerStore().create( { title: 'August', audioFile: 'august.ogg', _trackCid: 'Qa' } );
 		const w = mount( RabbitholeHeader );
-		expect( w.find( '.alpha' ).text() ).toBe( 'BETA 2' );
+		expect( w.find( '.rh-oracle h1' ).text() ).toBe( 'The Oracle of Bluegrass Bacon' );
+		expect( w.find( '.rh-oracle' ).attributes( 'href' ) ).toBe( '/bacon/' );
+		expect( w.find( '.alpha' ).exists() ).toBe( false );
+		expect( mount( DrawerBrand ).find( '.alpha' ).text() ).toBe( 'BETA 2' );
 		expect( w.find( '#song-title-display' ).text() ).toContain( 'August' );
 		for ( const gone of [ '.minimize-btn', '#record-line', '#album-row', '#album-art', 'select' ] ) {
 			expect( w.find( gone ).exists(), gone ).toBe( false );
@@ -119,5 +124,25 @@ describe( 'the drawer\'s grip', () => {
 		expect( grip.attributes( 'aria-label' ) ).toBe( 'Open the player' );
 		await grip.trigger( 'click' );
 		expect( layout.isBar ? layout.collapsed : layout.minimized ).toBe( false );
+	} );
+} );
+
+describe( 'the Oracle in the bar', () => {
+	beforeEach( () => {
+		setActivePinia( createPinia() );
+		globalThis.fetch = vi.fn( async () => ( { ok: true, json: async () => ( { query: { userinfo: { id: 0, name: '203.0.113.9', anon: '' } } } ) } ) );
+	} );
+
+	it( 'opens the front of /bacon in the pane on a plain click, and lets a ctrl-click open a tab', async () => {
+		const pane = usePaneStore(), layout = useLayoutStore();
+		const opened = vi.spyOn( pane, 'openGraph' ).mockImplementation( () => {} );
+		layout.setTraverse( 'bacon' );
+		const w = mount( RabbitholeHeader );
+		await w.find( '.rh-oracle' ).trigger( 'click', { button: 0 } );
+		expect( opened ).toHaveBeenCalledWith( '/bacon', {}, { step: true } );
+		expect( layout.traverse ).toBe( 'off' );                            // the reader's step: traverse lets go
+		opened.mockClear();
+		await w.find( '.rh-oracle' ).trigger( 'click', { button: 0, ctrlKey: true } );
+		expect( opened ).not.toHaveBeenCalled();
 	} );
 } );

@@ -33,6 +33,8 @@ export const usePlayerStore = defineStore( 'player', () => {
 	const currentSolo = computed( () => ( state.value ? state.value.currentSolo : null ) );
 	const effects = computed( () => ( model.value ? model.value.effects.value : [] ) );
 	const ready = computed( () => !! ( state.value && state.value.ready ) );
+	/** Webamp's main window rolled up to its strip. */
+	const shaded = computed( () => !! ( state.value && state.value.shaded ) );
 	const error = computed( () => ( state.value ? state.value.error : null ) );
 
 	const cards = computed( () => ( model.value ? model.value.cards.value : [] ) );
@@ -70,7 +72,7 @@ export const usePlayerStore = defineStore( 'player', () => {
 
 	return {
 		model, create,
-		song, status, playing, time, duration, upNext, currentSolo, effects, ready, error,
+		song, status, playing, time, duration, upNext, currentSolo, effects, ready, error, shaded,
 		cards, parts, partIndex, eaten,
 		togglePlay, seekToPart, seekToFraction,
 	};

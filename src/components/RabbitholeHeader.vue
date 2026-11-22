@@ -33,6 +33,13 @@
  * button way over on the right side of the top bar - that's very counter
  * intuitive. Give it a nice grip in the middle of the drawer." The grip is
  * DrawerGrip.vue, on the drawer's own edge.
+ *
+ * Justin, #connectome, 21 Nov 2026, 23:27Z: "In the upper-left, where
+ * "Rabbithole BETA 2" is, let's change that to "The Oracle of Bluegrass
+ * Bacon", in the same fine and regal font but smaller, and have it be a link
+ * back to /bacon/." Rabbithole's own mark went to the top of the drawer
+ * (DrawerBrand.vue). The link opens the front in the pane, so the music plays
+ * on; a ctrl-click or a middle click opens it in a tab of its own.
  */
 import { computed, onMounted } from 'vue';
 import { useLayoutStore } from '../stores/layout.js';
@@ -40,7 +47,6 @@ import { useAccountStore } from '../stores/account.js';
 import { useSongStore } from '../stores/song.js';
 import { usePaneStore } from '../stores/pane.js';
 import { loginHref } from '../wiki/urls.js';
-import rabbit from '../images/rabbit.png';
 import TraverseSwitch from './TraverseSwitch.vue';
 import SongInfo from './SongInfo.vue';
 
@@ -66,19 +72,23 @@ function onMarkError( e ) {
 	e.target.style.display = 'none';
 }
 
-function onLogo() {
-	if ( ! layout.isBar && layout.minimized ) {
-		layout.toggleDock();
+/** Back to the front of /bacon, in the pane: a step of the reader's, so traverse mode lets go of the pane. */
+function onOracle( e ) {
+	if ( e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey ) {
+		return;
 	}
+	e.preventDefault();
+	if ( layout.traverse !== 'off' ) {
+		layout.stopTraversing();
+	}
+	pane.openGraph( '/bacon', {}, { step: true } );
 }
 </script>
 
 <template>
 	<div id="rabbithole-header" class="rabbithole-header">
 		<span class="rh-brand">
-			<img :src="rabbit" alt="Rabbithole" @click="onLogo">
-			<h1>rabbithole</h1>
-			<span class="alpha">BETA 2</span>
+			<a class="rh-oracle" href="/bacon/" title="The Oracle of Bluegrass Bacon: back to the start" @click="onOracle"><h1>The Oracle of Bluegrass Bacon</h1></a>
 		</span>
 		<!-- The middle of the bar: whether the pane travels with the track. -->
 		<div class="rh-bar-mid">

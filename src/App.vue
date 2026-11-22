@@ -28,6 +28,7 @@ import SongParts from './components/SongParts.vue';
 import LayoutSwitch from './components/LayoutSwitch.vue';
 import DrawerStart from './components/DrawerStart.vue';
 import DrawerGrip from './components/DrawerGrip.vue';
+import DrawerBrand from './components/DrawerBrand.vue';
 import WalkTrail from './components/WalkTrail.vue';
 import WikiPane from './components/WikiPane.vue';
 import EditorPanel from './components/EditorPanel.vue';
@@ -280,6 +281,9 @@ onBeforeUnmount( () => {
 			<MiniPlayer v-if="!layout.isBar" />
 
 			<div class="player-container">
+				<!-- Rabbithole's mark, right on top of Webamp, nothing between (DrawerBrand.vue). -->
+				<DrawerBrand />
+
 				<!-- Before a song is on: the songs ready to play, where
 				     Webamp and the band will be. -->
 				<DrawerStart v-if="quiet && !songs.loading" />
