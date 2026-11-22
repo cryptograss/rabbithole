@@ -517,7 +517,11 @@ body:not(.bottom-bar) #rabbithole-sidebar {
 body:not(.bottom-bar) .player-container {
     height: auto;
     flex: 1 0 auto;
-    padding: 4px 0 0;
+    /* No padding at the top: the mark's green has to meet the bar's, with
+       nothing between (Justin, #connectome, 22 Nov 2026: "I want the green
+       to run into each other, as if it's one element"). The 4px that used
+       to sit here showed as a white line under the bar. */
+    padding: 0;
     /* A column, so the song parts can sit at the bottom of it and the
        spare height land under the cards (Justin's item 19). */
     display: flex;
