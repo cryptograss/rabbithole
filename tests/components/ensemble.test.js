@@ -71,6 +71,17 @@ describe( 'the ensemble', () => {
 		expect( w.find( '[data-musician="Maddie Denton"]' ).classes() ).toContain( 'pickup' );
 	} );
 
+	// Every card once carried a made-up owner, 'Chartifact "0x1234ff" owned by
+	// cryptograss.eth', kept off the screen by one line of a stylesheet. A card
+	// says who holds a chartifact when a chain says so, and until then nothing:
+	// not in what is drawn, and not in the page behind it (magent, #merch,
+	// 22 Nov 2026).
+	it( 'names no owner of anything, shown or hidden', () => {
+		const w = mountEnsemble();
+		expect( w.findAll( '.musician-card' ).length ).toBe( 4 );
+		expect( w.element.textContent ).not.toMatch( /owned by|0x[0-9a-f]{4,}|\.eth\b|chartifact/i );
+	} );
+
 	it( 'shows the second song after two loads back to back, with no leftovers', async () => {
 		const w = mount( Ensemble, { global: { stubs: { transition: false, 'transition-group': false } } } );
 		player.model.showSong( SWORDS );

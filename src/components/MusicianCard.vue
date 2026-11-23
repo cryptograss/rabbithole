@@ -166,6 +166,5 @@ const style = computed( () => {
 		<!-- The instrument never breaks across lines: "(5-string banjo)" is one
 		     thing, and split it reads as two (Justin, 7 Nov 2026). -->
 		<div class="musician-name"><Transition name="mark" mode="out-in"><span v-if="mark" :key="mark" class="mc-mark">{{ mark }}</span></Transition><span ref="who" class="mc-who">{{ card.name }}</span>{{ card.instrument ? ' ' : '' }}<span v-if="card.instrument" class="musician-instrument">({{ card.instrument }})</span></div>
-		<div class="chartifact-line">{{ card.engineer ? 'Engineer' : 'Chartifact "0x1234ff" owned by cryptograss.eth' }}</div>
 	</div>
 </template>
