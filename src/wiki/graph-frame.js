@@ -127,7 +127,8 @@ export function walkMessage( { hops = [], chasing = null, chaseMode = null, now 
  *
  * One entry for each card of the band (not the engineer, who was not
  * playing): the name the chart gives them and their page's own, which is the
- * graph's; the scene the card wears (lead, pickup, ...); whether somebody is
+ * graph's; the instrument the card shows; the scene the card wears (lead,
+ * pickup, out, ...); whether somebody is
  * coming in; and the one light the card shows, chosen as the card chooses it
  * (MusicianCard.vue: a spotlight over a flourish over the band's flash), in
  * the colour and at the beat the card has it.
@@ -137,7 +138,7 @@ export function walkMessage( { hops = [], chasing = null, chaseMode = null, now 
  *
  * @return {Object} The message.
  */
-export function fxMessage( { cards = [], effects = [], playing = false, titles = {}, color = ( c ) => c } = {} ) {
+export function fxMessage( { cards = [], effects = [], playing = false, track = null, titles = {}, color = ( c ) => c } = {} ) {
 	const band = effects.find( ( e ) => e.kind === 'bandFlash' ) || null;
 	const say = ( e ) => ( {
 		kind: e.kind,
@@ -148,6 +149,10 @@ export function fxMessage( { cards = [], effects = [], playing = false, titles =
 	return {
 		rabbithole: 'fx',
 		playing: !! playing,
+		// The song on now, by its track: the graph flashes its whole band pink when a new one starts (Justin,
+		// #connectome, 23 Nov 2026, 18:30Z: "If you're looking at a bacon graph when a song starts, let's always
+		// give a nice pink flash to everybody in the ensemble of that song").
+		track: track || null,
 		band: cards.filter( ( c ) => c && ! c.engineer ).map( ( c ) => {
 			const mine = effects.filter( ( e ) => e.target === c.name );
 			const light = mine.find( ( e ) => e.kind === 'spotlight' ) || mine.find( ( e ) => e.kind === 'flourish' ) || band;
@@ -156,6 +161,10 @@ export function fxMessage( { cards = [], effects = [], playing = false, titles =
 				title: titles[ c.name ] || null,
 				scene: c.scene || null,
 				singing: !! c.singing,
+				// what the card says they have in hand now, an instrument change and all: the graph writes it in
+				// brackets after their name (Justin, 23 Nov 2026: "change instruments consistent with the
+				// rabbithole display")
+				instrument: c.instrument || null,
 				enter: mine.some( ( e ) => e.kind === 'enter' ),
 				light: light ? say( light ) : null,
 			};

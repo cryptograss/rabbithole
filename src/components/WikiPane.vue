@@ -323,7 +323,8 @@ watch( () => player.cards.map( ( c ) => c.name ).join( '|' ), () => {
 		}
 	}
 }, { immediate: true } );
-const fxNow = computed( () => fxMessage( { cards: player.cards, effects: player.effects, playing: player.playing, titles: fxTitles.value, color: fxColor } ) );
+const fxNow = computed( () => fxMessage( { cards: player.cards, effects: player.effects, playing: player.playing,
+	track: player.song && player.song._trackCid, titles: fxTitles.value, color: fxColor } ) );
 function tellFx() {
 	for ( const frame of graphFrames() ) {
 		if ( frame.contentWindow ) {

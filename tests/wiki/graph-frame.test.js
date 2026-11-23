@@ -115,6 +115,12 @@ describe( 'fxMessage: the ensemble list\'s lights, for a graph (Justin, 20 Nov 2
 			[ 'Justin Holmes', 'Justin Myles Holmes', 'lead', true ], [ 'Cory Walker', null, 'pickup', false ], [ 'Harry Clark', null, null, false ] ] );
 		expect( m.band.every( ( b ) => b.light === null && b.enter === false ) ).toBe( true );
 	} );
+	it( 'says the song on now by its track, and what each of the band has in hand (Justin, 23 Nov 2026)', () => {
+		const m = fxMessage( { cards: [ { name: 'Harry Clark', instrument: 'mandolin', scene: 'out' }, { name: 'Kyle Tuttle' } ], playing: true, track: 'QmAugust' } );
+		expect( m.track ).toBe( 'QmAugust' );
+		expect( m.band.map( ( b ) => [ b.name, b.instrument, b.scene ] ) ).toEqual( [ [ 'Harry Clark', 'mandolin', 'out' ], [ 'Kyle Tuttle', null, null ] ] );
+		expect( fxMessage( { cards } ).track ).toBe( null );
+	} );
 	it( 'gives a card the one light it shows: a spotlight over a flourish over the band\'s flash, in the list\'s colour and beat', () => {
 		const effects = [
 			{ kind: 'bandFlash', target: null, color: 'gold', intensity: 0.5, pulse: 0.6 },
