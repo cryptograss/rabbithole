@@ -41,6 +41,25 @@ describe( 'the bacon graph\'s social card', () => {
 		}
 	} );
 
+	it( 'names one piece from the map pickipedia deploys, by its key, and nothing else', () => {
+		// pickipedia: tools/card_titles.mjs writes this file beside graph.json, every music key ->
+		// [ kind, the name the graph's page gives it, that name alone ]. Both sides have to say the same path.
+		const reads = [ ...template.matchAll( /httpInclude "([^"]+)"/g ) ].map( ( m ) => m[ 1 ] );
+		expect( reads ).toEqual( [ '/assets/connectome/card-titles.json' ] );
+		expect( template ).toContain( '{{- $m := $q.Get "m" | trunc 120 -}}' );
+		// Asked for only where the address names a piece: every other card is written from the address alone.
+		expect( template.slice( template.indexOf( 'httpInclude' ) - 200, template.indexOf( 'httpInclude' ) ) )
+			.toContain( '{{- else if $m -}}' );
+	} );
+
+	it( 'reads that map as card_titles.mjs writes it: kind, name, and the name alone', () => {
+		const branch = template.slice( template.indexOf( '{{- else if $m -}}' ), template.indexOf( '{{- else if and (hasPrefix "/bacon/"' ) );
+		expect( branch ).toContain( '$title = printf "Bluegrass Bacon: %s" ( index $it 1 )' );
+		expect( [ ...branch.matchAll( /eq \( index \$it 0 \) "(\w+)"/g ) ].map( ( m ) => m[ 1 ] ) ).toEqual( [ 'show', 'track' ] );
+		// Three ways of saying it, one per kind, each round the piece's own name: a record is the last of them.
+		expect( branch.match( /\$say = printf "[^"]+" \( index \$it 2 \)/g ) ).toHaveLength( 3 );
+	} );
+
 	it( 'escapes every word it takes from the address', () => {
 		// The head is one printf: each of its arguments goes through html.
 		const args = template.slice( template.indexOf( '$head := printf' ), template.indexOf( '$desc := printf' ) ).split( '`' ).pop();
