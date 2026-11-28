@@ -18,6 +18,15 @@
   index.html are found by their exact text (tests/shell/bacon-card.test.js holds them to it); where they are not
   found, the app is served as it is.
 
+  One piece of music (?m=<its key>) is named by pickipedia's deploy, not by the address: a key, say
+  wiki:Show:KyleTuttle-26482267, is no title (Justin, #interfaces, 28 Nov 2026: "the social card for a link to
+  the show needs to use the show name as the title"). It writes assets/connectome/card-titles.json beside
+  graph.json — every key, with its kind, the name the graph's own page gives it, and that name alone
+  (pickipedia: tools/card_titles.mjs) — and this file reads that map. A key the map doesn't hold, or a map that
+  says nothing, gets the Oracle's card. The map has to be there: the file is asked for over this same server,
+  and a 404 is an error, which is a 500 for the reader. pickipedia's repo holds an empty one for that reason,
+  so any deploy of it puts a map on the server; deploy pickipedia before this app.
+
   Every word that comes from the address is cut to a length and escaped (html) before it is written.
 */ -}}
 {{- $path := .OriginalReq.URL.Path -}}
@@ -27,6 +36,7 @@
 {{- $p := $q.Get "p" | trunc 80 -}}
 {{- $s := $q.Get "s" | trunc 80 -}}
 {{- $pg := $q.Get "page" | trunc 80 -}}
+{{- $m := $q.Get "m" | trunc 120 -}}
 {{- $title := "The Oracle of Bluegrass Bacon" -}}
 {{- $say := "Any two pickers, and all the music between them: the records, the shows, and the folks who played with both. On PickiPedia." -}}
 {{- $pic := "oracle" -}}
@@ -50,6 +60,18 @@
 {{- else if $pg -}}
 	{{- $title = printf "Bluegrass Bacon: %s" $pg -}}
 	{{- $say = printf "The pickers of %s, and who they have played with." $pg -}}
+{{- else if $m -}}
+	{{- $it := index ( httpInclude "/assets/connectome/card-titles.json" | fromJson ) $m -}}
+	{{- if $it -}}
+		{{- $title = printf "Bluegrass Bacon: %s" ( index $it 1 ) -}}
+		{{- if eq ( index $it 0 ) "show" -}}
+			{{- $say = printf "Who played at %s, and who they have played with." ( index $it 2 ) -}}
+		{{- else if eq ( index $it 0 ) "track" -}}
+			{{- $say = printf "Who played %s, and who they have played with." ( index $it 2 ) -}}
+		{{- else -}}
+			{{- $say = printf "Who played on %s, and who they have played with." ( index $it 2 ) -}}
+		{{- end -}}
+	{{- end -}}
 {{- else if and (hasPrefix "/bacon/" $path) (ne $path "/bacon/") -}}
 	{{- $title = "Bluegrass Bacon: a graph kept as it was drawn" -}}
 	{{- $say = "Who played with whom, on which records and at which shows, with its sources as they stood the day it was kept." -}}
